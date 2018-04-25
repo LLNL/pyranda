@@ -1,0 +1,49 @@
+# Install notes for pyranda
+
+## python-
+Though other versions of python may very well work, we recommend and support
+python 2.7 for pyranda.
+
+## numpy-
+As long as numpy is working with your version of python above, there will be no
+compability issues.  This can be installed in a number of ways. http://www.numpy.org
+
+## mpi4py
+This python package provides MPI bindings to python and may or may not exists on your system
+and python path.  At a minimum, the version of MPI used to build mpi4py must match the version
+of MPI of your fortran compiler.  
+
+To check your mpi4py config, run:
+python -c "import mpi4py;print mpi4py.get_config()"
+
+It is likely that you will need to build your own version of mpi4py to suite your specified compiler
+type.  https://bitbucket.org/mpi4py/mpi4py
+
+
+## fortran-
+A fortran compiler with 2003 and above standards enforced and MPI libraries is required.
+The MPI version used here should match that of mpi4py.
+
+pyranda/src/fortran contains the fortran files and a makefile to create the python extension.  
+The fortran compiler will need to be set here.  
+
+f2py is also invoked at build time.  This utility installs with numpy and ought to be in your path.
+
+To build, type:
+
+make
+make python
+
+
+## Setup guide
+To facilitate setup, a setup script will be created in due time which will:
+
+- check for existance of python
+- check for existance of numpy, f2py
+- check for existance of fortran compilers
+   - prompt for selection
+- check for mpi4py version
+  - if not matched with desired fortran, then will build this automatically
+- build pyranda
+- set PYTHONPATH 
+
