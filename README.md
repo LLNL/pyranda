@@ -3,7 +3,7 @@ A Python driven, Fortran powered Finite Difference solver for arbitrary hyperbol
 
 The PDE solver defaults to a 10th order compact finite difference method for spatial derivatives, and a 5-stage, 4th order Runge-Kutta scheme for temporal integration.  Other numerical methods will be added in the future.
   
-Pyranda parses (through a simple interpreter) the full definition of the PDE system:
+Pyranda parses (through a simple interpreter) the full definition of a system of PDEs, namely:
   - a domain and discretization (in 1D, 2D or 3D)
   - governing equations written on RHS of time derivatives.
   - initial values for all variables
