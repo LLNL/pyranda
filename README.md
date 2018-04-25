@@ -22,20 +22,16 @@ in 1D, in the x-direction from (0,1) using 100 points and evolve the solution .1
 
 `from pyranda import pyrandaSim`
 
-### 2 - Define the domain & mesh
+### 2 - Initialize a simulation object on a domain/mesh
+`pysim = pyrandaSim('advection',"xdom = (0.0 , 1.0 , 100 )")`
 
-`domain = "xdom = (0.0 , 1.0 , 100 )"`
-
-### 3 - Initialize a simulation object on a mesh
-`pysim = pyrandaSim('advection',domain)`
-
-### 4 - Define the equations of motion
+### 3 - Define the equations of motion
 `pysim.EOM(" ddt(:phi:)  =  - ddx(:phi:) ")`
 
-### 5 - Initialize variables
+### 4 - Initialize variables
 `pysim.setIC(":phi: = 1.0 + 0.1 * exp( -(abs(meshx-.5)/.1 )**2 )")`
 
-### 6 - Integrate in time
+### 5 - Integrate in time
 `dt = .001`  
 `time = 0.0`  
 `while time < .1:`    
