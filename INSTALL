@@ -1,8 +1,16 @@
 # Install notes for pyranda
 
+
+The following outlines what/how to install pyranda.  At a minimum, you will need to 
+build one fortran library, and add two paths to your PYTHONPATH.
+
+
+
 ## python-
 Though other versions of python may very well work, we recommend and support
-python 2.7 for pyranda.
+python 2.7 for pyranda.  Python will need to see the python of pyranda.
+
+** Add pyranda/src/python to PYTHONPATH **
 
 ## numpy-
 As long as numpy is working with your version of python above, there will be no
@@ -19,6 +27,24 @@ python -c "import mpi4py;print mpi4py.get_config()"
 It is likely that you will need to build your own version of mpi4py to suite your specified compiler
 type.  https://bitbucket.org/mpi4py/mpi4py
 
+## Example install (this should work on LLNL-LC)
+`wget https://bitbucket.org/mpi4py/mpi4py/downloads/mpi4py-3.0.0.tar.gz`
+`tar xvzf mpi4py-3.0.0.tar.gz`
+`cd mpi4py`
+
+### Add this to mpi.cfg file
+[llnl-intel]
+mpi_dir              = /usr/local/tools/mvapich2-intel-2.2
+mpicc                = %(mpi_dir)s/bin/mpicc
+mpicxx               = %(mpi_dir)s/bin/mpicxx
+library_dirs         = %(mpi_dir)s/lib
+
+
+`python setup.py build --mpi=llnl-intel`
+`python setup.py install --prefix=install_location`
+
+** Add install_location/*/site_packages to PYTHONPATH **
+
 
 ## fortran-
 A fortran compiler with 2003 and above standards enforced and MPI libraries is required.
@@ -31,8 +57,10 @@ f2py is also invoked at build time.  This utility installs with numpy and ought 
 
 To build, type:
 
-make
-make python
+`make`
+`make python`
+
+** Add pyranda/src/fortran to PYTHONPATH **
 
 
 ## Setup guide
