@@ -1,0 +1,24 @@
+# Copy and paste baselines here
+baselines = """
+cylinder-2d-32 -- cylinder-2d-32.dat
+cylinder-2d-64 -- cylinder-2d-64.dat
+"""
+
+# Update dictionary of baseline scalars
+dbase.update( baseDict( baselines) )
+
+script = 'examples/cylinder.py'
+
+test = testObj('cylinder-2d-32')
+test.script = script
+test.args = ['32','1',test.name]
+tests.append( test )
+
+test = testObj('cylinder-2d-64')
+test.script = script
+test.args = ['64','1',test.name]
+tests.append( test )
+
+
+
+
