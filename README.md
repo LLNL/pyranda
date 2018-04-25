@@ -1,6 +1,15 @@
 # pyranda
 A Python driven, Fortran powered Finite Difference solver for arbitrary hyperbolic PDE systems.  This is the mini-app for the Miranda code.
 
+The PDE solver defaults to a 10th order compact finite difference method for spatial derivatives, and a 5-stage, 4th order Runge-Kutta scheme for temporal integration.  Other numerical methods will be added in the future.
+  
+Pyranda parses though a simple interpreter the full definition of the PDE system:
+  - a domain and discretization (in 1D, 2D or 3D)
+  - governing equations written on RHS of time derivatives.
+  - initial values for all variables
+  - boundary conditions
+
+
 
 ## Prerequisites
 At a minimum, your system will need the following installed to run pyranda. (see install notes for detailed instructions) 
@@ -10,7 +19,7 @@ At a minimum, your system will need the following installed to run pyranda. (see
   - mpi4py
 
 
-### Example Usage - Solve the 1D advection equation
+## Example Usage - Solve the 1D advection equation in less than 10 lines of code
 The one-dimensional advection equation is written as:
 
 ![Advection](http://mathurl.com/y7qnvzeg.png)
@@ -19,7 +28,6 @@ where phi is a scalar and where c is the advection velocity, assumed to be unity
 in 1D, in the x-direction from (0,1) using 100 points and evolve the solution .1 units in time.
 
 ### 1 - Import pyranda
-
 `from pyranda import pyrandaSim`
 
 ### 2 - Initialize a simulation object on a domain/mesh
