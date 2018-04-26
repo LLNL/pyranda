@@ -77,7 +77,9 @@ else ifeq ($(systype),Darwin)
 endif 
 
 
-f2comp := $(shell command -v $(f2py)) 
+f2comp := $(shell command -v $(f2py))
+
+all:
 ifndef f2comp
    f2py = f2py-2.7
 endif
