@@ -27,7 +27,6 @@ ifeq ($(systype), )
   systype = $(shell uname)
 endif
 
-f2py = f2py
 
 ifeq ($(systype),chaos_5_x86_64_ib)
 
@@ -43,6 +42,8 @@ ifeq ($(systype),chaos_5_x86_64_ib)
 
   compiler = intel
 
+  f2py = f2py
+
 else ifeq ($(systype),toss_3_x86_64_ib)
 
   gnu.f77 = /usr/tce/packages/mvapich2/mvapich2-2.2-gcc-6.1.0/bin/mpif77
@@ -57,6 +58,9 @@ else ifeq ($(systype),toss_3_x86_64_ib)
   clang.fflags = -ffree-form -ffree-line-length-0 -fbackslash
 
   compiler = intel
+
+  f2py = f2py
+
 
 else ifeq ($(systype),Darwin)
 
@@ -74,44 +78,34 @@ else ifeq ($(systype),Darwin)
 
   compiler = gnu
 
+  f2py = f2py-2.7
+
+
 endif 
 
-
-f2comp := $(shell command -v $(f2py))
-
-all:
-ifndef f2comp
-   f2py = f2py-2.7
-endif
 
 f77 = $($(compiler).f77)
 f90 = $($(compiler).f90)
 
 # Position independent code 
 fflags = -fPIC $($(compiler).fflags)
-#fflags = -fPIC $($(compiler).fflags) -g -O0
+ifeq ($(DEBUG),1)
+  fflags = -fPIC $($(compiler).fflags) -g -O0
+endif
 
 exec = PENT
 
 source = blockmath.o stencils.o patch.o pentadiagonal.o \
 	     comm.o compact.o mesh.o objects.o compact_operators.o operators.o parcop.o
 
-source_exe = test_pent.o
-
-.PHONY: clean python
+.PHONY: clean
 
 %.o: %.f90
 	$(f90) $(fflags) -c $<
 
-libparcop.a: $(source)
-	ar -ur $@ $(source) 
-
-fort : test_pent.o libparcop.a
-	$(f90) $^ $(fflags) -o $@
-
 # See nasa's page for reference:
 #	 https://modelingguru.nasa.gov/docs/DOC-2412
-python: libparcop.a
+all: libparcop.a fort-test
 	$(f2py) \
 		--include-paths . \
 		-c --f77exec=$(f77) --f90exec=$(f90) \
@@ -120,10 +114,16 @@ python: libparcop.a
 		parcop.f90
 	touch __init__.py
 
+libparcop.a: $(source)
+	ar -ur $@ $(source) 
+
+fort-test : test_pent.o libparcop.a
+	$(f90) $^ $(fflags) -o $@
+
 check-mpi4py:
 	@echo $(systype)
 	python -c "import mpi4py;print mpi4py.get_config()"
 
 
 clean:
-	rm -f *.o *.mod $(exec) *.so *.pyf *.pyc libparcop.a __init__.py
+	rm -f *.o *.mod $(exec) *.so *.pyf *.pyc libparcop.a __init__.py fort_test
