@@ -58,7 +58,14 @@ f2py is also invoked at build time.  This utility installs with numpy and ought 
 To build, type:
 
 `make`
-`make python`
+
+Optionally, build debug via:
+`make DEBUG=1`
+
+make will produce:
+- libparcop.a (fortran library)
+- parcop.so (python library which wraps libparcop.a)
+- fort-test (fortran exec for simple tests, not used by pyranda)
 
 ** Add pyranda/src/fortran to PYTHONPATH **
 
