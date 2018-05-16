@@ -84,7 +84,7 @@ else ifeq ($(systype),Darwin)
 endif 
 
 f90 ?= $($(compiler).f90)
-f2py ?= $($(sys_type).f2py)
+f2py ?= $($(systype).f2py)
 
 # Position independent code 
 fflags = -fPIC $($(compiler).fflags)
