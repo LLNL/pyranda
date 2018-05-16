@@ -15,12 +15,12 @@ import sys
 import time
 import matplotlib.pyplot as plt
 
-from pyrandaMPI   import pyrandaMPI
-from pyrandaVar   import pyrandaVar
-from pyrandaEq    import pyrandaEq
-from pyrandaMesh  import pyrandaMesh
-from pyrandaUtils import *
-from pyrandaTex   import pyrandaTex
+from .pyrandaMPI   import pyrandaMPI
+from .pyrandaVar   import pyrandaVar
+from .pyrandaEq    import pyrandaEq
+from .pyrandaMesh  import pyrandaMesh
+from .pyrandaUtils import *
+from .pyrandaTex   import pyrandaTex
 
                                               
 class pyrandaSim:

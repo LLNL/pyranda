@@ -9,7 +9,7 @@
 # Written by: Britton J. Olson, olson45@llnl.gov
 ################################################################################
 import sys,os
-from pyrandaUtils import *
+from .pyrandaUtils import *
 import matplotlib.pyplot as plt
 import random
 

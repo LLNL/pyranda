@@ -3,11 +3,11 @@ import numpy
 import re
 import sys
 import time
+# TODO: remove 
 sys.path.append('/Users/olson45/Research/FloATPy')
 import matplotlib.pyplot as plt
-from pyranda import pyrandaSim,pyrandaMPI,fortran3d
+from pyranda import pyrandaSim, pyrandaMPI, fortran3d
 
-from pyrandaIBM import pyrandaIBM
 
 
 ## Define a mesh

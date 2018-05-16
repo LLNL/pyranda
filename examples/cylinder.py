@@ -4,10 +4,7 @@ import numpy
 import matplotlib.pyplot as plt
 from matplotlib import cm
 
-from pyranda import pyrandaSim
-from pyrandaIBM import pyrandaIBM
-from pyrandaBC  import pyrandaBC
-from pyrandaTimestep  import pyrandaTimestep
+from pyranda import pyrandaSim, pyrandaBC, pyrandaTimestep, pyrandaIBM
 
 
 # Try to get args for testing

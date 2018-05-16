@@ -4,7 +4,6 @@ import numpy
 import matplotlib.pyplot as plt
 
 from pyranda import pyrandaSim
-from pyrandaIBM import pyrandaIBM
 
 
 # Try to get args

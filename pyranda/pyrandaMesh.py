@@ -8,8 +8,8 @@
 #
 # Written by: Britton J. Olson, olson45@llnl.gov
 ################################################################################
-import numpy 
-from pyrandaUtils import *
+import numpy
+from .pyrandaUtils import *
 
 
 class pyrandaMesh:

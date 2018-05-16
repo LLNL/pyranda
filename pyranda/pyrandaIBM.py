@@ -13,7 +13,7 @@ import numpy
 import re
 import sys
 import time
-from pyrandaPackage import pyrandaPackage
+from .pyrandaPackage import pyrandaPackage
 
 immersed_iter = 2
 immersed_CFL = 0.5

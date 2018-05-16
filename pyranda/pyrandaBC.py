@@ -12,7 +12,7 @@ import numpy
 import re
 import sys
 import time
-from pyrandaPackage import pyrandaPackage
+from .pyrandaPackage import pyrandaPackage
 
 
 class pyrandaBC(pyrandaPackage):
