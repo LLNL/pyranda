@@ -4,12 +4,12 @@ heat1D-analytic-16 -- 0.0
 heat1D-analytic-32 -- 0.0
 heat1D-analytic-64 -- 0.0
 heat1D-analytic-128 -- 0.0
-heat1D-analytic-256 -- 2.44249065418e-15
+heat1D-analytic-256 -- 2.44249065418e-15 -- 1.0e-4
 """
 
 # Update dictionary of baseline scalars
 dbase.update( baseDict( baselines) )
-
+relE.update( relDict( baselines) )
 
 # Run a bunch of resolutions for the analytical heat transfer problem
 for npts in [16,32,64,128,256]:

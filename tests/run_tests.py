@@ -8,14 +8,11 @@ from testObj import *
 test_dir = os.path.dirname(os.path.abspath(__file__))
 bin_dir  = os.path.join( test_dir, '../bin')
 root_dir = os.path.join( test_dir, '..')
-pyranda_exe = 'python' #os.path.join( bin_dir, 'pyranda')
-#pyranda_exe = '/opt/local/bin/python2.7'
-#pyranda_mpi = os.path.join( bin_dir, 'pympirun')
-
-
+pyranda_exe = sys.executable
 
 tests = []    # List of test objects
 dbase = {}    # Dictionary of baselines
+relE  = {}    # Dictionary of relative errors for baselines
 
 # Add tests here
 execfile('cases/test1DAdvection.py')
@@ -56,8 +53,13 @@ for test in tests:
     
     # Diff against baseline
     try:
-        baseline = dbase[test.name]
-
+        baseline = dbase[test.name]  # Baseline value/file
+        try:
+            rdiff = relE[test.name]  # Rel. error for this baseline
+        except:
+            rdiff = 1.0e-4
+            
+        
         if curve:
             # Check curve
             diff = checkProfile( baseline, pout)
@@ -65,12 +67,14 @@ for test in tests:
             # Check if scalar compare    
             diff = checkScalar( float(baseline) , pout)
 
-        if diff < 1.0e-4:
+        if diff < rdiff:
             testPass = True
             print 'Pass: (Rel. Error = %s )' % diff
             fout = '%s -- %s' % (test.name,pout)
             print fout
             passed += 1
+            if curve:
+                sexe("rm %s" % pout,ret_output=False,echo=False)
         else:
             testPass = False
             print 'Fail: (Rel. Error = %s )' % diff
@@ -96,10 +100,10 @@ print "\n\n\n=====Testing Summary======"
 print "Passed: %s" % passed
 print "Failed: %s" % failed
 
-print '\n\n\n===== New baselines ====='
-print new_baselines
+if failed > 0:
+    print '\n\n\n===== New baselines ====='
+    print new_baselines
 
 plt.show()
-
     
         

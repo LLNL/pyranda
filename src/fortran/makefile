@@ -83,6 +83,11 @@ else ifeq ($(systype),Darwin)
 
 endif 
 
+# Custom f2py argument
+ifneq ($(F2PY), )
+  f2py = F2PY
+endif
+
 
 f77 = $($(compiler).f77)
 f90 = $($(compiler).f90)

@@ -28,6 +28,20 @@ def baseDict(string):
             diff = bb.split('--')[1].strip()
             dbase[name] = diff
     return dbase
+
+def relDict(string):
+    dbase = {}
+    # Make dictionary
+    for bb in string.split('\n'):
+        if bb:
+            name = bb.split('--')[0].strip()
+            try:
+                relE = float(bb.split('--')[2].strip())
+            except:
+                relE = 1.0e-4
+            dbase[name] = relE
+    return dbase
+    
             
 def checkScalar(baseline,pout):
     if abs(baseline) > 0.0:
