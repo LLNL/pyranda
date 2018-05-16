@@ -3,9 +3,7 @@ import time
 import numpy 
 import matplotlib.pyplot as plt
 
-from pyranda import pyrandaSim
-from pyrandaIBM import pyrandaIBM
-from pyrandaBC  import pyrandaBC
+from pyranda import pyrandaSim, pyrandaBC
 
 # Try to get args
 try:

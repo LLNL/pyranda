@@ -5,9 +5,7 @@ import numpy
 import matplotlib.pyplot as plt
 from matplotlib import cm
 
-from pyranda import pyrandaSim
-from pyrandaIBM import pyrandaIBM
-from pyrandaBC  import pyrandaBC
+from pyranda import pyrandaSim, pyrandaBC
 
 
 ## Define a mesh

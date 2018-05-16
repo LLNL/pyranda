@@ -8,7 +8,7 @@
 #
 # Written by: Britton J. Olson, olson45@llnl.gov
 ################################################################################
-from pyrandaUtils import *
+from .pyrandaUtils import *
         
 class pyrandaEq:
 

@@ -42,7 +42,7 @@ ifeq ($(systype),chaos_5_x86_64_ib)
 
   compiler = intel
 
-  f2py = f2py
+  chaos_5_x86_64_ib.f2py = f2py
 
 else ifeq ($(systype),toss_3_x86_64_ib)
 
@@ -59,7 +59,7 @@ else ifeq ($(systype),toss_3_x86_64_ib)
 
   compiler = intel
 
-  f2py = f2py
+  toss3_x86_64_ib.f2py = f2py
 
 
 else ifeq ($(systype),Darwin)
@@ -78,19 +78,13 @@ else ifeq ($(systype),Darwin)
 
   compiler = gnu
 
-  f2py = f2py-2.7
+  Darwin.f2py = f2py-2.7
 
 
 endif 
 
-# Custom f2py argument
-ifneq ($(F2PY), )
-  f2py = F2PY
-endif
-
-
-f77 = $($(compiler).f77)
-f90 = $($(compiler).f90)
+f90 ?= $($(compiler).f90)
+f2py ?= $($(sys_type).f2py)
 
 # Position independent code 
 fflags = -fPIC $($(compiler).fflags)
@@ -113,11 +107,10 @@ source = blockmath.o stencils.o patch.o pentadiagonal.o \
 all: libparcop.a fort-test
 	$(f2py) \
 		--include-paths . \
-		-c --f77exec=$(f77) --f90exec=$(f90) \
+		-c --f90exec=$(f90) \
 		libparcop.a \
 		-m parcop \
 		parcop.f90
-	touch __init__.py
 
 libparcop.a: $(source)
 	ar -ur $@ $(source) 
@@ -131,4 +124,4 @@ check-mpi4py:
 
 
 clean:
-	rm -f *.o *.mod $(exec) *.so *.pyf *.pyc libparcop.a __init__.py fort_test
+	rm -f *.o *.mod $(exec) *.so *.pyf *.pyc libparcop.a fort-test
