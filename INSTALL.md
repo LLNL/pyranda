@@ -1,10 +1,49 @@
 # Install notes for pyranda
 
-
 The following outlines what/how to install pyranda.  At a minimum, you will need to 
 build one fortran library, and add two paths to your PYTHONPATH.
 
+## Installing with pip
+For now you're required to install some python packages and build libparcop
+before installing. You can install mpi4py and numpy with pip and it's important
+to remember that you must use the same mpi for mpi4py and libparcop. If you want
+to use a non-default mpi for mpi4py see the instructions below.
 
+### Building libparcop
+There are some default hostname-based mpif90 and f2py paths in *pyranda/parcop/makefile* but
+it's probably best to provide your own for now.
+
+```shell
+make -C pyranda/parcop [f90=] [f2py=]
+```
+
+### Installing with pip
+*pip will fail if the prereqs don't exist*
+
+```shell
+pip install . [--user]
+```
+
+### Running the tests
+
+```
+cd tests
+python run_tests.py
+
+...
+
+heat1D-analytic-256 -- 2.44249065418e-15
+
+
+
+=====Testing Summary======
+Passed: 20
+Failed: 0
+
+
+
+===== New baselines =====
+```
 
 ## python-
 Though other versions of python may very well work, we recommend and support

@@ -15,12 +15,14 @@ if not os.path.exists(parcop_lib):
 
 distname = "pyranda"
 packages = [distname, '{}/parcop'.format(distname)]
+install_requires = ['matplotlib']
 
 setup_args = dict(
     name=distname,
     description="Pyranda",
     packages=packages,
-    package_data={'pyranda/parcop': ['parcop.so']}
+    package_data={'pyranda/parcop': ['parcop.so']},
+    install_requires=install_requires
 )
 
 setup(**setup_args)
