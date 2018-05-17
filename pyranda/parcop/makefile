@@ -124,4 +124,4 @@ check-mpi4py:
 
 
 clean:
-	rm -f *.o *.mod $(exec) *.so *.pyf *.pyc libparcop.a fort-test
+	rm -rf *.o *.mod $(exec) *.so *.pyf *.pyc libparcop.a fort-test *.dSYM
