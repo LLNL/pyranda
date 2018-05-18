@@ -15,6 +15,7 @@ from distutils.command.install import install
 
 try:
     import mpi4py
+    # needed to test mpi4py+mpif90 in parcop's makefile
     from numpy import f2py
 except ImportError as e:
     print(e)
@@ -42,8 +43,6 @@ default_mpiexec_nprocs = 4
 distname = "pyranda"
 fortran_module = 'parcop'
 fortran_package = '{}/{}'.format(distname, fortran_module)
-fortran_module_target = 'libparcop.a'
-fortran_module_interface = 'parcop.f90'
 fortran_module_lib = '{}.so'.format(fortran_module)
 packages = [distname, fortran_package]
 install_requires = ['matplotlib']
@@ -82,52 +81,34 @@ class PyrandaMakeMixin():
             self.no_mpi_compiler_check = False
 
     def clean(self):
-        print("cleaning up from {} build".format(fortran_module_target))
+        print("cleaning up from {} build".format(fortran_module))
         try:
             subprocess.check_call(['make', '-C', fortran_package, 'clean'])
         except subprocess.CalledProcessError:
-            print("failed to clean {}".format(fortran_module_target))
+            print("failed to clean {}".format(fortran_module))
             raise
-        print("{} cleaned".format(fortran_module_target))
+        print("{} cleaned".format(fortran_module))
 
     def run(self):
         python = sys.executable
-        # verify that the mpif90 provided works
-        if not self.no_mpi_compiler_check:
-            print("verifying that mpi4py is compatible with {}".format(self.mpif90))
-            try:
-                subprocess.check_call([self.mpiexec, self.numprocs_arg, '4', python, 'verify_mpi.py', self.mpif90])
-            except subprocess.CalledProcessError:
-                print("failed to verify mpi")
-                raise
-            except KeyboardInterrupt:
-                pass
-            print("{} is compatible".format(self.mpif90))
-
         # build lib*.a
-        print("building {}".format(fortran_module_target))
-        f2py_cmd = "{} -c 'import numpy.f2py as f2py; f2py.main()'".format(python)
+        print("building {}".format(fortran_module))
         try:
-            #subprocess.check_call(['make', '-C', fortran_package, 'f90={}'.format(self.mpif90), fortran_module_target])
-            subprocess.check_call(['make', '-C', fortran_package, 'f90={}'.format(self.mpif90), 'f2py={}'.format(f2py_cmd)])
+            args = ['make',
+                '-C',
+                fortran_package,
+                'mpif90={}'.format(self.mpif90),
+                'python={}'.format(python),
+                'mpirun={}'.format(self.mpiexec),
+                'numproc_arg={}'.format(self.numprocs_arg),
+                'numprocs={}'.format(self.numprocs)]
+            if self.no_mpi_compiler_check is True:
+                args.append('verified=yes')
+            subprocess.check_call(args)
         except subprocess.CalledProcessError:
-            print("failed to build {}".format(fortran_module_target))
+            print("failed to build {}".format(fortran_module))
             raise
-        print("{} built".format(fortran_module_target))
-
-        # we could possible build this as an extension:
-        # https://docs.scipy.org/doc/numpy-1.14.0/f2py/distutils.html
-        # but at this time (5/17/18) numpy.distutils.core.setup doesn't
-        # support install_requires
-        #print("building {}'s python interface".format(fortran_module))
-        #with open(os.path.join(fortran_package, fortran_module_interface), 'r') as _:
-        #    source = _.read()
-        #status = f2py.compile(source,
-        #    extension='.f90',
-        #    extra_args='--f90exec={} ...'.format(self.mpif90),
-        #    modulename=fortran_module)
-        #if status != 0:
-        #    raise RuntimeError('failed to compile the fortran python interface')
+        print("{} built".format(fortran_module))
 
 
 class BuildPyranda(build, PyrandaMakeMixin):
@@ -147,14 +128,16 @@ class BuildPyranda(build, PyrandaMakeMixin):
 
 
 class InstallPyranda(install, PyrandaMakeMixin):
-
     def initialize_options(self):
         install.initialize_options(self)
+        PyrandaMakeMixin.initialize_options(self)
 
     def finalize_options(self):
         install.finalize_options(self)
+        PyrandaMakeMixin.finalize_options(self)
 
     def run(self):
+        PyrandaMakeMixin.run(self)
         install.run(self)
         PyrandaMakeMixin.clean(self)
 
