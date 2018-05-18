@@ -26,19 +26,12 @@ except ImportError as e:
 # it doesn't seem to have anything other than mpicc
 mpi4py_compilers = mpi4py.get_config()
 if 'mpif90' in mpi4py_compilers:
-    default_mpif90 = mpi4py_compilers['mpif90']
+    mpi4py_mpif90 = mpi4py_compilers['mpif90']
 elif 'mpifort' in mpi4py_compilers:
-    default_mpif90 = mpi4py_compilers['mpifort']
+    mpi4py_mpif90 = mpi4py_compilers['mpifort']
 # last effort, try to build the possible location
 elif 'mpicc' in mpi4py_compilers and os.path.exists(mpi4py_compilers['mpicc'][:-2] + 'f90'):
-    default_mpif90 = mpi4py_compilers['mpicc'][:-2] + 'f90'
-else:
-    default_mpif90 = 'mpif90'
-
-# defaults for options used when launching the verify mpi script
-default_mpiexec = 'mpirun'
-default_mpiexec_nprocs_arg = '-n'
-default_mpiexec_nprocs = 4
+    mpi4py_mpif90 = mpi4py_compilers['mpicc'][:-2] + 'f90'
 
 distname = "pyranda"
 fortran_module = 'parcop'
@@ -54,10 +47,11 @@ hyperbolic PDE systems. This is the mini-app for the Miranda code.
 
 class PyrandaMakeMixin():
     user_options = [
-        ('mpif90=', None, 'mpif90 compiler (default: {})'.format(default_mpif90)),
-        ('mpiexec=', None, 'mpi exec command used to verify when verifying the mpi compiler (default: {})'.format(default_mpiexec)),
-        ('numprocs-arg=', None, 'mpi exec num procs arg used when verifying the mpi compiler (default: {})'.format(default_mpiexec_nprocs_arg)),
-        ('numprocs=', None, 'number of procs used when verifying mpi (default: {})'.format(default_mpiexec_nprocs)),
+        ('mpif90=', None, 'mpif90 compiler'),
+        ('use-mpi4py-mpif90=', None, 'use mpi4py\'s mpif90 compiler: '.format(mpi4py_mpif90)),
+        ('mpiexec=', None, 'mpi exec command used to verify when verifying the mpi compiler'),
+        ('numprocs-arg=', None, 'mpi exec num procs arg used when verifying the mpi compiler'),
+        ('numprocs=', None, 'number of procs used when verifying mpi'),
         ('no-mpi-compiler-check=', None, 'disable checking that the mpi compiler is compatible with mpi4py')
     ]
 
@@ -67,18 +61,15 @@ class PyrandaMakeMixin():
         self.numprocs_arg = None
         self.numprocs = None
         self.no_mpi_compiler_check = None
+        self.use_mpi4py_mpif90 = None
 
     def finalize_options(self):
-        if self.mpif90 is None:
-            self.mpif90 = default_mpif90
-        if self.mpiexec is None:
-            self.mpiexec = default_mpiexec
-        if self.numprocs_arg is None:
-            self.numprocs_arg = default_mpiexec_nprocs_arg
-        if self.numprocs is None:
-            self.numprocs = default_mpiexec_nprocs
         if self.no_mpi_compiler_check is None:
             self.no_mpi_compiler_check = False
+        if self.use_mpi4py_mpif90 is None:
+            self.use_mpi4py_mpif90 = False
+        if self.use_mpi4py_mpif90 is not None and self.mpif90 is not None:
+            raise RuntimeError("cannot define use-mpi4py-mpif90 and mpif90")
 
     def clean(self):
         print("cleaning up from {} build".format(fortran_module))
@@ -94,16 +85,26 @@ class PyrandaMakeMixin():
         # build lib*.a
         print("building {}".format(fortran_module))
         try:
-            args = ['make',
-                '-C',
-                fortran_package,
-                'mpif90={}'.format(self.mpif90),
-                'python={}'.format(python),
-                'mpirun={}'.format(self.mpiexec),
-                'numproc_arg={}'.format(self.numprocs_arg),
-                'numprocs={}'.format(self.numprocs)]
+            # TODO: we shouldn't build in the source directory
+            args = ['make', '-C', fortran_package, 'python={}'.format(python)]
+
+            if self.use_mpi4py_mpif90 is True:
+                if mpi4py_mpif90 is not None:
+                    args.append('mpif90={}'.format(mpi4py_mpif90))
+                else:
+                    raise RuntimeError("unable to determine mpi4py's mpif90 compiler")
+            if self.mpif90 is not None:
+                args.append('mpif90={}'.format(self.mpif90))
+            if self.numprocs_arg is not None:
+                args.append('np_arg={}'.format(self.numprocs_arg))
+            if self.mpiexec is not None:
+                args.append('mpirun={}'.format(self.mpiexec))
+            if self.numprocs is not None:
+                args.append('numprocs={}'.format(self.numprocs))
             if self.no_mpi_compiler_check is True:
+                print("skipping mpi4py verification")
                 args.append('verified=yes')
+
             subprocess.check_call(args)
         except subprocess.CalledProcessError:
             print("failed to build {}".format(fortran_module))

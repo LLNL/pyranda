@@ -50,12 +50,13 @@ status = 0
 # mod_name is used below in an import
 mod_name = 'fort_mod'
 if rank == 0:
+    # can't use 'extension' because of old f2pys
     status = f2py.compile(source,
-        extension='.f90',
+        source_fn='_temp.f90',
+        #extension='.f90',
         extra_args='--f90exec={}'.format(args.mpif90),
         verbose=False,
         modulename=mod_name)
-
     if status != 0:
         print("compile failed!")
 

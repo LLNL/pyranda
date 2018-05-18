@@ -37,16 +37,22 @@ chaos_5_x86_64_ib.gnu.mpif90   = /collab/usr/gapps/python/build/spack/opt/spack/
 chaos_5_x86_64_ib.intel.mpif90 = /usr/local/tools/mvapich2-intel-2.2/bin/mpif90
 chaos_5_x86_64_ib.python       = /usr/local/bin/python
 chaos_5_x86_64_ib.compiler     = intel
+chaos_5_x86_64_ib.mpirun       = srun
+chaos_5_x86_64_ib.np_arg       = -n
 
 toss_3_x86_64_ib.gnu.mpif90   = /usr/tce/packages/mvapich2/mvapich2-2.2-gcc-6.1.0/bin/mpif90
 toss_3_x86_64_ib.intel.mpif90 = /usr/tce/packages/mvapich2/mvapich2-2.2-intel-16.0.3/bin/mpif90
 toss_3_x86_64_ib.clang.mpif90 = /usr/tce/packages/mvapich2/mvapich2-2.2-clang-4.0.0/bin/mpif90
-toss_3_x86_64_ib.python       = /usr/tce/bin/python2-2.7.13
+toss_3_x86_64_ib.python       = /usr/tce/bin/python3
 toss_3_x86_64_ib.compiler     = intel
+toss_3_x86_64_ib.mpirun       = srun
+toss_3_x86_64_ib.np_arg       = -n
 
 Darwin.gnu.mpif90 = $(shell which mpif90)
 Darwin.python     = $(shell which python)
 Darwin.compiler   = gnu
+Darwin.mpirun     = mpirun
+Darwin.np_arg     = -n
 
 gnu.fflags   = -fPIC -ffree-form -ffree-line-length-0 -fbackslash
 intel.fflags = -fPIC
@@ -54,8 +60,8 @@ intel.fflags = -fPIC
 clang.fflags = -fPIC
 
 compiler ?= $($(systype).compiler)
-mpirun   ?= mpirun
-np_arg   ?= -np
+mpirun   ?= $($(systype).mpirun)
+np_arg   ?= $($(systype).np_arg)
 nprocs   ?= 4
 python   ?= $($(systype).python)
 mpif90   ?= $($(systype).$($(systype).compiler).mpif90)
