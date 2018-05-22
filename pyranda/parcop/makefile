@@ -61,23 +61,34 @@ Darwin.compiler   = gnu
 Darwin.mpirun     = mpirun
 Darwin.np_arg     = -n
 
+# if the systype.compiler is empty setup will use the following:
+default.gnu.mpif90 = $(shell which mpif90)
+default.python     = $(shell which python)
+default.compiler   = gnu
+default.mpirun     = $(shell which mpirun)
+default.np_arg     = -n
+
 gnu.fflags   = -fPIC -ffree-form -ffree-line-length-0 -fbackslash
 intel.fflags = -fPIC
 # TODO: what are clang's fflags here
 clang.fflags = -fPIC
 xlf.fflags = -fPIC -qsuppress=cmpmsg -qsuppress=1500-036 -qxlf2003=polymorphic -qnosave -qfree=f90 -qsuffix=cpp=f:f=f -qmaxmem=-1
 
+ifeq ($($(systype).compiler),)
+	systype=default
+endif
+
 compiler ?= $($(systype).compiler)
-mpirun   ?= $(if $($(systype).mpirun),$($(systype).mpirun),$(shell which mpirun))
-np_arg   ?= $(if $($(systype).np_arg),$($(systype).np_arg),-n)
+mpirun   ?= $($(systype).mpirun)
+np_arg   ?= $($(systype).np_arg)
 nprocs   ?= 4
 python   ?= $($(systype).python)
 mpif90   ?= $($(systype).$($(systype).compiler).mpif90)
 # make sure we use this python's f2py unless the user wants something else
 f2py     ?= $(python) -c 'import numpy.f2py; numpy.f2py.main()'
 fflags   ?= $(if $($(systype).$($(systype).$(compiler)).fflags)\
-						,$($(systype).$($(systype).$(compiler)).fflags)\
-						,$($(compiler).fflags))
+              ,$($(systype).$($(systype).$(compiler)).fflags)\
+              ,$($(compiler).fflags))
 
 #
 # The python/mpif90 combination is saved to a file (if the mpi4py integration test passes)
