@@ -16,6 +16,7 @@ relE  = {}    # Dictionary of relative errors for baselines
 
 # Add tests here
 execfile('cases/test1DAdvection.py')
+execfile('cases/testIntegration.py')
 execfile('cases/testMM_simple.py')
 execfile('cases/test2deuler.py')
 execfile('cases/testCylinder.py')
