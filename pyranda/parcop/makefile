@@ -48,6 +48,13 @@ toss_3_x86_64_ib.compiler     = intel
 toss_3_x86_64_ib.mpirun       = srun
 toss_3_x86_64_ib.np_arg       = -n
 
+blueos_3_ppc64le_ib.ibm.mpif90 = /usr/tcetmp/packages/spectrum-mpi/spectrum-mpi-2017.04.03/bin/mpif90
+blueos_3_ppc64le_ib.gnu.mpif90 = /usr/tcetmp/bin/mpigfortran
+blueos_3_ppc64le_ib.compiler   = gnu
+blueos_3_ppc64le_ib.python     = /usr/tcetmp/bin/python
+blueos_3_ppc64le_ib.mpirun     = mpirun
+blueos_3_ppc64le_ib.np_arg     = -n
+
 Darwin.gnu.mpif90 = $(shell which mpif90)
 Darwin.python     = $(shell which python)
 Darwin.compiler   = gnu
@@ -58,6 +65,7 @@ gnu.fflags   = -fPIC -ffree-form -ffree-line-length-0 -fbackslash
 intel.fflags = -fPIC
 # TODO: what are clang's fflags here
 clang.fflags = -fPIC
+xlf.fflags = -fPIC -qsuppress=cmpmsg -qsuppress=1500-036 -qxlf2003=polymorphic -qnosave -qfree=f90 -qsuffix=cpp=f:f=f -qmaxmem=-1
 
 compiler ?= $($(systype).compiler)
 mpirun   ?= $($(systype).mpirun)
@@ -85,6 +93,10 @@ verified ?= $(if $(shell test -f $(verifile) && \
 ifneq ($(verified),yes)
 	verified_target=test-mpi4py
 endif
+
+no_mpirun_verify_cmd = $(python) verify_mpi.py $(mpif90)
+mpirun_verify_cmd    = $(mpirun) $(np_arg) $(nprocs) $(no_mpirun_verify_cmd)
+verify_cmd 				   = $(mpirun_verify_cmd)
 
 exec = fort-test
 source = blockmath.o stencils.o patch.o pentadiagonal.o \
@@ -119,8 +131,8 @@ test-mpi4py:
 	@if [ "$(verified)" = "yes" ]; then \
 		echo "compiler already verified"; \
 	else \
-		$(mpirun) $(np_arg) $(nprocs) $(python) verify_mpi.py $(mpif90) && \
-			{ echo "$(verinfo)" > $(verifile); echo "$(mpif90) verified"; } || \
+		echo "running: $(verify_cmd)"; \
+		$(verify_cmd) && { echo "$(verinfo)" > $(verifile); echo "$(mpif90) verified"; } || \
 			{ echo "$(mpif90) failed mpi4py verification"; false; }; \
 	fi
 

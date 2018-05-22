@@ -4,58 +4,75 @@ The following outlines what/how to install pyranda.  At a minimum, you will need
 build one fortran library, and add two paths to your PYTHONPATH.
 
 ## Installing with pip
+
+Installing with pip is the easiest way to start using pyranda
 For now you're required to install some python packages and build libparcop
 before installing. You can install mpi4py and numpy with pip and it's important
 to remember that you must use the same mpi for mpi4py and libparcop. If you want
 to use a non-default mpi for mpi4py see the instructions below.
 
-### Building libparcop
-There are some default hostname-based mpif90 and f2py paths in *pyranda/parcop/makefile* but
-it's probably best to provide your own for now.
+### [optional] Using a virtualenv
 
-```shell
-make -C pyranda/parcop [f90=] [f2py=]
+```
+...> virtualenv [-p python] my_venv
+...> source my_venv/bin/activate
+(my_venv) ...>
 ```
 
-### Installing with pip
-*pip will fail if the prereqs don't exist*
+You can also verify that you're in your venv by check `$PATH`:
 
-```shell
+```
+...> echo $PATH
+/path/to/your/env/root/my_venv/bin:...
+```
+
+#### installing `mpi4py`
+`mpi4py` should be install with the `--no-cache-dir` option to avoid installing a version
+with some mpi other than specified:
+
+```
+# if your mpi*s are in your path
+pip install mpi4py --no-cache-dir
+# otherwise you can specify my environment variable
+env MPICC=/path/to/your/mpi pip install mpi4py --no-cache-dir
+```
+
+#### installing `numpy`
+`numpy` shouldn't have any special build steps, just install as normal:
+
+```
+pip install numpy
+```
+
+### install pyranda
+
+```
 pip install . [--user]
 ```
 
-### Running the tests
+## Installing without pip
+
+If you can't use pip you can still build and install pyranda
 
 ```
-cd tests
-python run_tests.py
-
-...
-
-heat1D-analytic-256 -- 2.44249065418e-15
-
-
-
-=====Testing Summary======
-Passed: 20
-Failed: 0
-
-
-
-===== New baselines =====
+python setup.py install
 ```
 
-## python-
+
+## Legacy Instructions
+
+
+### python-
 Though other versions of python may very well work, we recommend and support
 python 2.7 for pyranda.  Python will need to see the python of pyranda.
 
 ** Add pyranda/src/python to PYTHONPATH **
 
-## numpy-
+### numpy-
 As long as numpy is working with your version of python above, there will be no
 compability issues.  This can be installed in a number of ways. http://www.numpy.org
 
-## mpi4py
+### mpi4py
 This python package provides MPI bindings to python and may or may not exists on your system
 and python path.  At a minimum, the version of MPI used to build mpi4py must match the version
 of MPI of your fortran compiler.  
@@ -66,12 +83,12 @@ python -c "import mpi4py;print mpi4py.get_config()"
 It is likely that you will need to build your own version of mpi4py to suite your specified compiler
 type.  https://bitbucket.org/mpi4py/mpi4py
 
-## Example install (this should work on LLNL-LC)
+### Example install (this should work on LLNL-LC)
 `wget https://bitbucket.org/mpi4py/mpi4py/downloads/mpi4py-3.0.0.tar.gz`
 `tar xvzf mpi4py-3.0.0.tar.gz`
 `cd mpi4py`
 
-### Add this to mpi.cfg file
+#### Add this to mpi.cfg file
 [llnl-intel]
 mpi_dir              = /usr/local/tools/mvapich2-intel-2.2
 mpicc                = %(mpi_dir)s/bin/mpicc
@@ -85,7 +102,7 @@ library_dirs         = %(mpi_dir)s/lib
 ** Add install_location/*/site_packages to PYTHONPATH **
 
 
-## fortran-
+### fortran-
 A fortran compiler with 2003 and above standards enforced and MPI libraries is required.
 The MPI version used here should match that of mpi4py.
 
@@ -107,17 +124,3 @@ make will produce:
 - fort-test (fortran exec for simple tests, not used by pyranda)
 
 ** Add pyranda/src/fortran to PYTHONPATH **
-
-
-## Setup guide
-To facilitate setup, a setup script will be created in due time which will:
-
-- check for existance of python
-- check for existance of numpy, f2py
-- check for existance of fortran compilers
-   - prompt for selection
-- check for mpi4py version
-  - if not matched with desired fortran, then will build this automatically
-- build pyranda
-- set PYTHONPATH 
-

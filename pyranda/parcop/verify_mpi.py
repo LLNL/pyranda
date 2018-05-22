@@ -19,7 +19,7 @@ comm = MPI.COMM_WORLD
 rank = comm.Get_rank()
 
 # the fortran function we try to run
-source = b'''
+source = '''
 function sum_comm_ranks(comm) result(ranksum)
   use mpi
   implicit none
@@ -50,15 +50,18 @@ status = 0
 # mod_name is used below in an import
 mod_name = 'fort_mod'
 if rank == 0:
+    source_file='verify_mpi_temp_f2py.f90'
     # can't use 'extension' because of old f2pys
     status = f2py.compile(source,
-        source_fn='_temp.f90',
+        source_fn=source_file,
         #extension='.f90',
         extra_args='--f90exec={}'.format(args.mpif90),
         verbose=False,
         modulename=mod_name)
     if status != 0:
         print("compile failed!")
+    if os.path.exists(source_file):
+        os.remove(source_file)
 
 if comm.bcast(status, root=0) != 0:
     sys.exit(1)
