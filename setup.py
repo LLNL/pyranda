@@ -22,11 +22,6 @@ except ImportError as e:
 
 
 def find_mpi4py_mpif90_compiler():
-    try:
-        import mpi4py
-    except ImportError:
-        print("unable to use mpi4py to get compiler info")
-        return None
     # try to get the mpif90 compiler from mpi4py, it isn't always there..
     # if a user installs like `env MPICC=/path/to/mpicc pip install mpi4py ...`
     # it doesn't seem to have anything other than mpicc
@@ -72,7 +67,6 @@ class PyrandaMakeMixin():
         self.numprocs = None
         self.no_mpi_compiler_check = None
 
-
     def finalize_options(self):
         if self.no_mpi_compiler_check is None:
             self.no_mpi_compiler_check = False
@@ -85,7 +79,6 @@ class PyrandaMakeMixin():
             print("failed to clean {}".format(fortran_module))
             raise
         print("{} cleaned".format(fortran_module))
-
 
     def run(self):
         mpi4py_mpif90 = find_mpi4py_mpif90_compiler()
