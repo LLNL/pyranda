@@ -57,6 +57,7 @@ hyperbolic PDE systems. This is the mini-app for the Miranda code.
 class PyrandaMakeMixin():
     user_options = [
         ('mpif90=', None, 'mpif90 compiler'),
+        ('fflags=', None, 'flags for mpif90'),
         ('mpiexec=', None, 'mpi exec command used to verify when verifying the mpi compiler'),
         ('numprocs-arg=', None, 'mpi exec num procs arg used when verifying the mpi compiler'),
         ('numprocs=', None, 'number of procs used when verifying mpi'),
@@ -65,10 +66,12 @@ class PyrandaMakeMixin():
 
     def initialize_options(self):
         self.mpif90 = None
+        self.fflags = None
         self.mpiexec = None
         self.numprocs_arg = None
         self.numprocs = None
         self.no_mpi_compiler_check = None
+
 
     def finalize_options(self):
         if self.no_mpi_compiler_check is None:
@@ -98,6 +101,8 @@ class PyrandaMakeMixin():
             elif mpi4py_mpif90 is not None:
                 args.append('mpif90={}'.format(mpi4py_mpif90))
 
+            if self.fflags is not None:
+                args.append('fflags={}'.format(self.fflags))
             if self.numprocs_arg is not None:
                 args.append('np_arg={}'.format(self.numprocs_arg))
             if self.mpiexec is not None:
@@ -134,14 +139,11 @@ class BuildPyranda(build, PyrandaMakeMixin):
 class InstallPyranda(install, PyrandaMakeMixin):
     def initialize_options(self):
         install.initialize_options(self)
-        PyrandaMakeMixin.initialize_options(self)
 
     def finalize_options(self):
         install.finalize_options(self)
-        PyrandaMakeMixin.finalize_options(self)
 
     def run(self):
-        PyrandaMakeMixin.run(self)
         install.run(self)
         PyrandaMakeMixin.clean(self)
 

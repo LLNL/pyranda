@@ -49,6 +49,7 @@ pip install . [--user]
 ## Installing without pip
 
 ```
+[python setup.py build [extra_build_args]]
 python setup.py install
 ```
 
