@@ -1,4 +1,6 @@
 # pyranda
+[![Build Status](https://travis-ci.org/LLNL/pyranda.svg?branch=master)](https://travis-ci.org/LLNL/pyranda)
+
 A Python driven, Fortran powered Finite Difference solver for arbitrary hyperbolic PDE systems.  This is the mini-app for the Miranda code.
 
 The PDE solver defaults to a 10th order compact finite difference method for spatial derivatives, and a 5-stage, 4th order Runge-Kutta scheme for temporal integration.  Other numerical methods will be added in the future.
