@@ -88,9 +88,10 @@ try:
     print0("trying to import fortran module...")
     from fort_mod import sum_comm_ranks
 except ImportError as e:
-    print0(e)
+    print("{}: {}".format(rank, e))
     sys.exit("cannot import fortran module")
 finally:
+    comm.barrier()
     cleanup()
 
 print0("successfully imported")
