@@ -68,8 +68,8 @@ clang.fflags = -fPIC
 xlf.fflags = -fPIC -qsuppress=cmpmsg -qsuppress=1500-036 -qxlf2003=polymorphic -qnosave -qfree=f90 -qsuffix=cpp=f:f=f -qmaxmem=-1
 
 compiler ?= $($(systype).compiler)
-mpirun   ?= $($(systype).mpirun)
-np_arg   ?= $($(systype).np_arg)
+mpirun   ?= $(if $($(systype).mpirun),$($(systype).mpirun),$(shell which mpirun))
+np_arg   ?= $(if $($(systype).np_arg),$($(systype).np_arg),-n)
 nprocs   ?= 4
 python   ?= $($(systype).python)
 mpif90   ?= $($(systype).$($(systype).compiler).mpif90)
