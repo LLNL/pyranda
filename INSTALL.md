@@ -1,15 +1,29 @@
-# Install notes for pyranda
+# Installing Pyranda
 
-The following outlines what/how to install pyranda.  At a minimum, you will need to 
-build one fortran library, and add two paths to your PYTHONPATH.
+## Prerequisites
+Before installing pyranda you'll need to install numpy and mpi4py. Numpy's f2py utility
+is used to build the python-fortran interface and we try to validate that your choice of
+compiler will work with the installed mpi4py's version of mpi.
+
+### installing `mpi4py`
+`mpi4py` should be installed with the `--no-cache-dir` option to avoid using an
+existing build with a cached compiler.
+
+```
+# if your mpi*s are in your path
+pip install mpi4py --no-cache-dir
+# otherwise you can specify an environment variable
+env MPICC=/path/to/your/mpi pip install mpi4py --no-cache-dir
+```
+
+### installing `numpy`
+`numpy` shouldn't have any special build steps, just install as normal:
+
+```
+pip install numpy
+```
 
 ## Installing with pip
-
-Installing with pip is the easiest way to start using pyranda
-For now you're required to install some python packages and build libparcop
-before installing. You can install mpi4py and numpy with pip and it's important
-to remember that you must use the same mpi for mpi4py and libparcop. If you want
-to use a non-default mpi for mpi4py see the instructions below.
 
 ### [optional] Using a virtualenv
 
@@ -19,29 +33,11 @@ to use a non-default mpi for mpi4py see the instructions below.
 (my_venv) ...>
 ```
 
-You can also verify that you're in your venv by check `$PATH`:
+You can also verify that you're in your venv by checking your `$PATH`:
 
 ```
 ...> echo $PATH
 /path/to/your/env/root/my_venv/bin:...
-```
-
-#### installing `mpi4py`
-`mpi4py` should be install with the `--no-cache-dir` option to avoid installing a version
-with some mpi other than specified:
-
-```
-# if your mpi*s are in your path
-pip install mpi4py --no-cache-dir
-# otherwise you can specify my environment variable
-env MPICC=/path/to/your/mpi pip install mpi4py --no-cache-dir
-```
-
-#### installing `numpy`
-`numpy` shouldn't have any special build steps, just install as normal:
-
-```
-pip install numpy
 ```
 
 ### install pyranda
@@ -51,8 +47,6 @@ pip install . [--user]
 ```
 
 ## Installing without pip
-
-If you can't use pip you can still build and install pyranda
 
 ```
 python setup.py install
