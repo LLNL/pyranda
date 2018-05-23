@@ -2,32 +2,28 @@ language: python
 
 python:
   - "2.7"
+  - "3.6"
 
-sudo: required
-
-dist: trusty
 os:
   - linux
+
+env:
+  - MPI=mpich
+  - MPI=openmpi
 
 addons:
   apt:
     packages:
-        - gfortran
-        - build-essential
-        - libblas-dev
-        - liblapack-dev
+    - gfortran
 
 before_install:
-  - sh ./travis/install-openMPI.sh
-  - export PATH=${HOME}/openmpi/bin:${PATH}
-  - export LD_LIBRARY_PATH=${HOME}/openmpi/lib:${LD_LIBRARY_PATH}
+  - ./travis/install-mpi.sh $MPI
+  - export PATH=$(pwd)/${MPI}/bin:${PATH}
+  - export LD_LIBRARY_PATH=$(pwd)/${MPI}/lib:${LD_LIBRARY_PATH}
 
-# command to install dependencies
 install:
-  - pip install -r travis/requirements.txt
-  - python setup.py build
-  - python setup.py install
+  - pip install -r requirements.txt
+  - pip install . -v
 
 script:
-  - cd tests
-  - python run_tests.py
+  - cd tests && python run_tests.py
