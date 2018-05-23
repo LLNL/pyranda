@@ -81,7 +81,7 @@ endif
 compiler ?= $($(systype).compiler)
 mpirun   ?= $($(systype).mpirun)
 np_arg   ?= $($(systype).np_arg)
-nprocs   ?= 4
+nprocs   ?= 2
 python   ?= $($(systype).python)
 mpif90   ?= $($(systype).$($(systype).compiler).mpif90)
 # make sure we use this python's f2py unless the user wants something else

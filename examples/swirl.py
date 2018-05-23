@@ -3,7 +3,7 @@ import time
 import numpy 
 import matplotlib.pyplot as plt
 
-from pyranda import pyrandaSim
+from pyranda import pyrandaSim, pyrandaIBM
 
 
 # Try to get args
@@ -145,7 +145,7 @@ v = 2.0* numpy.pi
 
 dt_max = L / ss.mesh.nn[0] / v * .75 
 
-tt = v * 1.0
+tt = v * 1.0 / 2.0
 if not twoD:
     tt *= .2
 
