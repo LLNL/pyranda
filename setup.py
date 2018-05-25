@@ -145,7 +145,7 @@ setup_args = dict(
     name=distname,
     description=description,
     packages=packages,
-    package_data={fortran_package: [fortran_module_lib]},
+    package_data={distname:['*.tex'],fortran_package: [fortran_module_lib]},
     install_requires=install_requires,
     cmdclass={
         'build': BuildPyranda,
