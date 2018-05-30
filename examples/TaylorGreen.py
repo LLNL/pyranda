@@ -8,6 +8,17 @@ from matplotlib import cm
 from pyranda import pyrandaSim, pyrandaBC, pyrandaTimestep
 
 
+# Try to get args for testing
+try:
+    Npts = int(sys.argv[1])
+except:
+    Npts = 32
+
+try:
+    test = bool(int(sys.argv[2]))
+except:
+    test = False
+
 problem = 'TGvortex'
 
 ## Define a mesh
@@ -135,7 +146,12 @@ enst0 = ss.var('enst').sum()
 TKE = []
 ENST = []
 TIME = []
-while time < 1.0:
+
+tstop = 1.0
+if test:
+    tstop = .1
+    
+while time < tstop:
 
     # Update the EOM and get next dt
     time = ss.rk4(time,dt)
@@ -164,8 +180,9 @@ while time < 1.0:
             plt.title(pvar)
             plt.pause(.001)
 
-
-
+if test:
+    print enst
+            
 #if (ss.PyMPI.master):
 #    plt.figure()
 #    plt.plot(TIME,TKE,'k--')

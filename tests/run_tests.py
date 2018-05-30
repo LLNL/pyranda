@@ -21,6 +21,7 @@ execfile('cases/testMM_simple.py')
 execfile('cases/test2deuler.py')
 execfile('cases/testCylinder.py')
 execfile('cases/testHeat1D.py')
+execfile('cases/testTaylorGreen.py')
 
 
 summary = ''
