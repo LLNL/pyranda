@@ -8,9 +8,6 @@ from matplotlib import cm
 from pyranda import pyrandaSim, pyrandaBC, pyrandaTimestep
 
 
-
-
-
 problem = 'TGvortex'
 
 ## Define a mesh
@@ -159,7 +156,7 @@ while time < 1.0:
 
         dd = numpy.where( z == 0.0, 1.0, 0.0 )
         v = ss.PyMPI.zbar( dd*ss.variables[pvar].data )
-        #v = ss.variables[pvar].data[:,:,16]
+        
         if (ss.PyMPI.master and (cnt%viz_freq == 0)) and True:
             plt.figure(2)
             plt.clf()            
