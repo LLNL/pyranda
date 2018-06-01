@@ -43,6 +43,7 @@ chaos_5_x86_64_ib.np_arg       = -n
 toss_3_x86_64_ib.gnu.mpif90   = /usr/tce/packages/mvapich2/mvapich2-2.2-gcc-6.1.0/bin/mpif90
 toss_3_x86_64_ib.intel.mpif90 = /usr/tce/packages/mvapich2/mvapich2-2.2-intel-16.0.3/bin/mpif90
 toss_3_x86_64_ib.clang.mpif90 = /usr/tce/packages/mvapich2/mvapich2-2.2-clang-4.0.0/bin/mpif90
+toss_3_x86_64_ib.pgi.mpif90   = /usr/tce/packages/mvapich2/mvapich2-2.2-pgi-18.1/bin/mpif90
 toss_3_x86_64_ib.python       = /usr/tce/bin/python3
 toss_3_x86_64_ib.compiler     = intel
 toss_3_x86_64_ib.mpirun       = srun
@@ -72,7 +73,8 @@ gnu.fflags   = -fPIC -ffree-form -ffree-line-length-0 -fbackslash
 intel.fflags = -fPIC
 # TODO: what are clang's fflags here
 clang.fflags = -fPIC
-xlf.fflags = -fPIC -qsuppress=cmpmsg -qsuppress=1500-036 -qxlf2003=polymorphic -qnosave -qfree=f90 -qsuffix=cpp=f:f=f -qmaxmem=-1
+xlf.fflags   = -fPIC -qsuppress=cmpmsg -qsuppress=1500-036 -qxlf2003=polymorphic -qnosave -qfree=f90 -qsuffix=cpp=f:f=f -qmaxmem=-1
+pgi.fflags   = -fPIC
 
 ifeq ($($(systype).compiler),)
 	systype=default
@@ -83,11 +85,11 @@ mpirun   ?= $($(systype).mpirun)
 np_arg   ?= $($(systype).np_arg)
 nprocs   ?= 2
 python   ?= $($(systype).python)
-mpif90   ?= $($(systype).$($(systype).compiler).mpif90)
+mpif90   ?= $($(systype).$(compiler).mpif90)
 # make sure we use this python's f2py unless the user wants something else
 f2py     ?= $(python) -c 'import numpy.f2py; numpy.f2py.main()'
-fflags   ?= $(if $($(systype).$($(systype).$(compiler)).fflags)\
-              ,$($(systype).$($(systype).$(compiler)).fflags)\
+fflags   ?= $(if $($(systype).$(compiler).fflags)\
+              ,$($(systype).$(compiler).fflags)\
               ,$($(compiler).fflags))
 
 #
@@ -147,8 +149,8 @@ test-mpi4py:
 			{ echo "$(mpif90) failed mpi4py verification"; false; }; \
 	fi
 
-$(exec): test_pent.o libparcop.a
-	$(mpif90) $^ $(fflags) -o $@
+$(exec): libparcop.a test_pent.o
+	$(mpif90) $(fflags) test_pent.o libparcop.a -o $@
 
 info:
 	@echo "systype:    $(systype)"
@@ -159,6 +161,7 @@ info:
 	@echo "mpirun:     $(mpirun)"
 	@echo "nprocs arg: $(np_arg)"
 	@echo "nprocs:     $(nprocs)"
+	@echo "compiler:   $(compiler)"
 
 clean:
 	rm -rf *.o *.mod $(exec) *.so *.pyf *.pyc libparcop.a fort-test *.dSYM $(verifile)
