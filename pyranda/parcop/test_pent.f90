@@ -27,7 +27,7 @@ PROGRAM test_pent
   CALL MPI_INIT(mpierr)
   CALL MPI_COMM_RANK(MPI_COMM_WORLD,rank,ierror)
 
-  nargs = iargc()
+  nargs = command_argument_count()
   
   ! Print usage:
   IF ( rank == 0 .AND. nargs == 0) THEN
