@@ -58,6 +58,7 @@ toss_3_x86_64_ib.mpirun       = srun
 toss_3_x86_64_ib.np_arg       = -n
 
 blueos_3_ppc64le_ib.xl.mpif90  = /usr/tce/packages/spectrum-mpi/spectrum-mpi-2018.04.27-xl-beta-2018.06.01/bin/mpif90
+blueos_3_ppc64le_ib.xl.cc      = /usr/tce/packages/xl/xl-beta-2018.06.01/bin/xlc
 blueos_3_ppc64le_ib.gnu.mpif90 = /usr/tcetmp/bin/mpigfortran
 blueos_3_ppc64le_ib.compiler   = gnu
 blueos_3_ppc64le_ib.python     = /usr/tcetmp/bin/python
@@ -81,8 +82,11 @@ gnu.fflags   = -fPIC -ffree-form -ffree-line-length-0 -fbackslash
 intel.fflags = -fPIC
 # TODO: what are clang's fflags here
 clang.fflags = -fPIC
-xl.fflags    = -fPIC -qsuppress=cmpmsg -qsuppress=1500-036 -qxlf2003=polymorphic -qnosave -qfree=f90 -qsuffix=cpp=f:f=f -qmaxmem=-1
+xl.fflags    = -fPIC -qsuppress=cmpmsg -qsuppress=1500-036 -qxlf2003=polymorphic -qnosave -qfree=f90 -qsuffix=cpp=f:f=f -qmaxmem=-1 -qextname
+xl.lopts     = -qmkshrobj
 pgi.fflags   = -fPIC
+
+default.lopts = -shared
 
 ifeq ($($(systype).compiler),)
 	systype=default
@@ -93,12 +97,12 @@ mpirun   ?= $($(systype).mpirun)
 np_arg   ?= $($(systype).np_arg)
 nprocs   ?= 2
 python   ?= $($(systype).python)
+cc       ?= $(if $($(systype).$(compiler).cc),$($(systype).$(compiler).cc),cc)
 mpif90   ?= $($(systype).$(compiler).mpif90)
 # make sure we use this python's f2py unless the user wants something else
 f2py     ?= $(python) -c 'import numpy.f2py; numpy.f2py.main()'
-fflags   ?= $(if $($(systype).$(compiler).fflags)\
-              ,$($(systype).$(compiler).fflags)\
-              ,$($(compiler).fflags))
+fflags   ?= $($(compiler).fflags)
+lopts    ?= $(if $($(compiler).lopts),$($(compiler).lopts),$(default.lopts))
 
 #
 # The python/mpif90 combination is saved to a file (if the mpi4py integration test passes)
@@ -123,17 +127,22 @@ verify_cmd 				   = $(mpirun_verify_cmd)
 # Python and numpy directories for use when building the f2py wrapped module
 # TODO: sysconfig.get_config_vars() has a lot of stuff that might make this better
 #
-python.Iflags=-I$(shell python -c "from sysconfig import get_config_var; print(get_config_var('INCLUDEPY'))")
-python.Lflags=-I$(shell python -c "from sysconfig import get_config_var; print(get_config_var('LIBDIR'))")
-python.major=$(shell python -c "import sys; print(sys.version_info)[0]")
-python.minor=$(shell python -c "import sys; print(sys.version_info)[1]")
+python.Iflags = -I$(shell $(python) -c "from sysconfig import get_config_var; print(get_config_var('INCLUDEPY'))")
+python.Lflags = -L$(shell $(python) -c "from sysconfig import get_config_var; print(get_config_var('LIBDIR'))")
+python.major  = $(shell $(python) -c "import sys; print(sys.version_info[0])")
+python.minor  = $(shell $(python) -c "import sys; print(sys.version_info[1])")
 # TODO: a better way (use one of the vars in sysconfig.get_config_vars instead)
-python.lflags=-lpython$(python.major).$(python.minor)
-numpy.dir=$(shell python -c "from sysconfig import get_paths; print(get_paths()['purelib'])")/numpy
+# it's libpython2.7 or libpython3, libpython3.6m
+ifeq ($(python.major),2)
+	python.lflags = -lpython$(python.major).$(python.minor)
+else
+	python.lflags = -lpython$(python.major)
+endif
+numpy.dir    = $(shell $(python) -c "from sysconfig import get_paths; print(get_paths()['purelib'])")/numpy
 # TODO: python -c "import numpy; print(numpy.__path__)" might be better
-numpy.Iflags=-I$(numpy.dir)/core/include
-f2py.dir=$(numpy.dir)/f2py/src
-f2py.Iflags=-I$(f2py.dir)
+numpy.Iflags = -I$(numpy.dir)/core/include
+f2py.dir     = $(numpy.dir)/f2py/src
+f2py.Iflags  =-I$(f2py.dir)
 
 #
 # source order is important because of mod file dependencies
@@ -149,9 +158,8 @@ vpath %.c $(f2py.dir)
 %.o: %.f90
 	$(mpif90) $(fflags) -c $<
 
-# TODO: let user choose `cc`
 %.o: %.c
-	cc -fPIC $(python.Iflags) $(numpy.Iflags) $(f2py.Iflags) -c $^
+	$(cc) -fPIC $(python.Iflags) $(numpy.Iflags) $(f2py.Iflags) -c $^
 
 all: parcop.so test_pent
 
@@ -172,8 +180,7 @@ parcopmodule.c parcop-f2pywrappers2.f90: libparcop.a parcop.o
 	@$(f2py) --lower --wrap-functions -m parcop parcop.f90 --verbose
 
 parcop.so: parcopmodule.o fortranobject.o parcop-f2pywrappers2.o
-	# TODO: with xl we need -qmkshrobj, move this to compiler defs...
-	$(mpif90) -shared $(python.Lflags) \
+	$(mpif90) $(lopts) $(python.Lflags) \
 		parcopmodule.o fortranobject.o parcop.o parcop-f2pywrappers2.o libparcop.a $(python.lflags) \
 		-o parcop.so
 
@@ -192,8 +199,8 @@ test-mpi4py:
 			{ echo "$(mpif90) failed mpi4py verification"; false; }; \
 	fi
 
-test_pent: libparcop.a parcop.o
-	$(mpif90) $(fflags) test_pent.f90 parcop.o libparcop.a -o $@
+test_pent: libparcop.a parcop.o test_pent.o
+	$(mpif90) test_pent.o parcop.o libparcop.a -o $@
 
 info:
 	@echo "systype:    $(systype)"
