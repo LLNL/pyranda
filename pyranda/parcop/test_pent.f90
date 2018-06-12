@@ -32,11 +32,11 @@ PROGRAM test_pent
   ! Print usage:
   IF ( rank == 0 .AND. nargs == 0) THEN
      PRINT*,"USAGE:"
-     PRINT*,"Serial: ./fort [interations=100,nx=32,px=1,ny=1,py=1,nz=1,pz=1]"
-     PRINT*,"Parallel: mpirun -n [num procs] fort [interations=100,nx=32,px=1,ny=1,py=1,nz=1,pz=1]"
+     PRINT*,"Serial: ./test_pent [interations=100,nx=32,px=1,ny=1,py=1,nz=1,pz=1]"
+     PRINT*,"Parallel: mpirun -n [num procs] test_pent [interations=100,nx=32,px=1,ny=1,py=1,nz=1,pz=1]"
      PRINT*,"Examples:"
-     PRINT*,"./ifort 100 32 1 32 1 32 1"
-     PRINT*,"mpirun -n 8 ./ifort 100 64 2 64 2 64 2"
+     PRINT*,"./test_pent 100 32 1 32 1 32 1"
+     PRINT*,"mpirun -n 8 ./test_pent 100 64 2 64 2 64 2"
   ENDIF
   
   ! Default domain, grid and processors map
