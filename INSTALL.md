@@ -79,20 +79,25 @@ It is likely that you will need to build your own version of mpi4py to suite you
 type.  https://bitbucket.org/mpi4py/mpi4py
 
 ### Example install (this should work on LLNL-LC)
-`wget https://bitbucket.org/mpi4py/mpi4py/downloads/mpi4py-3.0.0.tar.gz`
-`tar xvzf mpi4py-3.0.0.tar.gz`
-`cd mpi4py`
+```
+wget https://bitbucket.org/mpi4py/mpi4py/downloads/mpi4py-3.0.0.tar.gz
+tar xvzf mpi4py-3.0.0.tar.gz
+cd mpi4py
+```
 
 #### Add this to mpi.cfg file
+```
 [llnl-intel]
 mpi_dir              = /usr/local/tools/mvapich2-intel-2.2
 mpicc                = %(mpi_dir)s/bin/mpicc
 mpicxx               = %(mpi_dir)s/bin/mpicxx
 library_dirs         = %(mpi_dir)s/lib
+```
 
-
-`python setup.py build --mpi=llnl-intel`
-`python setup.py install --prefix=install_location`
+```
+python setup.py build --mpi=llnl-intel
+python setup.py install --prefix=install_location_mpi4py
+```
 
 ** Add install_location/*/site_packages to PYTHONPATH **
 
@@ -108,14 +113,9 @@ f2py is also invoked at build time.  This utility installs with numpy and ought 
 
 To build, type:
 
-`make`
+```
+python setup.py build
+python setup.py install --prefix=install_location_pyranda
+```
 
-Optionally, build debug via:
-`make DEBUG=1`
-
-make will produce:
-- libparcop.a (fortran library)
-- parcop.so (python library which wraps libparcop.a)
-- fort-test (fortran exec for simple tests, not used by pyranda)
-
-** Add pyranda/src/fortran to PYTHONPATH **
+** Add install_location_pyranda/*/site_packages to PYTHONPATH **
