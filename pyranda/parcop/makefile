@@ -71,6 +71,14 @@ Darwin.compiler   = gnu
 Darwin.mpirun     = mpirun
 Darwin.np_arg     = -n
 
+prom.pgi.mpif90 = $(shell which mpif90)
+prom.python     = $(shell which python)
+prom.compiler   = pgi
+prom.mpirun     = mpirun
+prom.np_arg     = -n
+prom.pgi.cc     = pgcc
+prom.gnu.cc     = g++
+
 # if the systype.compiler is empty setup will use the following:
 default.gnu.mpif90 = $(shell which mpif90)
 default.python     = $(shell which python)
@@ -138,7 +146,8 @@ ifeq ($(python.major),2)
 else
 	python.lflags = -lpython$(python.major)
 endif
-numpy.dir    = $(shell $(python) -c "from sysconfig import get_paths; print(get_paths()['purelib'])")/numpy
+#numpy.dir    = $(shell $(python) -c "from sysconfig import get_paths; print(get_paths()['purelib'])")/numpy
+numpy.dir    = $(shell $(python) -c "import numpy; print(numpy.__path__[0])")
 # TODO: python -c "import numpy; print(numpy.__path__)" might be better
 numpy.Iflags = -I$(numpy.dir)/core/include
 f2py.dir     = $(numpy.dir)/f2py/src
@@ -159,6 +168,7 @@ vpath %.c $(f2py.dir)
 	$(mpif90) $(fflags) -c $<
 
 %.o: %.c
+	echo $(cc) -fPIC $(python.Iflags) $(numpy.Iflags) $(f2py.Iflags) -c $^
 	$(cc) -fPIC $(python.Iflags) $(numpy.Iflags) $(f2py.Iflags) -c $^
 
 all: parcop.so test_pent
