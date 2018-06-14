@@ -1,3 +1,4 @@
+from __future__ import print_function
 import sys
 import time
 import numpy 
@@ -187,7 +188,7 @@ while tt > time:
             plt.figure(1)
             plt.clf()
             ny = ss.PyMPI.ny
-            plt.plot(xx[:,ny/2],v[:,ny/2] ,'k.-')
+            plt.plot(xx[:,int(ny/2)],v[:,int(ny/2)] ,'k.-')
             plt.title(pvar)
             plt.pause(.001)
 
@@ -204,8 +205,8 @@ while tt > time:
 if test:
     v = ss.PyMPI.zbar( ss.variables[pvar].data )
     ny = ss.PyMPI.ny
-    v1d =  v[:,ny/2]
-    x1d = xx[:,ny/2]
+    v1d =  v[:,int(ny/2)]
+    x1d = xx[:,int(ny/2)]
     fname = testName + '.dat'
     numpy.savetxt( fname  , (x1d,v1d) )
-    print fname
+    print(fname)

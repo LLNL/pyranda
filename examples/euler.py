@@ -1,3 +1,4 @@
+from __future__ import print_function
 import re
 import sys
 import time
@@ -85,7 +86,7 @@ bc.extrap(['rho','Et'],['x1'])
 bc.const(['u','v'],['x1','xn'],0.0)
 """
 
-print eom
+print(eom)
 
 # Add the EOM to the solver
 ss.EOM(eom)
@@ -164,7 +165,7 @@ while tt > time:
             plt.figure(1)
             plt.clf()
             if ( ny > 1):
-                plt.plot(xx[:,ny/2],v[:,ny/2] ,'k.-')
+                plt.plot(xx[:,int(ny/2)],v[:,int(ny/2)] ,'k.-')
                 plt.title(pvar)
                 plt.pause(.001)
                 plt.figure(2)
@@ -180,8 +181,8 @@ while tt > time:
 # Curve test.  Write file and print its name at the end
 if test:
     v = ss.PyMPI.zbar( ss.variables[pvar].data )
-    v1d =  v[:,ny/2]
-    x1d = xx[:,ny/2]
+    v1d =  v[:,int(ny/2)]
+    x1d = xx[:,int(ny/2)]
     fname = testName + '.dat'
     numpy.savetxt( fname  , (x1d,v1d) )
-    print fname
+    print(fname)
