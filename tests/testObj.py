@@ -1,4 +1,5 @@
 # Run a bunch of test and check answers
+from __future__ import print_function
 import os,sys
 import numpy as npy
 import subprocess
@@ -7,7 +8,7 @@ import matplotlib.pyplot as plt
 def sexe(cmd,ret_output=False,echo = False):
     """ Helper for executing shell commands. """
     if echo:
-        print "[exe: %s]" % cmd
+        print("[exe: %s]" % cmd)
     if ret_output:
         p = subprocess.Popen(cmd,
                              shell=True,
