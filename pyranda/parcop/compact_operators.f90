@@ -39,7 +39,13 @@ contains
     ! calculate grid derivative sans metric
     dv = compact_ops%d1x(iop)%evalx(v,vb1,vb2)
     ! apply metric here or later? here d is scalar or size(dv,1)
-    forall(j=1:size(dv,2),k=1:size(dv,3)) dv(:,j,k) = dv(:,j,k)/compact_ops%dx
+    !$acc parallel loop
+    do j=1,size(dv,2)
+    do k=1, size(dv,2)
+       dv(:,j,k) = dv(:,j,k)
+    enddo
+    enddo
+    !forall(j=1:size(dv,2),k=1:size(dv,3)) dv(:,j,k) = dv(:,j,k)/compact_ops%dx
     ! dv = dv/mesh_data%d1  ! 3D metric
   end subroutine d1x
 

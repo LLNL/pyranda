@@ -93,6 +93,10 @@ clang.fflags = -fPIC
 xl.fflags    = -fPIC -qsuppress=cmpmsg -qsuppress=1500-036 -qxlf2003=polymorphic -qnosave -qfree=f90 -qsuffix=cpp=f:f=f -qmaxmem=-1 -qextname
 xl.lopts     = -qmkshrobj
 pgi.fflags   = -fPIC
+ifdef gpu
+pgi.fflags += -ta=tesla:cc70 -acc
+pgi.ldflags += -ta=tesla:cc70 -acc
+endif
 
 default.lopts = -shared
 
@@ -111,6 +115,7 @@ mpif90   ?= $($(systype).$(compiler).mpif90)
 f2py     ?= $(python) -c 'import numpy.f2py; numpy.f2py.main()'
 fflags   ?= $($(compiler).fflags)
 lopts    ?= $(if $($(compiler).lopts),$($(compiler).lopts),$(default.lopts))
+ldflags  ?= $($(compiler).ldflags)
 
 #
 # The python/mpif90 combination is saved to a file (if the mpi4py integration test passes)
@@ -210,7 +215,7 @@ test-mpi4py:
 	fi
 
 test_pent: libparcop.a parcop.o test_pent.o
-	$(mpif90) test_pent.o parcop.o libparcop.a -o $@
+	$(mpif90) $(ldflags) test_pent.o parcop.o libparcop.a -o $@
 
 info:
 	@echo "systype:    $(systype)"
