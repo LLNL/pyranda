@@ -64,10 +64,10 @@ class pyrandaMPI():
 
         if (px*py*pz != self.comm.Get_size()):
             if self.comm.Get_rank() == 0:
-                print "Tried (px,py,pz) = (%s,%s,%s)" % (px,py,pz)
-                print "Nprocs = %s" % (px*py*pz)
-                print "Available procs = %s" % self.comm.Get_size()
-                print 'Error: Processor under/over utilization not allowed'
+                print("Tried (px,py,pz) = (%s,%s,%s)" % (px,py,pz))
+                print("Nprocs = %s" % (px*py*pz))
+                print("Available procs = %s" % self.comm.Get_size())
+                print('Error: Processor under/over utilization not allowed')
                 exit()
                 
         
