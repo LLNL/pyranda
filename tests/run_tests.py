@@ -52,11 +52,10 @@ for test in tests:
         
     cmd = '%s %s %s' % (exe,script,sargs)
     
-    print(cmd)
     out = sexe(cmd,ret_output=True,echo=False)
-    pout = out[1].split(b'\n')[-2]
+    pout = out[1].decode('utf-8').split('\n')[-2]
     curve = False
-    if b'.dat' in pout:
+    if '.dat' in pout:
         curve = True
     
     # Diff against baseline
@@ -70,6 +69,7 @@ for test in tests:
         
         if curve:
             # Check curve
+            print(baseline, pout)
             diff = checkProfile( baseline, pout)
         else:
             # Check if scalar compare    
