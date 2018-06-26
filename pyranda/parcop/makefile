@@ -94,8 +94,8 @@ xl.fflags    = -fPIC -qsuppress=cmpmsg -qsuppress=1500-036 -qxlf2003=polymorphic
 xl.lopts     = -qmkshrobj
 pgi.fflags   = -fPIC
 ifdef gpu
-pgi.fflags += -ta=tesla:cc70 -acc
-pgi.ldflags += -ta=tesla:cc70 -acc
+pgi.fflags += -ta=tesla:cc70,managed -Minfo=accel
+pgi.ldflags += -ta=tesla:cc70,managed -Minfo=accel
 endif
 
 default.lopts = -shared
@@ -117,6 +117,10 @@ fflags   ?= $($(compiler).fflags)
 lopts    ?= $(if $($(compiler).lopts),$($(compiler).lopts),$(default.lopts))
 ldflags  ?= $($(compiler).ldflags)
 
+ifeq ($(profile),1)
+fflags += -pg
+ldflags += -pg
+endif
 #
 # The python/mpif90 combination is saved to a file (if the mpi4py integration test passes)
 # so that we don't have to test everytime a user calls make.
@@ -176,7 +180,7 @@ vpath %.c $(f2py.dir)
 	echo $(cc) -fPIC $(python.Iflags) $(numpy.Iflags) $(f2py.Iflags) -c $^
 	$(cc) -fPIC $(python.Iflags) $(numpy.Iflags) $(f2py.Iflags) -c $^
 
-all: parcop.so test_pent
+all: parcop.so test_pent test_laplace
 
 # See nasa's page for reference:
 #	 https://modelingguru.nasa.gov/docs/DOC-2412
@@ -216,6 +220,9 @@ test-mpi4py:
 
 test_pent: libparcop.a parcop.o test_pent.o
 	$(mpif90) $(ldflags) test_pent.o parcop.o libparcop.a -o $@
+
+test_laplace: libparcop.a parcop.o test_laplace.o
+	$(mpif90) $(ldflags) test_laplace.o parcop.o libparcop.a -o $@
 
 info:
 	@echo "systype:    $(systype)"

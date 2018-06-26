@@ -365,6 +365,7 @@ contains
       endif
     endif
     deallocate( vbs1,vbs2 )
+    !$acc parallel loop gang vector collapse(2) copyin(op, vbr1, v) copyout(dv)
     do k=1,mz
     do j=1,my
       do i=1,nor
@@ -2605,7 +2606,7 @@ contains
     ! explicit part
     allocate( vbr1(3,ay,az),vbr2(3,ay,az) )
 ! ghost data
-   allocate( vbs1(3,ay,az),vbs2(3,ay,az) )
+    allocate( vbs1(3,ay,az),vbs2(3,ay,az) )
     if( np > 1 ) then  ! use parallel solver
       vbs2 = v(ax-2:ax,:,:)
       vbs1 = v(1:3,:,:)
@@ -2638,6 +2639,7 @@ contains
       endif
     endif
     deallocate( vbs1,vbs2 )
+    !$acc parallel loop gang vector collapse(2) copyin(op, vbr1, v) copyout(dv)
     do k=1,az
     do j=1,ay
       dv(1,j,k) = sum(op%ar(1:3,1)*vbr1(1:3,j,k))+sum(op%ar(4:7,1)*v(1:4,j,k))
@@ -2645,6 +2647,7 @@ contains
       dv(3,j,k) = sum(op%ar(1:1,3)*vbr1(3:3,j,k))+sum(op%ar(2:7,3)*v(1:6,j,k))
     end do
     end do
+    !$acc parallel loop gang vector collapse(3) copyin(op, v) copyout(dv)
     do k=1,az
     do j=1,ay
       do i=4,ax-3
@@ -2652,6 +2655,7 @@ contains
       end do
     end do
     end do
+    !$acc parallel loop gang vector collapse(2) copyin(op, vbr2, v) copyout(dv)
     do k=1,az
     do j=1,ay
       dv(ax-2,j,k) = sum(op%ar(1:6,ax-2)*v(ax-5:ax,j,k))+sum(op%ar(7:7,ax-2)*vbr2(1:1,j,k))
@@ -2784,6 +2788,7 @@ contains
       endif
     endif
     deallocate( vbs1,vbs2 )
+    !$acc parallel loop gang vector collapse(2) copyin(op, vbr1, v) copyout(dv)
     do k=1,az
     do i=1,ax
       dv(i,1,k) = sum(op%ar(1:3,1)*vbr1(i,1:3,k))+sum(op%ar(4:7,1)*v(i,1:4,k))
@@ -2791,6 +2796,7 @@ contains
       dv(i,3,k) = sum(op%ar(1:1,3)*vbr1(i,3:3,k))+sum(op%ar(2:7,3)*v(i,1:6,k))
     end do
     end do
+    !$acc parallel loop gang vector collapse(3) copyin(op, v) copyout(dv)
     do k=1,az
     do j=4,ay-3
     do i=1,ax
@@ -2798,6 +2804,7 @@ contains
     end do
     end do
     end do
+    !$acc parallel loop gang vector collapse(2) copyin(op, vbr2, v) copyout(dv)
     do k=1,az
     do i=1,ax
       dv(i,ay-2,k) = sum(op%ar(1:6,ay-2)*v(i,ay-5:ay,k))+sum(op%ar(7:7,ay-2)*vbr2(i,1:1,k))
@@ -2930,6 +2937,7 @@ contains
       endif
     endif
     deallocate( vbs1,vbs2 )
+    !$acc parallel loop gang vector collapse(2) copyin(op, vbr1, v) copyout(dv)
     do j=1,ay
     do i=1,ax
       dv(i,j,1) = sum(op%ar(1:3,1)*vbr1(i,j,1:3))+sum(op%ar(4:7,1)*v(i,j,1:4))
@@ -2937,6 +2945,7 @@ contains
       dv(i,j,3) = sum(op%ar(1:1,3)*vbr1(i,j,3:3))+sum(op%ar(2:7,3)*v(i,j,1:6))
     end do
     end do
+    !$acc parallel loop gang vector collapse(3) copyin(op, v) copyout(dv)
     do k=4,az-3
     do j=1,ay
     do i=1,ax
@@ -2944,6 +2953,7 @@ contains
     end do
     end do
     end do
+    !$acc parallel loop gang vector collapse(2) copyin(op, vbr2, v) copyout(dv)
     do j=1,ay
     do i=1,ax
       dv(i,j,az-2) = sum(op%ar(1:6,az-2)*v(i,j,az-5:az))+sum(op%ar(7:7,az-2)*vbr2(i,j,1:1))
