@@ -113,6 +113,7 @@ PROGRAM test_pent
   ! Time the derivatives
   CALL SYSTEM_CLOCK( t1, clock_rate, clock_max)
   DO i=1,iterations
+     PRINT *, "iter ", i, " of ", iterations
      CALL ddx(rho,drho,nx/px,ny/py,nz/pz)    
   END DO
   CALL SYSTEM_CLOCK( t2, clock_rate, clock_max)
