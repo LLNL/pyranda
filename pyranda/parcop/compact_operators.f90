@@ -37,14 +37,14 @@ contains
  !     if( compact_ops%d1x(iop)%id == 0 ) print *,'using compact d1x(',iop,')'
     endif
     ! calculate grid derivative sans metric
-    dv = compact_ops%d1x(iop)%evalx(v,vb1,vb2)
+    dv = compact_ops%d1x(iop)%evalx(v,vb1,vb2,scalefac_=1.0d0/compact_ops%dx)
     ! apply metric here or later? here d is scalar or size(dv,1)
-    !$acc parallel loop collapse(2) copy(dv) copyin(compact_ops)
-    do j=1,size(dv,2)
-    do k=1, size(dv,2)
-       dv(:,j,k) = dv(:,j,k)/compact_ops%dx
-    enddo
-    enddo
+    !!$acc parallel loop collapse(2) copy(dv) copyin(compact_ops)
+    !do j=1,size(dv,2)
+    !do k=1, size(dv,2)
+    !   dv(:,j,k) = dv(:,j,k)/compact_ops%dx
+    !enddo
+    !enddo
     !forall(j=1:size(dv,2),k=1:size(dv,3)) dv(:,j,k) = dv(:,j,k)/compact_ops%dx
     ! dv = dv/mesh_data%d1  ! 3D metric
   end subroutine d1x
@@ -68,9 +68,9 @@ contains
       if( bc == -1 .and. allocated(compact_ops%d1y(2)%ar) ) iop = 2
     endif
     ! calculate grid derivative sans metric
-    dv = compact_ops%d1y(iop)%evaly(v,vb1,vb2)
+    dv = compact_ops%d1y(iop)%evaly(v,vb1,vb2,scalefac_=1.0d0/compact_ops%dy**2)
     ! apply metric here or later? here d is scalar or size(dv,2)
-    forall(i=1:size(dv,1),k=1:size(dv,3)) dv(i,:,k) = dv(i,:,k)/compact_ops%dy
+    !forall(i=1:size(dv,1),k=1:size(dv,3)) dv(i,:,k) = dv(i,:,k)/compact_ops%dy
     ! dv = dv/mesh_data%d2  ! 3D metric
   end subroutine d1y
 
@@ -93,9 +93,9 @@ contains
       if( bc == -1 .and. allocated(compact_ops%d1z(2)%ar) ) iop = 2
     endif
     ! calculate grid derivative sans metric
-    dv = compact_ops%d1z(iop)%evalz(v,vb1,vb2)
+    dv = compact_ops%d1z(iop)%evalz(v,vb1,vb2,scalefac_=1.0d0/compact_ops%dz)
     ! apply metric here or later? here d is scalar or size(dv,3)
-    forall(i=1:size(dv,1),j=1:size(dv,2)) dv(i,j,:) = dv(i,j,:)/compact_ops%dz
+    !forall(i=1:size(dv,1),j=1:size(dv,2)) dv(i,j,:) = dv(i,j,:)/compact_ops%dz
     ! dv = dv/mesh_data%d3  ! 3D metric
   end subroutine d1z
 
@@ -118,14 +118,14 @@ contains
       if( bc == -1 .and. allocated(compact_ops%d2x(2)%ar) ) iop = 2
     endif
     ! calculate grid derivative sans metric
-    dv = compact_ops%d2x(iop)%evalx(v,vb1,vb2)
+    dv = compact_ops%d2x(iop)%evalx(v,vb1,vb2,scalefac_=1.0d0/compact_ops%dx**2)
     ! apply metric here or later? here d is scalar or size(dv,1)
-    !$acc parallel loop collapse(2) copyin(compact_ops) copy(dv)
-    do j=1,size(dv,2)
-    do k=1,size(dv,3)
-      dv(:,j,k) = dv(:,j,k)/compact_ops%dx**2
-    enddo
-    enddo
+    !!$acc parallel loop collapse(2) copyin(compact_ops) copy(dv)
+    !do j=1,size(dv,2)
+    !do k=1,size(dv,3)
+    !  dv(:,j,k) = dv(:,j,k)/compact_ops%dx**2
+    !enddo
+    !enddo
     !forall(j=1:size(dv,2),k=1:size(dv,3)) dv(:,j,k) = dv(:,j,k)/compact_ops%dx**2
     ! dv = dv/mesh_data%d1**2  ! 3D metric
   end subroutine d2x
@@ -149,16 +149,16 @@ contains
       if( bc == -1 .and. allocated(compact_ops%d2y(2)%ar) ) iop = 2
     endif
     ! calculate grid derivative sans metric
-    dv = compact_ops%d2y(iop)%evaly(v,vb1,vb2)
+    dv = compact_ops%d2y(iop)%evaly(v,vb1,vb2,scalefac_=1.0d0/compact_ops%dy**2)
     ! apply metric here or later? here d is scalar or size(dv,2)
-    !$acc parallel loop collapse(3) copy(dv) copyin(compact_ops)
-    do k=1,size(dv,3)
-    do j=1,size(dv,2)
-    do i=1,size(dv,1)
-       dv(i,j,k) = dv(i,j,k)/compact_ops%dy**2
-    enddo
-    enddo
-    enddo
+    !!$acc parallel loop collapse(3) copy(dv) copyin(compact_ops)
+    !do k=1,size(dv,3)
+    !do j=1,size(dv,2)
+    !do i=1,size(dv,1)
+    !   dv(i,j,k) = dv(i,j,k)/compact_ops%dy**2
+    !enddo
+    !enddo
+    !enddo
     !forall(i=1:size(dv,1),k=1:size(dv,3)) dv(i,:,k) = dv(i,:,k)/compact_ops%dy**2
     ! dv = dv/mesh_data%d2**2  ! 3D metric
   end subroutine d2y
@@ -182,16 +182,16 @@ contains
       if( bc == -1 .and. allocated(compact_ops%d2z(2)%ar) ) iop = 2
     endif
     ! calculate grid derivative sans metric
-    dv = compact_ops%d2z(iop)%evalz(v,vb1,vb2)
+    dv = compact_ops%d2z(iop)%evalz(v,vb1,vb2,scalefac_=1.0d0/compact_ops%dz**2)
     ! apply metric here or later? here d is scalar or size(dv,3)
-    !$acc parallel loop collapse(3) copy(dv) copyin(compact_ops)
-    do k=1,size(dv,3)
-    do j=1,size(dv,2)
-    do i=1,size(dv,1)
-       dv(i,j,k) = dv(i,j,k)/compact_ops%dz**2
-    enddo
-    enddo
-    enddo
+    !!$acc parallel loop collapse(3) copy(dv) copyin(compact_ops)
+    !do k=1,size(dv,3)
+    !do j=1,size(dv,2)
+    !do i=1,size(dv,1)
+    !   dv(i,j,k) = dv(i,j,k)/compact_ops%dz**2
+    !enddo
+    !enddo
+    !enddo
     !forall(i=1:size(dv,1),j=1:size(dv,2)) dv(i,j,:) = dv(i,j,:)/compact_ops%dz**2
     ! dv = dv/mesh_data%d3**2  ! 3D metric
   end subroutine d2z

@@ -19,6 +19,10 @@
   interface ptrid_block4_lus
     module procedure ptrid_block4_lus_al
   end interface
+  interface bpentLUS3x
+    module procedure bpentLUS3x_orig
+  !  module procedure bpentLUS3x_alt
+  end interface
 
   contains
 
@@ -195,14 +199,16 @@
     real(kind=c_double), dimension(4,n1,n2,n), intent(inout) :: r
     real(kind=c_double), dimension(4,n1) :: tmp
     integer(c_int) :: i,j,k
-    do k=2,n
+    !$acc parallel loop collapse(2) copyin(a) copy(r)
      do j=1,n2
       do i=1,n1
+    do k=2,n
         r(:,i,j,k) = r(:,i,j,k) - a(:,1,1,k)*r(1,i,j,k-1) - a(:,2,1,k)*r(2,i,j,k-1) &
                                 - a(:,3,1,k)*r(3,i,j,k-1) - a(:,4,1,k)*r(4,i,j,k-1)
       end do
      end do
     end do
+    !$acc parallel loop collapse(2) copyin(a) copy(r) create(tmp)
     do j=1,n2
      do i=1,n1
 	  tmp(:,i) = r(:,i,j,n)
@@ -210,12 +216,13 @@
                  + a(:,3,2,n)*tmp(3,i) + a(:,4,2,n)*tmp(4,i)
      end do
     end do
-    do k=n-1,1,-1
+    !$acc parallel loop collapse(2) copyin(a) copy(r)
      do j=1,n2
       do i=1,n1
-	   tmp(:,i) = r(:,i,j,k) - a(:,1,3,k)*r(1,i,j,k+1) - a(:,2,3,k)*r(2,i,j,k+1)
-       r(:,i,j,k) = a(:,1,2,k)*tmp(1,i) + a(:,2,2,k)*tmp(2,i) &
-                  + a(:,3,2,k)*tmp(3,i) + a(:,4,2,k)*tmp(4,i)
+      do k=n-1,1,-1
+	   tmp(:,k) = r(:,i,j,k) - a(:,1,3,k)*r(1,i,j,k+1) - a(:,2,3,k)*r(2,i,j,k+1)
+       r(:,i,j,k) = a(:,1,2,k)*tmp(1,k) + a(:,2,2,k)*tmp(2,k) &
+                  + a(:,3,2,k)*tmp(3,k) + a(:,4,2,k)*tmp(4,k)
       end do
      end do
     end do
@@ -396,6 +403,7 @@
     real(kind=c_double), dimension(4,n1) :: tmp
     integer(c_int) :: i,j,k
     if (n > 2) then
+    !$acc parallel loop collapse(2) copyin(a) copy(r)
     do j=1,n2
      do i=1,n1
        r(:,i,j,n) = r(:,i,j,n) - a(:,1,4,1)*r(1,i,j,1) - a(:,2,4,1)*r(2,i,j,1)
@@ -606,13 +614,152 @@
   end subroutine ptrid_block4_lus_mm
 
 
-  subroutine bpentLUS3x(c, r, n, n1, n2, n3)
+  subroutine bpentLUS3x_alt(c, r, n, n1, n2, n3)
+    !     This is an experiment. To find more parallelism, we build a matrix
+    !     containing the contribution of each element of the input r vectors
+    !     to the output r vectors. (Note that we're treating each row of r
+    !     (i.e. the values for each given j,k pair, as a unique vector. The 
+    !     contribution matrix (here, x) is the same for all j,k. So, the matrix
+    !     is built once, then applied to all j,k in a single kernel call. This 
+    !     call could also be a call to BLAS or cuBLAS.
+    !
+    !     To enable this function (which is slower overall) change the bpentLUS3x
+    !     interface to call bpentLUS3x_alt.
+    implicit none
+    integer(c_int), intent(in) :: n,n1,n2,n3
+    real(kind=c_double), dimension(n,5), intent(in) :: c
+    real(kind=c_double), dimension(n1,n2,n3), intent(inout) :: r
+    integer(c_int) :: i,j,k,z
+    real(kind=c_double) :: qm1, qm2, thisq !q_(i-1) and q_(i-2)
+
+    real(kind=c_double), dimension(n,n) :: q,p,x
+    real(kind=c_double), dimension(n1,n2,n3) :: rout
+    if( n > n1 ) return
+
+200 FORMAT(' ', 4F10.4)
+!    PRINT *, "c(1:4,1:2): "
+!    WRITE(*,200) c(1:4,1)
+!    WRITE(*,200) c(1:4,2)
+
+    !**** Build the Q matrix ****
+    !**   q(i,j) is the contribution of r(j) to the forward propagated r(i)
+    !**   It can be conceptualized by drawing the contributions thusly
+    !**    (Here, the d coefficients is c(:,1) and the c coefficients are c(:,2) )
+    !**   
+    !**          c8      c7      c6      c5      c4      c3      c2
+    !**          <--     <--     <--     <--     <--     <--     <--
+    !**      ___/   \___/   \___/   \___/   \___/   \___/   \___/   \___  
+    !**     |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   | 
+    !**     | 8 |   | 7 |   | 6 |   | 5 |   | 4 |   | 3 |   | 2 |   | 1 |
+    !**     |___|   |___|   |___|   |___|   |___|   |___|   |___|   |___|
+    !**         \       \   /   \   /   \   /   \   /   \   /       /    
+    !**          \       <-/-----\--     <-/-----\--     <-/--------
+    !**           <--------  d7   <--------   d5  <--------    d3 
+    !**               d8              d6              d4
+    !**
+    !**     So, the coefficient of the contribution of the original r2 to the new r5
+    !**     is c3*c4*c5 + d4*c5 + c3*d5
+    !**     If q(i,j) is the contribution of the original r(j) to the new r(i), then
+    !**     there is a recurrence relation. q(i,j) = c(i)*q(i-1,j) + d(i)*q(i-2,j)
+    !**     
+
+    !$acc parallel loop copyin(c) create(q)
+    do i=1,n
+      qm1 = 1.0
+      qm2 = 0.0
+      do j=1,n
+        if (j.lt.i) THEN
+           q(i,j) = 0.0d0
+        elseif (j.eq.i) THEN
+           q(i,j)= 1.0d0
+        else
+           q(i,j) = -c(j,2)*qm1 - c(j,1)*qm2
+          ! PRINT *, "q(", i, ", ",j, ") = -",c(j,2), " * ", qm1, " + ", c(j,1), " * ", qm2, " = ", q(i,j)
+           qm2 = qm1
+           qm1 = q(i,j)
+        endif 
+      enddo
+    enddo
+
+
+!    PRINT *, "q(", n-3, ":", n,",1:4,1)"
+!    do i=1,4
+!      WRITE(*,200) q(n-3:n,i)
+!    enddo
+
+    !**** Build the P matrix ****
+    !**   p(i,j) is the contribution of r(j) to the backward propagated r(i)
+    !**   Similar to the Q matrix, we represent as follows`
+    !**   
+    !**          f8      f7      f6      f5      f4      f3      f2
+    !**          -->     -->     -->     -->     -->     -->     -->
+    !**      ___/   \___/   \___/   \___/   \___/   \___/   \___/   \___  
+    !**     |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   | 
+    !**     | 8 |   | 7 |   | 6 |   | 5 |   | 4 |   | 3 |   | 2 |   | 1 |
+    !**     |___|   |___|   |___|   |___|   |___|   |___|   |___|   |___|
+    !**         \       \   /   \   /   \   /   \   /   \   /       /    
+    !**          \       --/-----\->     --/-----\->     --/------->
+    !**           -------->  g7   -------->   g5  -------->    g3 
+    !**               g8              g6              g4
+    !**
+    !**     So, the coefficient of the contribution of the original r7 to the new r4
+    !**     is f7*f6*f5 + g7*f5 + f7*g6 
+    !**     In addition, every contribution to node i is modified by multiplying by c(i,3)
+    !**     If p(i,j) is the contribution of the original r(j) to the new r(i), then
+    !**     there is a recurrence relation. p(i,j) = c(i)*p(i-1,j) + d(i)*p(i-2,j)
+
+    !$acc parallel loop copyin(c) create(p) vector_length(64)
+    do i=1,n
+      qm1 = c(i,3)
+      qm2 = 0.0
+      do j=1,n
+        if (j.lt.i) THEN
+           p(j,i) = 0.0d0
+        elseif (j.eq.i) THEN
+           p(j,i)= c(i,3)
+        else
+           p(j,i) = -c(j,3)*c(j-1,4)*qm1 - c(j,3)*c(j-2,5)*qm2
+          ! PRINT *, "q(", i, ", ",j, ") = -",c(j,2), " * ", qm1, " + ", c(j,1), " * ", qm2, " = ", q(i,j)
+           qm2 = qm1
+           qm1 = p(j,i)
+        endif 
+      enddo
+    enddo
+    
+    x=0.0
+    !$acc parallel loop collapse(2) copyin(q,p) create(x)
+    do i=1,n
+    do j=1,n
+       do k=1,n
+          x(i,j) = x(i,j) + q(i,k)*p(k,j)
+       enddo
+    enddo
+    enddo
+    
+    !x = p
+
+    !$acc parallel loop collapse(3) copyin(x,r) create(rout) vector_length(64)
+    do k=1,n3
+    do j=1,n2
+    do i=1,n
+      thisq=0
+      do z=1,n
+         thisq = thisq + x(z,i)*r(z,j,k)
+      enddo
+      rout(i,j,k) = thisq
+    enddo
+    enddo
+    enddo
+    r = rout
+  end subroutine bpentLUS3x_alt
+  subroutine bpentLUS3x_orig(c, r, n, n1, n2, n3)
     implicit none
     integer(c_int), intent(in) :: n,n1,n2,n3
     real(kind=c_double), dimension(n,5), intent(in) :: c
     real(kind=c_double), dimension(n1,n2,n3), intent(inout) :: r
     integer(c_int) :: i,j,k
     if( n > n1 ) return
+    !$acc parallel loop collapse(2) copyin(c) copy(r)
     do k=1,n3
     do j=1,n2
       do i=1,n-2
@@ -626,7 +773,7 @@
       end do
     end do
     end do
-  end subroutine bpentLUS3x
+  end subroutine bpentLUS3x_orig
 
 
   SUBROUTINE ppentLUS3x(c,r,n,n1,n2,n3)
@@ -637,6 +784,7 @@
     real(kind=c_double) :: tmp1,tmp2
     integer(c_int) :: i,j,k
     if( n > n1 ) return
+    !$acc parallel loop gang vector collapse(2) copyin(c,r) copyout(r)
     do k=1,n3
     do j=1,n2
       r(2,j,k)=r(2,j,k)-c(2,2)*r(1,j,k)

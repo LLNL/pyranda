@@ -802,6 +802,7 @@ contains
       endif
     endif
     deallocate( vbs1,vbs2 )
+    !$acc parallel loop collapse(2) copyin(op,vbr1,v,vbr2) copyout(dv)
     do k=1,mz
     do j=1,my
       do i=1,nor
@@ -1145,12 +1146,14 @@ contains
      deallocate( dvop, dvo )
   end function eval_compact_fc1z
 
-  function eval_compact_op1x(op,v,vb1,vb2,dv1,dv2) result(dv)  ! generalized, uses 1D op type
+  function eval_compact_op1x(op,v,vb1,vb2,dv1,dv2,scalefac_) result(dv)  ! generalized, uses 1D op type
     implicit none
     class(compact_op1), intent(in) :: op
     real(kind=c_double), dimension(:,:,:), intent(in) :: v
     real(kind=c_double), dimension(:,:,:), intent(in), optional :: vb1,vb2 ! ghost values
     real(kind=c_double), dimension(:,:), intent(in), optional :: dv1,dv2 ! boundary values
+    real(kind=c_double), optional :: scalefac_
+    real(kind=c_double) :: scalefac
     real(kind=c_double), dimension(size(v,1),size(v,2),size(v,3)) :: dv
     real(kind=c_double), dimension(:,:,:), allocatable :: vbr1,vbr2,vbs1,vbs2
     real(kind=c_double), dimension(:,:,:), allocatable :: dvop
@@ -1163,6 +1166,11 @@ contains
 !      print *,'null op in x'
       RETURN
     END IF
+    IF (present(scalefac_)) THEN
+       scalefac = scalefac_
+    ELSE
+       scalefac = 1.0d0
+    ENDIF
     mx = size(v,1) ; my = size(v,2) ; mz = size(v,3)
     if( mx /= op%m ) then
       print *,'*** error: mismatch in operation size ***',mx,op%m
@@ -1207,17 +1215,20 @@ contains
       endif
     endif
     deallocate( vbs1,vbs2 )
+    !$acc parallel loop copyin(op,v,vbr1,vbr2) copyout(dv)
     do k=1,mz
     do j=1,my
       do i=1,nor
         dv(i,j,k) = sum(op%ar(1:nor-i+1,i)*vbr1(i:nor,j,k))+sum(op%ar(nor-i+2:nr,i)*v(1:i+nir,j,k))
+        dv(i,j,k) = dv(i,j,k) * scalefac
       end do
       do i=nor+1,mx-nor
-        dv(i,j,k) = sum(op%ar(:,i)*v(i-nor:i+nir,j,k))
+        dv(i,j,k) = sum(op%ar(:,i)*v(i-nor:i+nir,j,k)) * scalefac
       end do
       do ii=1,nor
         i = mx-nor+ii
         dv(i,j,k) = sum(op%ar(1:nr-ii,i)*v(i-nir:mx,j,k))+sum(op%ar(nr-ii+1:nr,i)*vbr2(1:ii,j,k))
+        dv(i,j,k) = dv(i,j,k) * scalefac
       end do
     end do
     end do
@@ -1280,12 +1291,14 @@ contains
      deallocate( dvop, dvo )
   end function eval_compact_op1x
 
-  function eval_compact_op1y(op,v,vb1,vb2,dv1,dv2) result(dv)  ! generalized, uses 1D op type
+  function eval_compact_op1y(op,v,vb1,vb2,dv1,dv2,scalefac_) result(dv)  ! generalized, uses 1D op type
     implicit none
     class(compact_op1), intent(in) :: op
     real(kind=c_double), dimension(:,:,:), intent(in) :: v
     real(kind=c_double), dimension(:,:,:), intent(in), optional :: vb1,vb2 ! ghost values
     real(kind=c_double), dimension(:,:), intent(in), optional :: dv1,dv2 ! boundary values
+    real(kind=c_double), optional :: scalefac_
+    real(kind=c_double) :: scalefac
     real(kind=c_double), dimension(size(v,1),size(v,2),size(v,3)) :: dv
     real(kind=c_double), dimension(:,:,:), allocatable :: vbr1,vbr2,vbs1,vbs2
     real(kind=c_double), dimension(:,:,:), allocatable :: dvop
@@ -1298,6 +1311,11 @@ contains
 !      print *,'null op in y'
       RETURN
     END IF
+    IF (present(scalefac_)) THEN
+       scalefac = scalefac_
+    ELSE
+       scalefac = 1.0d0
+    ENDIF
     mx = size(v,1) ; my = size(v,2) ; mz = size(v,3)
     if( my /= op%m ) then
       print *,'*** error: mismatch in operation size ***',my,op%m
@@ -1345,14 +1363,15 @@ contains
     do k=1,mz
     do i=1,mx
       do j=1,nor
-        dv(i,j,k) = sum(op%ar(1:nor-j+1,j)*vbr1(i,j:nor,k))+sum(op%ar(nor-j+2:nr,j)*v(i,1:j+nir,k))
+        dv(i,j,k) = sum(op%ar(1:nor-j+1,j)*vbr1(i,j:nor,k))+sum(op%ar(nor-j+2:nr,j)*v(i,1:j+nir,k)) * scalefac
       end do
       do j=nor+1,my-nor
-        dv(i,j,k) = sum(op%ar(:,j)*v(i,j-nor:j+nir,k))
+        dv(i,j,k) = sum(op%ar(:,j)*v(i,j-nor:j+nir,k)) * scalefac
       end do
       do ii=1,nor
         j = my-nor+ii
         dv(i,j,k) = sum(op%ar(1:nr-ii,j)*v(i,j-nir:my,k))+sum(op%ar(nr-ii+1:nr,j)*vbr2(i,1:ii,k))
+        dv(i,j,k) = dv(i,j,k) * scalefac
       end do
     end do
     end do
@@ -1415,12 +1434,14 @@ contains
      deallocate( dvop, dvo )
   end function eval_compact_op1y
 
-  function eval_compact_op1z(op,v,vb1,vb2,dv1,dv2) result(dv)  ! generalized, uses 1D op type
+  function eval_compact_op1z(op,v,vb1,vb2,dv1,dv2,scalefac_) result(dv)  ! generalized, uses 1D op type
     implicit none
     class(compact_op1), intent(in) :: op
     real(kind=c_double), dimension(:,:,:), intent(in) :: v
     real(kind=c_double), dimension(:,:,:), intent(in), optional :: vb1,vb2 ! ghost values
     real(kind=c_double), dimension(:,:), intent(in), optional :: dv1,dv2 ! boundary values
+    real(kind=c_double), optional :: scalefac_
+    real(kind=c_double) :: scalefac
     real(kind=c_double), dimension(size(v,1),size(v,2),size(v,3)) :: dv
     real(kind=c_double), dimension(:,:,:), allocatable :: vbr1,vbr2,vbs1,vbs2
     real(kind=c_double), dimension(:,:,:), allocatable :: dvop
@@ -1433,6 +1454,11 @@ contains
 !      print *,'null op in z'
       RETURN
     END IF
+    IF (present(scalefac_)) THEN
+       scalefac = scalefac_
+    ELSE
+       scalefac = 1.0d0
+    ENDIF
     mx = size(v,1) ; my = size(v,2) ; mz = size(v,3)
     if( mz /= op%m ) then
       print *,'*** error: mismatch in operation size ***',mz,op%m
@@ -1481,13 +1507,16 @@ contains
     do i=1,mx
       do k=1,nor
         dv(i,j,k) = sum(op%ar(1:nor-k+1,k)*vbr1(i,j,k:nor))+sum(op%ar(nor-k+2:nr,k)*v(i,j,1:k+nir))
+        dv(i,j,k) = dv(i,j,k) * scalefac
       end do
       do k=nor+1,mz-nor
         dv(i,j,k) = sum(op%ar(:,k)*v(i,j,k-nor:k+nir))
+        dv(i,j,k) = dv(i,j,k) * scalefac
       end do
       do ii=1,nor
         k = mz-nor+ii
         dv(i,j,k) = sum(op%ar(1:nr-ii,k)*v(i,j,k-nir:mz))+sum(op%ar(nr-ii+1:nr,k)*vbr2(i,j,1:ii))
+        dv(i,j,k) = dv(i,j,k) * scalefac
       end do
     end do
     end do
@@ -1550,11 +1579,13 @@ contains
      deallocate( dvop, dvo )
   end function eval_compact_op1z
 
-  function eval_compact_op1bx(op,v,vbr1,vbr2) result(dv)  ! generalized, uses 1D op type, ghost cells 
+  function eval_compact_op1bx(op,v,vbr1,vbr2,scalefac_) result(dv)  ! generalized, uses 1D op type, ghost cells 
     implicit none
     class(compact_op1), intent(in) :: op
     real(kind=c_double), dimension(:,:,:), intent(in) :: v
     real(kind=c_double), dimension(:,:,:), intent(in) :: vbr1,vbr2
+    real(kind=c_double), optional :: scalefac_
+    real(kind=c_double) :: scalefac
     real(kind=c_double), dimension(size(v,1),size(v,2),size(v,3)) :: dv
     real(kind=c_double), dimension(:,:,:), allocatable :: dvop
     real(kind=c_double), dimension(:,:,:,:), allocatable :: dvo
@@ -1574,18 +1605,27 @@ contains
 !      print *,'null op in x'
       RETURN
     END IF
+    IF (present(scalefac_)) THEN
+       scalefac = scalefac_
+    ELSE
+       scalefac = 1.0d0
+    ENDIF
     ! explicit part
+    !$acc parallel loop collapse(2) copyin(op,vbr1,v,vbr2) copyout(dv)
     do k=1,mz
     do j=1,my
       do i=1,nor
         dv(i,j,k) = sum(op%ar(1:nor-i+1,i)*vbr1(i:nor,j,k))+sum(op%ar(nor-i+2:nr,i)*v(1:i+nir,j,k))
+        dv(i,j,k) = dv(i,j,k) * scalefac
       end do
       do i=nor+1,mx-nor
         dv(i,j,k) = sum(op%ar(:,i)*v(i-nor:i+nir,j,k))
+        dv(i,j,k) = dv(i,j,k) * scalefac
       end do
       do ii=1,nor
         i = mx-nor+ii
         dv(i,j,k) = sum(op%ar(1:nr-ii,i)*v(i-nir:mx,j,k))+sum(op%ar(nr-ii+1:nr,i)*vbr2(1:ii,j,k))
+        dv(i,j,k) = dv(i,j,k) * scalefac
       end do
     end do
     end do
@@ -1673,12 +1713,14 @@ contains
 
 ! "optimized" d1(t) operators for backward compatibility with matrix.f
 
-  function eval_compact_op1x_d1t(op,v,vb1,vb2,dv1,dv2) result(dv) ! nor=3, nol=2, uses 1D op type
+  function eval_compact_op1x_d1t(op,v,vb1,vb2,dv1,dv2,scalefac_) result(dv) ! nor=3, nol=2, uses 1D op type
     implicit none
     class(compact_op1_d1), intent(in) :: op
     real(kind=c_double), dimension(:,:,:), intent(in) :: v
     real(kind=c_double), dimension(:,:,:), intent(in), optional :: vb1,vb2 ! ghost values
     real(kind=c_double), dimension(:,:), intent(in), optional :: dv1,dv2 ! boundary values
+    real(kind=c_double), optional :: scalefac_
+    real(kind=c_double) :: scalefac
     real(kind=c_double), dimension(size(v,1),size(v,2),size(v,3)) :: dv
     real(kind=c_double), dimension(:,:,:), allocatable :: vbr1,vbr2,vbs1,vbs2
     real(kind=c_double), dimension(:,:,:), allocatable :: dvop
@@ -1693,6 +1735,11 @@ contains
 !      print *,'null op in x'
       RETURN
     END IF
+    IF (present(scalefac_)) THEN
+       scalefac = scalefac_
+    ELSE
+       scalefac = 1.0d0
+    ENDIF
     ax = size(v,1) ; ay = size(v,2) ; az = size(v,3)
     if( ax /= op%m ) then
       print *,'*** error: mismatch in x operation size ***',ax,op%m
@@ -1746,19 +1793,21 @@ contains
 
     if( op%lo == MPI_PROC_NULL ) then ! boundary weights
      if( op%bc(1) == -1 ) then ! this BC is antisymmetric
+     !$acc parallel loop collapse(2) copyin(op,v) copyout(dv)
      do k=1,az
      do j=1,ay
-      dv(1,j,k) = sum(op%art(1,4:7)*v(1:4,j,k))
-      dv(2,j,k) = sum(op%art(2,3:7)*v(1:5,j,k))
-      dv(3,j,k) = sum(op%art(3,2:7)*v(1:6,j,k))
+      dv(1,j,k) = sum(op%art(1,4:7)*v(1:4,j,k))*scalefac
+      dv(2,j,k) = sum(op%art(2,3:7)*v(1:5,j,k))*scalefac
+      dv(3,j,k) = sum(op%art(3,2:7)*v(1:6,j,k))*scalefac
      end do
      end do
      else
      do k=1,az
      do j=1,ay
-      dv(1,j,k) = sum(op%art(1,5:7)*(v(2:4,j,k)-v(1,j,k)))
-      dv(2,j,k) = sum(op%art(2,4:7)*(v(2:5,j,k)-v(1,j,k)))
+      dv(1,j,k) = sum(op%art(1,5:7)*(v(2:4,j,k)-v(1,j,k)))*scalefac
+      dv(2,j,k) = sum(op%art(2,4:7)*(v(2:5,j,k)-v(1,j,k)))*scalefac
       dv(3,j,k) = op%art(3,5)*(v(4,j,k)-v(2,j,k))+op%art(3,6)*(v(5,j,k)-v(1,j,k))+op%art(3,7)*(v(6,j,k)-v(1,j,k))
+      dv(3,j,k) = dv(3,j,k)*scalefac
      end do
      end do
      endif
@@ -1768,6 +1817,9 @@ contains
       dv(1,j,k) = op%art(1,5)*(v(2,j,k)-vbr1(3,j,k))+op%art(1,6)*(v(3,j,k)-vbr1(2,j,k))+op%art(1,7)*(v(4,j,k)-vbr1(1,j,k))
       dv(2,j,k) = op%art(2,5)*(v(3,j,k)-v(1,j,k))+op%art(2,6)*(v(4,j,k)-vbr1(3,j,k))+op%art(2,7)*(v(5,j,k)-vbr1(2,j,k))
       dv(3,j,k) = op%art(3,5)*(v(4,j,k)-v(2,j,k))+op%art(3,6)*(v(5,j,k)-v(1,j,k))+op%art(3,7)*(v(6,j,k)-vbr1(3,j,k))
+      dv(1,j,k) = dv(1,j,k)*scalefac
+      dv(2,j,k) = dv(2,j,k)*scalefac
+      dv(3,j,k) = dv(3,j,k)*scalefac
     end do
      end do
     endif
@@ -1775,6 +1827,7 @@ contains
     do j=1,ay
     do i=4,ax-3
       dv(i,j,k) = op%art(i,5)*(v(i+1,j,k)-v(i-1,j,k))+op%art(i,6)*(v(i+2,j,k)-v(i-2,j,k))+op%art(i,7)*(v(i+3,j,k)-v(i-3,j,k))
+      dv(i,j,k) = dv(i,j,k)*scalefac
     end do
     end do
     end do
@@ -1785,6 +1838,9 @@ contains
       dv(ax-2,j,k) = sum(op%art(ax-2,1:6)*v(ax-5:ax,j,k))
       dv(ax-1,j,k) = sum(op%art(ax-1,1:5)*v(ax-4:ax,j,k))
       dv(ax,j,k)   = sum(op%art(ax,  1:4)*v(ax-3:ax,j,k))
+      dv(ax-2,j,k)   = dv(ax-2,j,k) * scalefac
+      dv(ax-1,j,k)   = dv(ax-1,j,k) * scalefac
+      dv(ax,j,k)   = dv(ax,j,k) * scalefac
      end do
      end do
      else
@@ -1793,6 +1849,9 @@ contains
       dv(ax-2,j,k) = op%art(ax-2,1)*(v(ax-5,j,k)-v(ax,j,k))+op%art(ax-2,2)*(v(ax-4,j,k)-v(ax,j,k))+op%art(ax-2,3)*(v(ax-3,j,k)-v(ax-1,j,k))
       dv(ax-1,j,k) = sum(op%art(ax-1,1:4)*(v(ax-4:ax-1,j,k)-v(ax,j,k)))
       dv(ax,j,k)   = sum(op%art(ax,  1:3)*(v(ax-3:ax-1,j,k)-v(ax,j,k)))
+      dv(ax-2,j,k)   = dv(ax-2,j,k) * scalefac
+      dv(ax-1,j,k)   = dv(ax-1,j,k) * scalefac
+      dv(ax,j,k)   = dv(ax,j,k) * scalefac
      end do
      end do
      endif
@@ -1802,6 +1861,9 @@ contains
       dv(ax-2,j,k) = op%art(ax-2,5)*(v(ax-1,j,k)-v(ax-3,j,k))+op%art(ax-2,6)*(v(ax,j,k)-v(ax-4,j,k))+op%art(ax-2,7)*(vbr2(1,j,k)-v(ax-5,j,k))
       dv(ax-1,j,k) = op%art(ax-1,5)*(v(ax,j,k)-v(ax-2,j,k))+op%art(ax-1,6)*(vbr2(1,j,k)-v(ax-3,j,k))+op%art(ax-1,7)*(vbr2(2,j,k)-v(ax-4,j,k))
       dv(ax,j,k) = op%art(ax,5)*(vbr2(1,j,k)-v(ax-1,j,k))+op%art(ax,6)*(vbr2(2,j,k)-v(ax-2,j,k))+op%art(ax,7)*(vbr2(3,j,k)-v(ax-3,j,k))
+      dv(ax-2,j,k)   = dv(ax-2,j,k) * scalefac
+      dv(ax-1,j,k)   = dv(ax-1,j,k) * scalefac
+      dv(ax,j,k)   = dv(ax,j,k) * scalefac
      end do
      end do
     endif
@@ -1905,12 +1967,14 @@ contains
     endif
   end function eval_compact_op1x_d1t
 
-  function eval_compact_op1x_d1(op,v,vb1,vb2,dv1,dv2) result(dv) ! nor=3, nol=2, uses 1D op type
+  function eval_compact_op1x_d1(op,v,vb1,vb2,dv1,dv2,scalefac_) result(dv) ! nor=3, nol=2, uses 1D op type
     implicit none
     class(compact_op1_d1), intent(in) :: op
     real(kind=c_double), dimension(:,:,:), intent(in) :: v
     real(kind=c_double), dimension(:,:,:), intent(in), optional :: vb1,vb2 ! ghost values
     real(kind=c_double), dimension(:,:), intent(in), optional :: dv1,dv2 ! boundary values
+    real(kind=c_double), optional :: scalefac_
+    real(kind=c_double) :: scalefac
     real(kind=c_double), dimension(size(v,1),size(v,2),size(v,3)) :: dv
     real(kind=c_double), dimension(:,:,:), allocatable :: vbr1,vbr2,vbs1,vbs2
     real(kind=c_double), dimension(:,:,:), allocatable :: dvop
@@ -1925,6 +1989,11 @@ contains
 !      print *,'null op in x'
       RETURN
     END IF
+    IF (present(scalefac_)) THEN
+       scalefac = scalefac_
+    ELSE
+       scalefac = 1.0d0
+    ENDIF
     ax = size(v,1) ; ay = size(v,2) ; az = size(v,3)
     if( ax /= op%m ) then
       print *,'*** error: mismatch in x operation size ***',ax,op%m
@@ -1979,17 +2048,18 @@ contains
      if( op%bc(1) == -1 ) then ! this BC is antisymmetric
      do k=1,az
      do j=1,ay
-      dv(1,j,k) = sum(op%ar(4:7,1)*v(1:4,j,k))
-      dv(2,j,k) = sum(op%ar(3:7,2)*v(1:5,j,k))
-      dv(3,j,k) = sum(op%ar(2:7,3)*v(1:6,j,k))
+      dv(1,j,k) = sum(op%ar(4:7,1)*v(1:4,j,k))*scalefac
+      dv(2,j,k) = sum(op%ar(3:7,2)*v(1:5,j,k))*scalefac
+      dv(3,j,k) = sum(op%ar(2:7,3)*v(1:6,j,k))*scalefac
      end do
      end do
      else
      do k=1,az
      do j=1,ay
-      dv(1,j,k) = sum(op%ar(5:7,1)*(v(2:4,j,k)-v(1,j,k)))
-      dv(2,j,k) = sum(op%ar(4:7,2)*(v(2:5,j,k)-v(1,j,k)))
+      dv(1,j,k) = sum(op%ar(5:7,1)*(v(2:4,j,k)-v(1,j,k)))*scalefac
+      dv(2,j,k) = sum(op%ar(4:7,2)*(v(2:5,j,k)-v(1,j,k)))*scalefac
       dv(3,j,k) = op%ar(5,3)*(v(4,j,k)-v(2,j,k))+op%ar(6,3)*(v(5,j,k)-v(1,j,k))+op%ar(7,3)*(v(6,j,k)-v(1,j,k))
+      dv(3,j,k) = dv(3,j,k) * scalefac
      end do
      end do
      endif
@@ -1999,6 +2069,9 @@ contains
       dv(1,j,k) = op%ar(5,1)*(v(2,j,k)-vbr1(3,j,k))+op%ar(6,1)*(v(3,j,k)-vbr1(2,j,k))+op%ar(7,1)*(v(4,j,k)-vbr1(1,j,k))
       dv(2,j,k) = op%ar(5,2)*(v(3,j,k)-v(1,j,k))+op%ar(6,2)*(v(4,j,k)-vbr1(3,j,k))+op%ar(7,2)*(v(5,j,k)-vbr1(2,j,k))
       dv(3,j,k) = op%ar(5,3)*(v(4,j,k)-v(2,j,k))+op%ar(6,3)*(v(5,j,k)-v(1,j,k))+op%ar(7,3)*(v(6,j,k)-vbr1(3,j,k))
+      dv(1,j,k) = dv(1,j,k) * scalefac
+      dv(2,j,k) = dv(2,j,k) * scalefac
+      dv(3,j,k) = dv(3,j,k) * scalefac
      end do
      end do
     endif
@@ -2006,6 +2079,7 @@ contains
     do j=1,ay
     do i=4,ax-3
       dv(i,j,k) = op%ar(5,i)*(v(i+1,j,k)-v(i-1,j,k))+op%ar(6,i)*(v(i+2,j,k)-v(i-2,j,k))+op%ar(7,i)*(v(i+3,j,k)-v(i-3,j,k))
+      dv(i,j,k) = dv(i,j,k) * scalefac
     end do
     end do
     end do
@@ -2016,6 +2090,9 @@ contains
       dv(ax-2,j,k) = sum(op%ar(1:6,ax-2)*v(ax-5:ax,j,k))
       dv(ax-1,j,k) = sum(op%ar(1:5,ax-1)*v(ax-4:ax,j,k))
       dv(ax,j,k)   = sum(op%ar(1:4,ax  )*v(ax-3:ax,j,k))
+      dv(ax-2,j,k) = dv(ax-2,j,k) * scalefac
+      dv(ax-1,j,k) = dv(ax-1,j,k) * scalefac
+      dv(ax,j,k) = dv(ax,j,k) * scalefac
      end do
      end do
      else
@@ -2024,6 +2101,9 @@ contains
       dv(ax-2,j,k) = op%ar(1,ax-2)*(v(ax-5,j,k)-v(ax,j,k))+op%ar(2,ax-2)*(v(ax-4,j,k)-v(ax,j,k))+op%ar(3,ax-2)*(v(ax-3,j,k)-v(ax-1,j,k))
       dv(ax-1,j,k) = sum(op%ar(1:4,ax-1)*(v(ax-4:ax-1,j,k)-v(ax,j,k)))
       dv(ax,j,k)   = sum(op%ar(1:3,ax  )*(v(ax-3:ax-1,j,k)-v(ax,j,k)))
+      dv(ax-2,j,k) = dv(ax-2,j,k) * scalefac
+      dv(ax-1,j,k) = dv(ax-1,j,k) * scalefac
+      dv(ax,j,k) = dv(ax,j,k) * scalefac
      end do
      end do
      endif
@@ -2033,6 +2113,9 @@ contains
       dv(ax-2,j,k) = op%ar(5,ax-2)*(v(ax-1,j,k)-v(ax-3,j,k))+op%ar(6,ax-2)*(v(ax,j,k)-v(ax-4,j,k))+op%ar(7,ax-2)*(vbr2(1,j,k)-v(ax-5,j,k))
       dv(ax-1,j,k) = op%ar(5,ax-1)*(v(ax,j,k)-v(ax-2,j,k))+op%ar(6,ax-1)*(vbr2(1,j,k)-v(ax-3,j,k))+op%ar(7,ax-1)*(vbr2(2,j,k)-v(ax-4,j,k))
       dv(ax,j,k)   = op%ar(5,ax  )*(vbr2(1,j,k)-v(ax-1,j,k))+op%ar(6,ax)*(vbr2(2,j,k)-v(ax-2,j,k))+op%ar(7,ax  )*(vbr2(3,j,k)-v(ax-3,j,k))
+      dv(ax-2,j,k) = dv(ax-2,j,k) * scalefac
+      dv(ax-1,j,k) = dv(ax-1,j,k) * scalefac
+      dv(ax,j,k) = dv(ax,j,k) * scalefac
      end do
      end do
     endif
@@ -2136,12 +2219,14 @@ contains
     endif
   end function eval_compact_op1x_d1
 
-  function eval_compact_op1y_d1(op,v,vb1,vb2,dv1,dv2) result(dv) ! nor=3, nol=2, uses 1D op type
+  function eval_compact_op1y_d1(op,v,vb1,vb2,dv1,dv2,scalefac_) result(dv) ! nor=3, nol=2, uses 1D op type
     implicit none
     class(compact_op1_d1), intent(in) :: op
     real(kind=c_double), dimension(:,:,:), intent(in) :: v
     real(kind=c_double), dimension(:,:,:), intent(in), optional :: vb1,vb2 ! ghost values
     real(kind=c_double), dimension(:,:), intent(in), optional :: dv1,dv2 ! boundary values
+    real(kind=c_double), optional :: scalefac_
+    real(kind=c_double) :: scalefac
     real(kind=c_double), dimension(size(v,1),size(v,2),size(v,3)) :: dv
     real(kind=c_double), dimension(:,:,:), allocatable :: vbr1,vbr2,vbs1,vbs2
     real(kind=c_double), dimension(:,:,:), allocatable :: dvop
@@ -2154,6 +2239,11 @@ contains
 !      print *,'null op in y'
       RETURN
     END IF
+    IF (present(scalefac_)) THEN
+       scalefac = scalefac_
+    ELSE
+       scalefac = 1.0d0
+    ENDIF
     ax = size(v,1) ; ay = size(v,2) ; az = size(v,3)
     if( ay /= op%m ) then
       print *,'*** error: mismatch in y operation size ***',ax,op%m
@@ -2212,6 +2302,9 @@ contains
       dv(i,1,k) = sum(op%ar(4:7,1)*v(i,1:4,k))
       dv(i,2,k) = sum(op%ar(3:7,2)*v(i,1:5,k))
       dv(i,3,k) = sum(op%ar(2:7,3)*v(i,1:6,k))
+      dv(i,1,k) = dv(i,1,k)*scalefac
+      dv(i,2,k) = dv(i,2,k)*scalefac
+      dv(i,3,k) = dv(i,3,k)*scalefac
      end do
      end do
      else
@@ -2220,6 +2313,9 @@ contains
       dv(i,1,k) = sum(op%ar(5:7,1)*(v(i,2:4,k)-v(i,1,k)))
       dv(i,2,k) = sum(op%ar(4:7,2)*(v(i,2:5,k)-v(i,1,k)))
       dv(i,3,k) = op%ar(5,3)*(v(i,4,k)-v(i,2,k))+op%ar(6,3)*(v(i,5,k)-v(i,1,k))+op%ar(7,3)*(v(i,6,k)-v(i,1,k))
+      dv(i,1,k) = dv(i,1,k)*scalefac
+      dv(i,2,k) = dv(i,2,k)*scalefac
+      dv(i,3,k) = dv(i,3,k)*scalefac
      end do
      end do
      endif
@@ -2229,6 +2325,9 @@ contains
       dv(i,1,k) = op%ar(5,1)*(v(i,2,k)-vbr1(i,3,k))+op%ar(6,1)*(v(i,3,k)-vbr1(i,2,k))+op%ar(7,1)*(v(i,4,k)-vbr1(i,1,k))
       dv(i,2,k) = op%ar(5,2)*(v(i,3,k)-v(i,1,k))+op%ar(6,2)*(v(i,4,k)-vbr1(i,3,k))+op%ar(7,2)*(v(i,5,k)-vbr1(i,2,k))
       dv(i,3,k) = op%ar(5,3)*(v(i,4,k)-v(i,2,k))+op%ar(6,3)*(v(i,5,k)-v(i,1,k))+op%ar(7,3)*(v(i,6,k)-vbr1(i,3,k))
+      dv(i,1,k) = dv(i,1,k)*scalefac
+      dv(i,2,k) = dv(i,2,k)*scalefac
+      dv(i,3,k) = dv(i,3,k)*scalefac
      end do
      end do
     endif
@@ -2236,6 +2335,7 @@ contains
     do j=4,ay-3
     do i=1,ax
       dv(i,j,k) = op%ar(5,j)*(v(i,j+1,k)-v(i,j-1,k))+op%ar(6,j)*(v(i,j+2,k)-v(i,j-2,k))+op%ar(7,j)*(v(i,j+3,k)-v(i,j-3,k))
+      dv(i,j,k) = dv(i,j,k)*scalefac
     end do
     end do
     end do
@@ -2246,6 +2346,9 @@ contains
       dv(i,ay-2,k) = sum(op%ar(1:6,ay-2)*v(i,ay-5:ay,k))
       dv(i,ay-1,k) = sum(op%ar(1:5,ay-1)*v(i,ay-4:ay,k))
       dv(i,ay,k)   = sum(op%ar(1:4,ay  )*v(i,ay-3:ay,k))
+      dv(i,ay-2,k) = dv(i,ay-2,k) * scalefac
+      dv(i,ay-1,k) = dv(i,ay-1,k) * scalefac
+      dv(i,ay,k) = dv(i,ay,k) * scalefac
      end do
      end do
      else
@@ -2254,6 +2357,9 @@ contains
       dv(i,ay-2,k) = op%ar(1,ay-2)*(v(i,ay-5,k)-v(i,ay,k))+op%ar(2,ay-2)*(v(i,ay-4,k)-v(i,ay,k))+op%ar(3,ay-2)*(v(i,ay-3,k)-v(i,ay-1,k))
       dv(i,ay-1,k) = sum(op%ar(1:4,ay-1)*(v(i,ay-4:ay-1,k)-v(i,ay,k)))
       dv(i,ay,k)   = sum(op%ar(1:3,ay  )*(v(i,ay-3:ay-1,k)-v(i,ay,k)))
+      dv(i,ay-2,k) = dv(i,ay-2,k) * scalefac
+      dv(i,ay-1,k) = dv(i,ay-1,k) * scalefac
+      dv(i,ay,k) = dv(i,ay,k) * scalefac
      end do
      end do
      endif
@@ -2263,6 +2369,9 @@ contains
       dv(i,ay-2,k) = op%ar(5,ay-2)*(v(i,ay-1,k)-v(i,ay-3,k))+op%ar(6,ay-2)*(v(i,ay,k)-v(i,ay-4,k))+op%ar(7,ay-2)*(vbr2(i,1,k)-v(i,ay-5,k))
       dv(i,ay-1,k) = op%ar(5,ay-1)*(v(i,ay,k)-v(i,ay-2,k))+op%ar(6,ay-1)*(vbr2(i,1,k)-v(i,ay-3,k))+op%ar(7,ay-1)*(vbr2(i,2,k)-v(i,ay-4,k))
       dv(i,ay,k)   = op%ar(5,ay  )*(vbr2(i,1,k)-v(i,ay-1,k))+op%ar(6,ay)*(vbr2(i,2,k)-v(i,ay-2,k))+op%ar(7,ay  )*(vbr2(i,3,k)-v(i,ay-3,k))
+      dv(i,ay-2,k) = dv(i,ay-2,k) * scalefac
+      dv(i,ay-1,k) = dv(i,ay-1,k) * scalefac
+      dv(i,ay,k) = dv(i,ay,k) * scalefac
      end do
      end do
     endif
@@ -2354,12 +2463,14 @@ contains
     endif
   end function eval_compact_op1y_d1
 
-  function eval_compact_op1z_d1(op,v,vb1,vb2,dv1,dv2) result(dv) ! nor=3, nol=2, uses 1D op type
+  function eval_compact_op1z_d1(op,v,vb1,vb2,dv1,dv2,scalefac_) result(dv) ! nor=3, nol=2, uses 1D op type
     implicit none
     class(compact_op1_d1), intent(in) :: op
     real(kind=c_double), dimension(:,:,:), intent(in) :: v
     real(kind=c_double), dimension(:,:,:), intent(in), optional :: vb1,vb2 ! ghost values
     real(kind=c_double), dimension(:,:), intent(in), optional :: dv1,dv2 ! boundary values
+    real(kind=c_double), optional :: scalefac_
+    real(kind=c_double) :: scalefac
     real(kind=c_double), dimension(size(v,1),size(v,2),size(v,3)) :: dv
     real(kind=c_double), dimension(:,:,:), allocatable :: vbr1,vbr2,vbs1,vbs2
     real(kind=c_double), dimension(:,:,:), allocatable :: dvop
@@ -2372,6 +2483,11 @@ contains
 !      print *,'null op in z'
       RETURN
     END IF
+    IF (present(scalefac_)) THEN
+       scalefac = scalefac_
+    ELSE
+       scalefac = 1.0d0
+    ENDIF
     ax = size(v,1) ; ay = size(v,2) ; az = size(v,3)
     if( az /= op%m ) then
       print *,'*** error: mismatch in z operation size ***',ax,op%m
@@ -2430,6 +2546,9 @@ contains
       dv(i,j,1) = sum(op%ar(4:7,1)*v(i,j,1:4))
       dv(i,j,2) = sum(op%ar(3:7,2)*v(i,j,1:5))
       dv(i,j,3) = sum(op%ar(2:7,3)*v(i,j,1:6))
+      dv(i,j,1) = dv(i,j,1) * scalefac
+      dv(i,j,2) = dv(i,j,2) * scalefac
+      dv(i,j,3) = dv(i,j,3) * scalefac
      end do
      end do
      else
@@ -2438,6 +2557,9 @@ contains
       dv(i,j,1) = sum(op%ar(5:7,1)*(v(i,j,2:4)-v(i,j,1)))
       dv(i,j,2) = sum(op%ar(4:7,2)*(v(i,j,2:5)-v(i,j,1)))
       dv(i,j,3) = op%ar(5,3)*(v(i,j,4)-v(i,j,2))+op%ar(6,3)*(v(i,j,5)-v(i,j,1))+op%ar(7,3)*(v(i,j,6)-v(i,j,1))
+      dv(i,j,1) = dv(i,j,1) * scalefac
+      dv(i,j,2) = dv(i,j,2) * scalefac
+      dv(i,j,3) = dv(i,j,3) * scalefac
      end do
      end do
      endif
@@ -2447,6 +2569,9 @@ contains
       dv(i,j,1) = op%ar(5,1)*(v(i,j,2)-vbr1(i,j,3))+op%ar(6,1)*(v(i,j,3)-vbr1(i,j,2))+op%ar(7,1)*(v(i,j,4)-vbr1(i,j,1))
       dv(i,j,2) = op%ar(5,2)*(v(i,j,3)-v(i,j,1))+op%ar(6,2)*(v(i,j,4)-vbr1(i,j,3))+op%ar(7,2)*(v(i,j,5)-vbr1(i,j,2))
       dv(i,j,3) = op%ar(5,3)*(v(i,j,4)-v(i,j,2))+op%ar(6,3)*(v(i,j,5)-v(i,j,1))+op%ar(7,3)*(v(i,j,6)-vbr1(i,j,3))
+      dv(i,j,1) = dv(i,j,1) * scalefac
+      dv(i,j,2) = dv(i,j,2) * scalefac
+      dv(i,j,3) = dv(i,j,3) * scalefac
      end do
      end do
     endif
@@ -2454,6 +2579,7 @@ contains
     do j=1,ay
     do i=1,ax
       dv(i,j,k) = op%ar(5,k)*(v(i,j,k+1)-v(i,j,k-1))+op%ar(6,k)*(v(i,j,k+2)-v(i,j,k-2))+op%ar(7,k)*(v(i,j,k+3)-v(i,j,k-3))
+      dv(i,j,k) = dv(i,j,k) * scalefac
     end do
     end do
     end do
@@ -2464,6 +2590,9 @@ contains
       dv(i,j,az-2) = sum(op%ar(1:6,az-2)*v(i,j,az-5:az))
       dv(i,j,az-1) = sum(op%ar(1:5,az-1)*v(i,j,az-4:az))
       dv(i,j,az)   = sum(op%ar(1:4,az  )*v(i,j,az-3:az))
+      dv(i,j,az-2) = dv(i,j,az-2) * scalefac
+      dv(i,j,az-1) = dv(i,j,az-1) * scalefac
+      dv(i,j,az) = dv(i,j,az) * scalefac
      end do
      end do
      else
@@ -2472,6 +2601,9 @@ contains
       dv(i,j,az-2) = op%ar(1,az-2)*(v(i,j,az-5)-v(i,j,az))+op%ar(2,az-2)*(v(i,j,az-4)-v(i,j,az))+op%ar(3,az-2)*(v(i,j,az-3)-v(i,j,az-1))
       dv(i,j,az-1) = sum(op%ar(1:4,az-1)*(v(i,j,az-4:az-1)-v(i,j,az)))
       dv(i,j,az)   = sum(op%ar(1:3,az  )*(v(i,j,az-3:az-1)-v(i,j,az)))
+      dv(i,j,az-2) = dv(i,j,az-2) * scalefac
+      dv(i,j,az-1) = dv(i,j,az-1) * scalefac
+      dv(i,j,az) = dv(i,j,az) * scalefac
      end do
      end do
      endif
@@ -2481,6 +2613,9 @@ contains
       dv(i,j,az-2) = op%ar(5,az-2)*(v(i,j,az-1)-v(i,j,az-3))+op%ar(6,az-2)*(v(i,j,az)-v(i,j,az-4))+op%ar(7,az-2)*(vbr2(i,j,1)-v(i,j,az-5))
       dv(i,j,az-1) = op%ar(5,az-1)*(v(i,j,az)-v(i,j,az-2))+op%ar(6,az-1)*(vbr2(i,j,1)-v(i,j,az-3))+op%ar(7,az-1)*(vbr2(i,j,2)-v(i,j,az-4))
       dv(i,j,az)   = op%ar(5,az  )*(vbr2(i,j,1)-v(i,j,az-1))+op%ar(6,az)*(vbr2(i,j,2)-v(i,j,az-2))+op%ar(7,az  )*(vbr2(i,j,3)-v(i,j,az-3))
+      dv(i,j,az-2) = dv(i,j,az-2) * scalefac
+      dv(i,j,az-1) = dv(i,j,az-1) * scalefac
+      dv(i,j,az) = dv(i,j,az) * scalefac
      end do
      end do
     endif
@@ -2573,17 +2708,20 @@ contains
 
 ! "optimized" r3 operators for backward compatibility with matrix.f
 
-  function eval_compact_op1x_r3(op,v,vb1,vb2,dv1,dv2) result(dv) ! nor=3, nol=2, uses 1D op type
+  function eval_compact_op1x_r3(op,v,vb1,vb2,dv1,dv2,scalefac_) result(dv) ! nor=3, nol=2, uses 1D op type
     implicit none
     class(compact_op1_r3), intent(in) :: op
     real(kind=c_double), dimension(:,:,:), intent(in) :: v
     real(kind=c_double), dimension(:,:,:), intent(in), optional :: vb1,vb2 ! ghost values
     real(kind=c_double), dimension(:,:), intent(in), optional :: dv1,dv2 ! boundary values
+    real(kind=c_double), optional :: scalefac_
+    real(kind=c_double) :: scalefac
     real(kind=c_double), dimension(size(v,1),size(v,2),size(v,3)) :: dv
     real(kind=c_double), dimension(:,:,:), allocatable :: vbr1,vbr2,vbs1,vbs2
     real(kind=c_double), dimension(:,:,:), allocatable :: dvop
     real(kind=c_double), dimension(:,:,:,:), allocatable :: dvo
-    integer :: nb,nsr,i,j,k
+    real(kind=c_double) :: tmp
+    integer :: nb,nsr,i,j,k,z
     integer :: ax,ay,az,nor,nir,nr,nol,nl,ni,np  ! surrogates
     IF (op%null_op) THEN
       if( op%null_option == 0 ) dv = zero
@@ -2591,6 +2729,11 @@ contains
 !      print *,'null op in x'
       RETURN
     END IF
+    IF (present(scalefac_)) THEN
+       scalefac = scalefac_
+    ELSE
+       scalefac = 1.0d0
+    ENDIF
     ax = size(v,1) ; ay = size(v,2) ; az = size(v,3)
     if( ax /= op%m ) then
       print *,'*** error: mismatch in x operation size ***',ax,op%m
@@ -2639,12 +2782,16 @@ contains
       endif
     endif
     deallocate( vbs1,vbs2 )
+    if (.true.) THEN
     !$acc parallel loop gang vector collapse(2) copyin(op, vbr1, v) copyout(dv)
     do k=1,az
     do j=1,ay
       dv(1,j,k) = sum(op%ar(1:3,1)*vbr1(1:3,j,k))+sum(op%ar(4:7,1)*v(1:4,j,k))
       dv(2,j,k) = sum(op%ar(1:2,2)*vbr1(2:3,j,k))+sum(op%ar(3:7,2)*v(1:5,j,k))
       dv(3,j,k) = sum(op%ar(1:1,3)*vbr1(3:3,j,k))+sum(op%ar(2:7,3)*v(1:6,j,k))
+      dv(1,j,k) = dv(1,j,k) * scalefac
+      dv(2,j,k) = dv(2,j,k) * scalefac
+      dv(3,j,k) = dv(3,j,k) * scalefac
     end do
     end do
     !$acc parallel loop gang vector collapse(3) copyin(op, v) copyout(dv)
@@ -2652,6 +2799,7 @@ contains
     do j=1,ay
       do i=4,ax-3
         dv(i,j,k) = sum(op%ar(:,i)*v(i-3:i+3,j,k))
+        dv(i,j,k) = dv(i,j,k) * scalefac
       end do
     end do
     end do
@@ -2661,8 +2809,34 @@ contains
       dv(ax-2,j,k) = sum(op%ar(1:6,ax-2)*v(ax-5:ax,j,k))+sum(op%ar(7:7,ax-2)*vbr2(1:1,j,k))
       dv(ax-1,j,k) = sum(op%ar(1:5,ax-1)*v(ax-4:ax,j,k))+sum(op%ar(6:7,ax-1)*vbr2(1:2,j,k))
       dv(ax  ,j,k) = sum(op%ar(1:4,ax  )*v(ax-3:ax,j,k))+sum(op%ar(5:7,ax  )*vbr2(1:3,j,k))
+      dv(ax-2,j,k) = dv(ax-2,j,k) * scalefac
+      dv(ax-1,j,k) = dv(ax-1,j,k) * scalefac
+      dv(ax,j,k) = dv(ax,j,k) * scalefac
     end do
     end do
+    else
+    !        This is an experiment. The above 3 loops are combined. It'll be more branching
+    !        but also more parallelism. It's slower for x, since the branching is within
+    !        warps, but should be faster for y and z. 
+    dv=0.0
+    !$acc parallel loop gang vector collapse(3) copyin(op, v, vbr1, vbr2) create(dv)
+    do k=1,az
+    do j=1,ay
+    do i=1,ax
+        do z=-3,3
+           if (z+i<1) then
+              dv(i,j,k) = dv(i,j,k) + op%ar(z+4,i)*vbr1(z+i+3,j,k)
+           elseif (z+i>ax) then
+              dv(i,j,k) = dv(i,j,k) + op%ar(z+4,i)*vbr2(z+i-ax,j,k)
+           else
+              dv(i,j,k) = dv(i,j,k) + op%ar(z+4,i)*v(z+i,j,k) !sum(op%ar(:,i)*v(i-3:i+3,j,k))
+           endif
+        enddo
+        dv(i,j,k) = dv(i,j,k) * scalefac
+    end do
+    end do
+    end do
+    endif
     deallocate( vbr1,vbr2 )
     ! this is only appropriate for explicit bc
     if( (op%lo == MPI_PROC_NULL) .and. abs(op%bc(1)) /= 1 .and. present(dv1)) dv(1,:,:)=dv1   ! supply lower solution
@@ -2722,12 +2896,14 @@ contains
       deallocate( dvop, dvo )
   end function eval_compact_op1x_r3
 
-  function eval_compact_op1y_r3(op,v,vb1,vb2,dv1,dv2) result(dv) ! nor=3, nol=2, uses 1D op type
+  function eval_compact_op1y_r3(op,v,vb1,vb2,dv1,dv2,scalefac_) result(dv) ! nor=3, nol=2, uses 1D op type
     implicit none
     class(compact_op1_r3), intent(in) :: op
     real(kind=c_double), dimension(:,:,:), intent(in) :: v
     real(kind=c_double), dimension(:,:,:), intent(in), optional :: vb1,vb2 ! ghost values
     real(kind=c_double), dimension(:,:), intent(in), optional :: dv1,dv2 ! boundary values
+    real(kind=c_double), optional :: scalefac_
+    real(kind=c_double) :: scalefac
     real(kind=c_double), dimension(size(v,1),size(v,2),size(v,3)) :: dv
     real(kind=c_double), dimension(:,:,:), allocatable :: vbr1,vbr2,vbs1,vbs2
     real(kind=c_double), dimension(:,:,:), allocatable :: dvop
@@ -2740,6 +2916,11 @@ contains
 !      print *,'null op in y'
       RETURN
     END IF
+    IF (present(scalefac_)) THEN
+       scalefac = scalefac_
+    ELSE
+       scalefac = 1.0d0
+    ENDIF
     ax = size(v,1) ; ay = size(v,2) ; az = size(v,3)
     if( ay /= op%m ) then
       print *,'*** error: mismatch in y operation size ***',ay,op%m
@@ -2794,6 +2975,9 @@ contains
       dv(i,1,k) = sum(op%ar(1:3,1)*vbr1(i,1:3,k))+sum(op%ar(4:7,1)*v(i,1:4,k))
       dv(i,2,k) = sum(op%ar(1:2,2)*vbr1(i,2:3,k))+sum(op%ar(3:7,2)*v(i,1:5,k))
       dv(i,3,k) = sum(op%ar(1:1,3)*vbr1(i,3:3,k))+sum(op%ar(2:7,3)*v(i,1:6,k))
+      dv(i,1,k) = dv(i,1,k) * scalefac
+      dv(i,2,k) = dv(i,2,k) * scalefac
+      dv(i,3,k) = dv(i,3,k) * scalefac
     end do
     end do
     !$acc parallel loop gang vector collapse(3) copyin(op, v) copyout(dv)
@@ -2801,6 +2985,7 @@ contains
     do j=4,ay-3
     do i=1,ax
         dv(i,j,k) = sum(op%ar(:,j)*v(i,j-3:j+3,k))
+        dv(i,j,k) = dv(i,j,k) * scalefac
     end do
     end do
     end do
@@ -2810,6 +2995,9 @@ contains
       dv(i,ay-2,k) = sum(op%ar(1:6,ay-2)*v(i,ay-5:ay,k))+sum(op%ar(7:7,ay-2)*vbr2(i,1:1,k))
       dv(i,ay-1,k) = sum(op%ar(1:5,ay-1)*v(i,ay-4:ay,k))+sum(op%ar(6:7,ay-1)*vbr2(i,1:2,k))
       dv(i,ay  ,k) = sum(op%ar(1:4,ay  )*v(i,ay-3:ay,k))+sum(op%ar(5:7,ay  )*vbr2(i,1:3,k))
+      dv(i,ay-2,k) = dv(i,ay-2,k) * scalefac
+      dv(i,ay-1,k) = dv(i,ay-1,k) * scalefac
+      dv(i,ay,k) = dv(i,ay,k) * scalefac
     end do
     end do
     deallocate( vbr1,vbr2 )
@@ -2871,12 +3059,14 @@ contains
       deallocate( dvop, dvo )
   end function eval_compact_op1y_r3
 
-  function eval_compact_op1z_r3(op,v,vb1,vb2,dv1,dv2) result(dv) ! nor=3, nol=2, uses 1D op type
+  function eval_compact_op1z_r3(op,v,vb1,vb2,dv1,dv2,scalefac_) result(dv) ! nor=3, nol=2, uses 1D op type
     implicit none
     class(compact_op1_r3), intent(in) :: op
     real(kind=c_double), dimension(:,:,:), intent(in) :: v
     real(kind=c_double), dimension(:,:,:), intent(in), optional :: vb1,vb2 ! ghost values
     real(kind=c_double), dimension(:,:), intent(in), optional :: dv1,dv2 ! boundary values
+    real(kind=c_double), optional :: scalefac_
+    real(kind=c_double) :: scalefac
     real(kind=c_double), dimension(size(v,1),size(v,2),size(v,3)) :: dv
     real(kind=c_double), dimension(:,:,:), allocatable :: vbr1,vbr2,vbs1,vbs2
     real(kind=c_double), dimension(:,:,:), allocatable :: dvop
@@ -2889,6 +3079,11 @@ contains
 !      print *,'null op in z'
       RETURN
     END IF
+    IF (present(scalefac_)) THEN
+       scalefac = scalefac_
+    ELSE
+       scalefac = 1.0d0
+    ENDIF
     ax = size(v,1) ; ay = size(v,2) ; az = size(v,3)
     if( az /= op%m ) then
       print *,'*** error: mismatch in z operation size ***',az,op%m
@@ -2943,6 +3138,9 @@ contains
       dv(i,j,1) = sum(op%ar(1:3,1)*vbr1(i,j,1:3))+sum(op%ar(4:7,1)*v(i,j,1:4))
       dv(i,j,2) = sum(op%ar(1:2,2)*vbr1(i,j,2:3))+sum(op%ar(3:7,2)*v(i,j,1:5))
       dv(i,j,3) = sum(op%ar(1:1,3)*vbr1(i,j,3:3))+sum(op%ar(2:7,3)*v(i,j,1:6))
+      dv(i,j,1) = dv(i,j,1) * scalefac
+      dv(i,j,2) = dv(i,j,2) * scalefac
+      dv(i,j,3) = dv(i,j,3) * scalefac
     end do
     end do
     !$acc parallel loop gang vector collapse(3) copyin(op, v) copyout(dv)
@@ -2950,6 +3148,7 @@ contains
     do j=1,ay
     do i=1,ax
         dv(i,j,k) = sum(op%ar(:,k)*v(i,j,k-3:k+3))
+        dv(i,j,k) = dv(i,j,k) * scalefac
     end do
     end do
     end do
@@ -2959,6 +3158,9 @@ contains
       dv(i,j,az-2) = sum(op%ar(1:6,az-2)*v(i,j,az-5:az))+sum(op%ar(7:7,az-2)*vbr2(i,j,1:1))
       dv(i,j,az-1) = sum(op%ar(1:5,az-1)*v(i,j,az-4:az))+sum(op%ar(6:7,az-1)*vbr2(i,j,1:2))
       dv(i,j,az  ) = sum(op%ar(1:4,az  )*v(i,j,az-3:az))+sum(op%ar(5:7,az  )*vbr2(i,j,1:3))
+      dv(i,j,az-2) = dv(i,j,az-2) * scalefac
+      dv(i,j,az-1) = dv(i,j,az-1) * scalefac
+      dv(i,j,az) = dv(i,j,az) * scalefac
     end do
     end do
     deallocate( vbr1,vbr2 )
@@ -2975,10 +3177,19 @@ contains
     if( np == 1 ) return
     ! parallel solver
       allocate( dvop(4,ax,ay), dvo(4,ax,ay,0:np-1) )
-      forall(i=1:ax,j=1:ay,k=1:2) 
+      !$acc parallel loop collapse(3) copyin(dv) copyout(dvop)
+      do k=1,2
+      do j=1,ay
+      do i=1,ax
         dvop(k,i,j) = dv(i,j,k)
         dvop(k+2,i,j) = dv(i,j,az+k-2)
-      end forall
+      enddo
+      enddo
+      enddo
+      !forall(i=1:ax,j=1:ay,k=1:2) 
+      !  dvop(k,i,j) = dv(i,j,k)
+      !  dvop(k+2,i,j) = dv(i,j,az+k-2)
+      !end forall
       if( op%lo == MPI_PROC_NULL ) dvop(1:2,:,:) = zero
       if( op%hi == MPI_PROC_NULL ) dvop(3:4,:,:) = zero
       nsr = size(dvop)
@@ -3022,12 +3233,14 @@ contains
 
 ! "optimized" r4 operators for backward compatibility with matrix.f
 
-  function eval_compact_op1x_r4(op,v,vb1,vb2,dv1,dv2) result(dv) ! nor=4, nol=2, uses 1D op type
+  function eval_compact_op1x_r4(op,v,vb1,vb2,dv1,dv2,scalefac_) result(dv) ! nor=4, nol=2, uses 1D op type
     implicit none
     class(compact_op1_r4), intent(in) :: op
     real(kind=c_double), dimension(:,:,:), intent(in) :: v
     real(kind=c_double), dimension(:,:,:), intent(in), optional :: vb1,vb2 ! ghost values
     real(kind=c_double), dimension(:,:), intent(in), optional :: dv1,dv2 ! boundary values
+    real(kind=c_double), optional :: scalefac_
+    real(kind=c_double) :: scalefac
     real(kind=c_double), dimension(size(v,1),size(v,2),size(v,3)) :: dv
     real(kind=c_double), dimension(:,:,:), allocatable :: vbr1,vbr2,vbs1,vbs2
     real(kind=c_double), dimension(:,:,:), allocatable :: dvop
@@ -3040,6 +3253,11 @@ contains
 !      print *,'null op in x'
       RETURN
     END IF
+    IF (present(scalefac_)) THEN
+       scalefac = scalefac_
+    ELSE
+       scalefac = 1.0d0
+    ENDIF
     ax = size(v,1) ; ay = size(v,2) ; az = size(v,3)
     if( ax /= op%m ) then
       print *,'*** error: mismatch in x operation size ***',ax,op%m
@@ -3094,12 +3312,16 @@ contains
       dv(2,j,k) = sum(op%ar(1:3,2)*vbr1(2:4,j,k))+sum(op%ar(4:9,2)*v(1:6,j,k))
       dv(3,j,k) = sum(op%ar(1:2,3)*vbr1(3:4,j,k))+sum(op%ar(3:9,3)*v(1:7,j,k))
       dv(4,j,k) = sum(op%ar(1:1,4)*vbr1(4:4,j,k))+sum(op%ar(2:9,4)*v(1:8,j,k))
+      dv(1,j,k) = dv(1,j,k) * scalefac
+      dv(2,j,k) = dv(2,j,k) * scalefac
+      dv(3,j,k) = dv(3,j,k) * scalefac
+      dv(4,j,k) = dv(4,j,k) * scalefac
     end do
     end do
     do k=1,az
     do j=1,ay
       do i=5,ax-4
-        dv(i,j,k) = sum(op%ar(1:9,i)*v(i-4:i+4,j,k))
+        dv(i,j,k) = sum(op%ar(1:9,i)*v(i-4:i+4,j,k))*scalefac
       end do
     end do
     end do
@@ -3109,6 +3331,10 @@ contains
       dv(ax-2,j,k) = sum(op%ar(1:7,ax-2)*v(ax-6:ax,j,k))+sum(op%ar(8:9,ax-2)*vbr2(1:2,j,k))
       dv(ax-1,j,k) = sum(op%ar(1:6,ax-1)*v(ax-5:ax,j,k))+sum(op%ar(7:9,ax-1)*vbr2(1:3,j,k))
       dv(ax  ,j,k) = sum(op%ar(1:5,ax  )*v(ax-4:ax,j,k))+sum(op%ar(6:9,ax  )*vbr2(1:4,j,k))
+      dv(ax-3,j,k) = dv(ax-3,j,k) * scalefac
+      dv(ax-2,j,k) = dv(ax-2,j,k) * scalefac
+      dv(ax-1,j,k) = dv(ax-1,j,k) * scalefac
+      dv(ax,j,k) = dv(ax,j,k) * scalefac
     end do
     end do
     deallocate( vbr1,vbr2 )
@@ -3170,12 +3396,14 @@ contains
       deallocate( dvop, dvo )
   end function eval_compact_op1x_r4
 
-  function eval_compact_op1y_r4(op,v,vb1,vb2,dv1,dv2) result(dv) ! nor=4, nol=2, uses 1D op type
+  function eval_compact_op1y_r4(op,v,vb1,vb2,dv1,dv2,scalefac_) result(dv) ! nor=4, nol=2, uses 1D op type
     implicit none
     class(compact_op1_r4), intent(in) :: op
     real(kind=c_double), dimension(:,:,:), intent(in) :: v
     real(kind=c_double), dimension(:,:,:), intent(in), optional :: vb1,vb2 ! ghost values
     real(kind=c_double), dimension(:,:), intent(in), optional :: dv1,dv2 ! boundary values
+    real(kind=c_double), optional :: scalefac_
+    real(kind=c_double) :: scalefac
     real(kind=c_double), dimension(size(v,1),size(v,2),size(v,3)) :: dv
     real(kind=c_double), dimension(:,:,:), allocatable :: vbr1,vbr2,vbs1,vbs2
     real(kind=c_double), dimension(:,:,:), allocatable :: dvop
@@ -3188,6 +3416,11 @@ contains
 !      print *,'null op in y'
       RETURN
     END IF
+    IF (present(scalefac_)) THEN
+       scalefac = scalefac_
+    ELSE
+       scalefac = 1.0d0
+    ENDIF
     ax = size(v,1) ; ay = size(v,2) ; az = size(v,3)
     if( ay /= op%m ) then
       print *,'*** error: mismatch in y operation size ***',ay,op%m
@@ -3242,12 +3475,17 @@ contains
       dv(i,2,k) = sum(op%ar(1:3,2)*vbr1(i,2:4,k))+sum(op%ar(4:9,2)*v(i,1:6,k))
       dv(i,3,k) = sum(op%ar(1:2,3)*vbr1(i,3:4,k))+sum(op%ar(3:9,3)*v(i,1:7,k))
       dv(i,4,k) = sum(op%ar(1:1,4)*vbr1(i,4:4,k))+sum(op%ar(2:9,4)*v(i,1:8,k))
+      dv(i,1,k) = dv(i,1,k) * scalefac
+      dv(i,2,k) = dv(i,2,k) * scalefac
+      dv(i,3,k) = dv(i,3,k) * scalefac
+      dv(i,4,k) = dv(i,4,k) * scalefac
     end do
     end do
     do k=1,az
     do j=5,ay-4
     do i=1,ax
         dv(i,j,k) = sum(op%ar(1:9,j)*v(i,j-4:j+4,k))
+        dv(i,j,k) = dv(i,j,k) * scalefac
     end do
     end do
     end do
@@ -3257,6 +3495,10 @@ contains
       dv(i,ay-2,k) = sum(op%ar(1:7,ay-2)*v(i,ay-6:ay,k))+sum(op%ar(8:9,ay-2)*vbr2(i,1:2,k))
       dv(i,ay-1,k) = sum(op%ar(1:6,ay-1)*v(i,ay-5:ay,k))+sum(op%ar(7:9,ay-1)*vbr2(i,1:3,k))
       dv(i,ay  ,k) = sum(op%ar(1:5,ay  )*v(i,ay-4:ay,k))+sum(op%ar(6:9,ay  )*vbr2(i,1:4,k))
+      dv(i,ay-3,k) = dv(i,ay-3,k) * scalefac
+      dv(i,ay-2,k) = dv(i,ay-2,k) * scalefac
+      dv(i,ay-1,k) = dv(i,ay-1,k) * scalefac
+      dv(i,ay  ,k) = dv(i,ay  ,k) * scalefac
     end do
     end do
     deallocate( vbr1,vbr2 )
@@ -3318,12 +3560,14 @@ contains
       deallocate( dvop, dvo )
   end function eval_compact_op1y_r4
 
-  function eval_compact_op1z_r4(op,v,vb1,vb2,dv1,dv2) result(dv) ! nor=4, nol=2, uses 1D op type
+  function eval_compact_op1z_r4(op,v,vb1,vb2,dv1,dv2,scalefac_) result(dv) ! nor=4, nol=2, uses 1D op type
     implicit none
     class(compact_op1_r4), intent(in) :: op
     real(kind=c_double), dimension(:,:,:), intent(in) :: v
     real(kind=c_double), dimension(:,:,:), intent(in), optional :: vb1,vb2 ! ghost values
     real(kind=c_double), dimension(:,:), intent(in), optional :: dv1,dv2 ! boundary values
+    real(kind=c_double), optional :: scalefac_
+    real(kind=c_double) :: scalefac
     real(kind=c_double), dimension(size(v,1),size(v,2),size(v,3)) :: dv
     real(kind=c_double), dimension(:,:,:), allocatable :: vbr1,vbr2,vbs1,vbs2
     real(kind=c_double), dimension(:,:,:), allocatable :: dvop
@@ -3336,6 +3580,11 @@ contains
 !      print *,'null op in z'
       RETURN
     END IF
+    IF (present(scalefac_)) THEN
+       scalefac = scalefac_
+    ELSE
+       scalefac = 1.0d0
+    ENDIF
     ax = size(v,1) ; ay = size(v,2) ; az = size(v,3)
     if( az /= op%m ) then
       print *,'*** error: mismatch in z operation size ***',az,op%m
@@ -3390,12 +3639,17 @@ contains
       dv(i,j,2) = sum(op%ar(1:3,2)*vbr1(i,j,2:4))+sum(op%ar(4:9,2)*v(i,j,1:6))
       dv(i,j,3) = sum(op%ar(1:2,3)*vbr1(i,j,3:4))+sum(op%ar(3:9,3)*v(i,j,1:7))
       dv(i,j,4) = sum(op%ar(1:1,4)*vbr1(i,j,4:4))+sum(op%ar(2:9,4)*v(i,j,1:8))
+      dv(i,j,1) = dv(i,j,1) * scalefac
+      dv(i,j,2) = dv(i,j,2) * scalefac
+      dv(i,j,3) = dv(i,j,3) * scalefac
+      dv(i,j,4) = dv(i,j,4) * scalefac
     end do
     end do
     do k=5,az-4
     do j=1,ay
     do i=1,ax
         dv(i,j,k) = sum(op%ar(1:9,k)*v(i,j,k-4:k+4))
+        dv(i,j,k) = dv(i,j,k) * scalefac
     end do
     end do
     end do
@@ -3405,6 +3659,10 @@ contains
       dv(i,j,az-2) = sum(op%ar(1:7,az-2)*v(i,j,az-6:az))+sum(op%ar(8:9,az-2)*vbr2(i,j,1:2))
       dv(i,j,az-1) = sum(op%ar(1:6,az-1)*v(i,j,az-5:az))+sum(op%ar(7:9,az-1)*vbr2(i,j,1:3))
       dv(i,j,az  ) = sum(op%ar(1:5,az  )*v(i,j,az-4:az))+sum(op%ar(6:9,az  )*vbr2(i,j,1:4))
+      dv(i,j,az-3) = dv(i,j,az-3) * scalefac
+      dv(i,j,az-2) = dv(i,j,az-2) * scalefac
+      dv(i,j,az-1) = dv(i,j,az-1) * scalefac
+      dv(i,j,az  ) = dv(i,j,az  ) * scalefac
     end do
     end do
     deallocate( vbr1,vbr2 )
