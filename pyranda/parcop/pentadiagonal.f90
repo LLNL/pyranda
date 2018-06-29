@@ -815,19 +815,16 @@
     real(kind=c_double), dimension(n1,n2,n3), intent(inout) :: r
     integer(c_int) :: i,j,k
     if( n > n2 ) return
+    !$acc parallel loop collapse(2) copyin(c) copy(r)
     do k=1,n3
-      do j=1,n-2
-        do i=1,n1
+      do i=1,n1
+        do j=1,n-2
           r(i,j+1,k) = r(i,j+1,k) - r(i,j,k)*c(j+1,2)
           r(i,j+2,k) = r(i,j+2,k) - r(i,j,k)*c(j+2,1)
         end do
-      end do
-      do i=1,n1
         r(i,n,k) = (r(i,n,k) - r(i,n-1,k)*c(n,2))*c(n,3)
         r(i,n-1,k) = (r(i,n-1,k) - c(n-1,4)*r(i,n,k))*c(n-1,3)
-      end do
-      do j=n-2,1,-1 
-       do i=1,n1
+        do j=n-2,1,-1 
           r(i,j,k) = (r(i,j,k) - c(j,4)*r(i,j+1,k) - c(j,5)*r(i,j+2,k))*c(j,3)
         end do
       end do
@@ -904,14 +901,19 @@
     real(kind=c_double), dimension(n1,n2,n3), intent(inout) :: r
     integer(c_int) :: i,j,k
     if( n > n3 ) return
-    do k=1,n-2
-      r(:,:,k+1) = r(:,:,k+1) - r(:,:,k)*c(k+1,2)
-      r(:,:,k+2) = r(:,:,k+2) - r(:,:,k)*c(k+2,1)
+    !$acc parallel loop collapse(2) copyin(c) copy(r)
+    do j=1,n2
+    do i=1,n1
+      do k=1,n-2
+        r(i,j,k+1) = r(i,j,k+1) - r(i,j,k)*c(k+1,2)
+        r(i,j,k+2) = r(i,j,k+2) - r(i,j,k)*c(k+2,1)
+      end do
+      r(i,j,n) = (r(i,j,n) - r(i,j,n-1)*c(n,2))*c(n,3)
+      r(i,j,n-1) = (r(i,j,n-1) - c(n-1,4)*r(i,j,n))*c(n-1,3)
+      do k=n-2,1,-1
+        r(i,j,k) = (r(i,j,k) - c(k,4)*r(i,j,k+1) - c(k,5)*r(i,j,k+2))*c(k,3)
+      end do
     end do
-    r(:,:,n) = (r(:,:,n) - r(:,:,n-1)*c(n,2))*c(n,3)
-    r(:,:,n-1) = (r(:,:,n-1) - c(n-1,4)*r(:,:,n))*c(n-1,3)
-    do k=n-2,1,-1
-      r(:,:,k) = (r(:,:,k) - c(k,4)*r(:,:,k+1) - c(k,5)*r(:,:,k+2))*c(k,3)
     end do
   end subroutine bpentLUS3z
 
