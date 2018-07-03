@@ -116,8 +116,8 @@ PROGRAM test_laplace
      PRINT *, "iter ", i, " of ", iterations
      CALL plaplacian(rho,drho,nx/px,ny/py,nz/pz)    
      IF (.true.) THEN
-        rho(:,:,:) = rho(:,:,:)+0.01*drho(:,:,:)
-        PRINT *, "rho(31, 31, 21) = ", rho(31,31,31)
+        rho(:,:,:) = rho(:,:,:)-0.0001*drho(:,:,:)
+        PRINT *, "rho(31, 31, 21) = ", rho(31,31,21)
      ENDIF
   END DO
   CALL SYSTEM_CLOCK( t2, clock_rate, clock_max)
