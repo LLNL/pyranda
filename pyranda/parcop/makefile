@@ -96,6 +96,7 @@ pgi.fflags   = -fPIC
 ifdef gpu
 pgi.fflags += -ta=tesla:cc70,managed -Minfo=accel
 pgi.ldflags += -ta=tesla:cc70,managed -Minfo=accel
+pgi.extlibs += -lcublas
 endif
 
 default.lopts = -shared
@@ -116,6 +117,7 @@ f2py     ?= $(python) -c 'import numpy.f2py; numpy.f2py.main()'
 fflags   ?= $($(compiler).fflags)
 lopts    ?= $(if $($(compiler).lopts),$($(compiler).lopts),$(default.lopts))
 ldflags  ?= $($(compiler).ldflags)
+extlibs  ?= $($(compiler).extlibs)
 
 ifeq ($(profile),1)
 fflags += -pg
@@ -219,10 +221,10 @@ test-mpi4py:
 	fi
 
 test_pent: libparcop.a parcop.o test_pent.o
-	$(mpif90) $(ldflags) test_pent.o parcop.o libparcop.a -o $@
+	$(mpif90) $(ldflags) test_pent.o parcop.o libparcop.a -o $@ $(extlibs)
 
 test_laplace: libparcop.a parcop.o test_laplace.o
-	$(mpif90) $(ldflags) test_laplace.o parcop.o libparcop.a -o $@
+	$(mpif90) $(ldflags) test_laplace.o parcop.o libparcop.a -o $@ $(extlibs)
 
 info:
 	@echo "systype:    $(systype)"

@@ -23,6 +23,23 @@
     module procedure bpentLUS3x_orig
   !  module procedure bpentLUS3x_alt
   end interface
+  interface cublasDgemm
+     subroutine cublasDgemm(transA, transB, m, n, k, alpha, A, ldA, B, ldB, beta, C, ldC) bind(C,name='cublasDgemm')
+       use iso_c_binding
+       character(1,c_char),value :: transA, transB
+       integer(c_int),value :: m,n,k
+       real(c_double),value :: alpha
+       real(c_double), dimension(ldA,*) :: A
+       integer(c_int),value :: ldA, ldB, ldC
+       real(c_double), dimension(ldB,*) :: B
+       real(c_double),value :: beta
+       real(c_double), dimension(ldC,*) :: C
+
+
+     end subroutine cublasDgemm
+   end interface cublasDgemm
+
+
 
   contains
 
@@ -738,19 +755,24 @@
     
     !x = p
 
-    !$acc parallel loop collapse(3) copyin(x,r) create(rout) vector_length(64)
-    do k=1,n3
-    do j=1,n2
-    do i=1,n
-      thisq=0
-      do z=1,n
-         thisq = thisq + x(z,i)*r(z,j,k)
+    IF (.false.) THEN
+      !$acc parallel loop collapse(3) copyin(x,r) create(rout) vector_length(64)
+      do k=1,n3
+      do j=1,n2
+      do i=1,n
+        thisq=0
+        do z=1,n
+           thisq = thisq + x(z,i)*r(z,j,k)
+        enddo
+        rout(i,j,k) = thisq
       enddo
-      rout(i,j,k) = thisq
-    enddo
-    enddo
-    enddo
-    r = rout
+      enddo
+      enddo
+      r = rout
+    ELSE
+      !CALL cublasDgemm('n','n',n2*n3,n,n,1.0d0,r,n,x,n,1.0d0,r,n)
+      CALL cublasDgemm('n','t',100,100,200,1.0d0,RESHAPE(r,(/n,n2*n3/)),200,x,100, 1.0d0,RESHAPE(r,(/n,n2*n3/)),100)
+    ENDIF
   end subroutine bpentLUS3x_alt
   subroutine bpentLUS3x_orig(c, r, n, n1, n2, n3)
     implicit none
