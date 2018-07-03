@@ -645,13 +645,16 @@
     implicit none
     integer(c_int), intent(in) :: n,n1,n2,n3
     real(kind=c_double), dimension(n,5), intent(in) :: c
-    real(kind=c_double), dimension(n1,n2,n3), intent(inout) :: r
+    real(kind=c_double), dimension(:,:,:), intent(inout), allocatable :: r
     integer(c_int) :: i,j,k,z
     real(kind=c_double) :: qm1, qm2, thisq !q_(i-1) and q_(i-2)
 
-    real(kind=c_double), dimension(n,n) :: q,p,x
+    real(kind=c_double), allocatable, dimension(:,:), managed :: q,p,x
     real(kind=c_double), dimension(n1,n2,n3) :: rout
     if( n > n1 ) return
+    allocate(q(n,n))
+    allocate(p(n,n))
+    allocate(x(n,n))
 
 200 FORMAT(' ', 4F10.4)
 !    PRINT *, "c(1:4,1:2): "
@@ -755,7 +758,7 @@
     
     !x = p
 
-    IF (.false.) THEN
+    IF (.true.) THEN
       !$acc parallel loop collapse(3) copyin(x,r) create(rout) vector_length(64)
       do k=1,n3
       do j=1,n2
@@ -773,6 +776,9 @@
       !CALL cublasDgemm('n','n',n2*n3,n,n,1.0d0,r,n,x,n,1.0d0,r,n)
       CALL cublasDgemm('n','t',100,100,200,1.0d0,RESHAPE(r,(/n,n2*n3/)),200,x,100, 1.0d0,RESHAPE(r,(/n,n2*n3/)),100)
     ENDIF
+    deallocate(q)
+    deallocate(p)
+    deallocate(x)
   end subroutine bpentLUS3x_alt
   subroutine bpentLUS3x_orig(c, r, n, n1, n2, n3)
     implicit none

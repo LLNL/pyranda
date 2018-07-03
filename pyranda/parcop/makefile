@@ -94,8 +94,8 @@ xl.fflags    = -fPIC -qsuppress=cmpmsg -qsuppress=1500-036 -qxlf2003=polymorphic
 xl.lopts     = -qmkshrobj
 pgi.fflags   = -fPIC
 ifdef gpu
-pgi.fflags += -ta=tesla:cc70,managed -Minfo=accel
-pgi.ldflags += -ta=tesla:cc70,managed -Minfo=accel
+pgi.fflags += CUDAROOT=/gpfs/sw/software/CUDA/9.1.85/ -Mcuda -ta=tesla:cc70,managed -Minfo=accel
+pgi.ldflags += CUDAROOT=/gpfs/sw/software/CUDA/9.1.85/ -Mcuda -ta=tesla:cc70,managed -Minfo=accel
 pgi.extlibs += -lcublas
 endif
 
