@@ -1,4 +1,5 @@
 # Run a bunch of test and check answers
+from __future__ import print_function
 import os,sys
 import numpy as npy
 import subprocess
@@ -14,6 +15,10 @@ tests = []    # List of test objects
 dbase = {}    # Dictionary of baselines
 relE  = {}    # Dictionary of relative errors for baselines
 
+# Since Python 3 doesn't have execfile
+def execfile(file_name):
+    exec(compile(open(file_name, "rb").read(), file_name, 'exec'))
+    
 # Add tests here
 execfile('cases/test1DAdvection.py')
 execfile('cases/testIntegration.py')
@@ -46,9 +51,9 @@ for test in tests:
 
         
     cmd = '%s %s %s' % (exe,script,sargs)
-
+    
     out = sexe(cmd,ret_output=True,echo=False)
-    pout = out[1].split('\n')[-2]
+    pout = out[1].decode('utf-8').split('\n')[-2]
     curve = False
     if '.dat' in pout:
         curve = True
@@ -64,6 +69,7 @@ for test in tests:
         
         if curve:
             # Check curve
+            print(baseline, pout)
             diff = checkProfile( baseline, pout)
         else:
             # Check if scalar compare    
@@ -71,17 +77,17 @@ for test in tests:
 
         if diff < rdiff:
             testPass = True
-            print 'Pass: (Rel. Error = %s )' % diff
+            print('Pass: (Rel. Error = %s )' % diff)
             fout = '%s -- %s' % (test.name,pout)
-            print fout
+            print(fout)
             passed += 1
             if curve:
                 sexe("rm %s" % pout,ret_output=False,echo=False)
         else:
             testPass = False
-            print 'Fail: (Rel. Error = %s )' % diff
+            print('Fail: (Rel. Error = %s )' % diff)
             fout = '%s -- %s' % (test.name,pout)
-            print fout
+            print(fout)
             new_baselines += fout + '\n'
             failed += 1
 
@@ -92,20 +98,18 @@ for test in tests:
 
     except:
         testPass = False
-        print 'Fail: (No baseline data found )'
+        print('Fail: (No baseline data found )')
         fout = '%s -- %s' % (test.name,pout)
-        print fout
+        print(fout)
         new_baselines += fout + '\n'
         failed += 1
 
-print "\n\n\n=====Testing Summary======"
-print "Passed: %s" % passed
-print "Failed: %s" % failed
+print("\n\n\n=====Testing Summary======")
+print("Passed: %s" % passed)
+print("Failed: %s" % failed)
 
 if failed > 0:
-    print '\n\n\n===== New baselines ====='
-    print new_baselines
+    print('\n\n\n===== New baselines =====')
+    print(new_baselines)
 
 plt.show()
-    
-        

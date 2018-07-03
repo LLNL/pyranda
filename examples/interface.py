@@ -189,5 +189,5 @@ while tt > time:
 
 
 v2 = ss.PyMPI.zbar( ss.variables['rhoT'].data )
-error = numpy.min( v2[Npts/2:,0] )
+error = numpy.min( v2[int(Npts/2):,0] )
 ss.iprint( error )

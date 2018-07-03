@@ -1,3 +1,4 @@
+from __future__ import print_function
 import sys
 import time
 import numpy 
@@ -74,7 +75,7 @@ if not test:
 if test:
     a_error = numpy.sum( numpy.abs(aa-a_sol) )
     b_error = numpy.sum( numpy.abs(bb-b_sol) )
-    print  a_error
+    print(a_error)
     
 
 
