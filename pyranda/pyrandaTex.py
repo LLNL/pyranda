@@ -12,6 +12,7 @@ import sys,os
 from .pyrandaUtils import *
 import matplotlib.pyplot as plt
 import random
+import getpass
 
 DIR = os.path.dirname(__file__)
 BASE_TEMPLATE = os.path.join(DIR,'latex_template.tex')
@@ -95,7 +96,7 @@ class pyrandaTex:
         self.tMap = self.pySim.get_tMap()
         self.template = BASE_TEMPLATE
 
-        self.user = runCMD(['whoami']).replace('\n','')
+        self.user = getpass.getuser()
 
         self.sections = []
         self.packages = ''
@@ -203,7 +204,7 @@ class pyrandaTex:
 
         except Timeout.Timeout:
             os.chdir( cwd )
-            print "PDF render timed out"
+            print("PDF render timed out")
         #
             
     def showPDF(self):

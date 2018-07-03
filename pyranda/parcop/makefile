@@ -155,8 +155,7 @@ ifeq ($(python.major),2)
 else
 	python.lflags = -lpython$(python.major)
 endif
-#numpy.dir    = $(shell $(python) -c "from sysconfig import get_paths; print(get_paths()['purelib'])")/numpy
-numpy.dir    = $(shell $(python) -c "import numpy; print(numpy.__path__[0])")
+numpy.dir    = $(shell $(python) -c "from sysconfig import get_paths; print(get_paths()['purelib'])")/numpy
 # TODO: python -c "import numpy; print(numpy.__path__)" might be better
 numpy.Iflags = -I$(numpy.dir)/core/include
 f2py.dir     = $(numpy.dir)/f2py/src

@@ -1,3 +1,4 @@
+from __future__ import print_function
 import re
 import sys
 import time
@@ -181,7 +182,7 @@ while time < tstop:
             plt.pause(.001)
 
 if test:
-    print enst
+    print(enst)
             
 #if (ss.PyMPI.master):
 #    plt.figure()
