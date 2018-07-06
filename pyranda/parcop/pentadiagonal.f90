@@ -20,8 +20,8 @@
     module procedure ptrid_block4_lus_al
   end interface
   interface bpentLUS3x
-    module procedure bpentLUS3x_orig
-  !  module procedure bpentLUS3x_alt
+  !  module procedure bpentLUS3x_orig
+    module procedure bpentLUS3x_alt
   end interface
   interface cublasDgemm
      subroutine cublasDgemm(transA, transB, m, n, k, alpha, A, ldA, B, ldB, beta, C, ldC) bind(C,name='cublasDgemm')
@@ -645,17 +645,20 @@
     implicit none
     integer(c_int), intent(in) :: n,n1,n2,n3
     real(kind=c_double), dimension(n,5), intent(in) :: c
-    real(kind=c_double), dimension(:,:,:), intent(inout), allocatable :: r
+    real(kind=c_double), dimension(:,:,:), intent(inout) :: r
     integer(c_int) :: i,j,k,z
     real(kind=c_double) :: qm1, qm2, thisq !q_(i-1) and q_(i-2)
 
     real(kind=c_double), allocatable, dimension(:,:), managed :: q,p,x
     real(kind=c_double), dimension(n1,n2,n3) :: rout
+    PRINT *, "n = ", n
+    PRINT *, "n1 = ", n1
     if( n > n1 ) return
     allocate(q(n,n))
     allocate(p(n,n))
     allocate(x(n,n))
 
+    PRINT *, "bpentLUS3x_alt"
 200 FORMAT(' ', 4F10.4)
 !    PRINT *, "c(1:4,1:2): "
 !    WRITE(*,200) c(1:4,1)
@@ -758,7 +761,7 @@
     
     !x = p
 
-    IF (.true.) THEN
+    IF (.false.) THEN
       !$acc parallel loop collapse(3) copyin(x,r) create(rout) vector_length(64)
       do k=1,n3
       do j=1,n2
@@ -773,8 +776,16 @@
       enddo
       r = rout
     ELSE
-      !CALL cublasDgemm('n','n',n2*n3,n,n,1.0d0,r,n,x,n,1.0d0,r,n)
-      CALL cublasDgemm('n','t',100,100,200,1.0d0,RESHAPE(r,(/n,n2*n3/)),200,x,100, 1.0d0,RESHAPE(r,(/n,n2*n3/)),100)
+      PRINT *, "cublasDgemm"
+      CALL cublasDgemm('t','n',n2*n3,n,n,1.0d0,RESHAPE(r,(/n2*n3,n1/)),n1,x,n, 0.0d0,RESHAPE(rout,(/n2*n3,n1/)),n2*n3)
+      do k=1,n3
+      do j=1,n2
+      do i=1,n1
+         !rout(n2*n3,n1)
+         r(i,j,k) = rout((i-1)*n2*n3+(k-1)*n2+j-1,1,1)
+      enddo
+      enddo
+      enddo
     ENDIF
     deallocate(q)
     deallocate(p)
@@ -787,6 +798,7 @@
     real(kind=c_double), dimension(n1,n2,n3), intent(inout) :: r
     integer(c_int) :: i,j,k
     if( n > n1 ) return
+    PRINT *, "bpentLUS3x_orig"
     !$acc parallel loop collapse(2) copyin(c) copy(r)
     do k=1,n3
     do j=1,n2
