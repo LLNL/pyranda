@@ -94,8 +94,9 @@ xl.fflags    = -fPIC -qsuppress=cmpmsg -qsuppress=1500-036 -qxlf2003=polymorphic
 xl.lopts     = -qmkshrobj
 pgi.fflags   = -fPIC
 ifdef gpu
-pgi.fflags += -ta=tesla:cc70,managed -Minfo=accel
-pgi.ldflags += -ta=tesla:cc70,managed -Minfo=accel
+pgi.fflags += CUDAROOT=/gpfs/sw/software/CUDA/9.1.85/ -ta=tesla:cc70,managed -Minfo=accel -Mcuda
+pgi.ldflags += CUDAROOT=/gpfs/sw/software/CUDA/9.1.85/ -ta=tesla:cc70,managed -Minfo=accel -Mcuda
+pgi.libs += -L/gpfs/sw/software/CUDa/9.1.85/lib64 -lnvToolsExt
 endif
 
 default.lopts = -shared
@@ -116,6 +117,7 @@ f2py     ?= $(python) -c 'import numpy.f2py; numpy.f2py.main()'
 fflags   ?= $($(compiler).fflags)
 lopts    ?= $(if $($(compiler).lopts),$($(compiler).lopts),$(default.lopts))
 ldflags  ?= $($(compiler).ldflags)
+libs     ?= $($(compiler).libs)
 
 ifeq ($(profile),1)
 fflags += -pg
@@ -164,7 +166,12 @@ f2py.Iflags  =-I$(f2py.dir)
 #
 # source order is important because of mod file dependencies
 #
-source = blockmath.o stencils.o patch.o pentadiagonal.o \
+ifdef gpu
+   source = nvtx.o 
+else
+   source = nvtx_stub.o 
+endif
+source += blockmath.o stencils.o patch.o pentadiagonal.o \
 	     comm.o compact.o mesh.o objects.o compact_operators.o \
 			 operators.o
 
@@ -218,10 +225,10 @@ test-mpi4py:
 	fi
 
 test_pent: libparcop.a parcop.o test_pent.o
-	$(mpif90) $(ldflags) test_pent.o parcop.o libparcop.a -o $@
+	$(mpif90) $(ldflags) test_pent.o parcop.o libparcop.a -o $@ $(libs)
 
 test_laplace: libparcop.a parcop.o test_laplace.o
-	$(mpif90) $(ldflags) test_laplace.o parcop.o libparcop.a -o $@
+	$(mpif90) $(ldflags) test_laplace.o parcop.o libparcop.a -o $@ $(libs)
 
 info:
 	@echo "systype:    $(systype)"

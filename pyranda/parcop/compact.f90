@@ -19,6 +19,7 @@ module LES_compact
     bpentLUS3x, ppentLUS3x, bpentLUS3y, ppentLUS3y, bpentLUS3z, ppentLUS3z, &
     btrid_block4_lus, ptrid_block4_lus, btrid_block4_lud, ptrid_block4_lud
   use LES_pentadiagonal, only : bpentLUS2y
+  use nvtx
   IMPLICIT NONE
   INCLUDE "mpif.h"
   REAL(KIND=c_double), PARAMETER :: zero=0.0_c_double, one=1.0_c_double
@@ -1180,9 +1181,12 @@ contains
     nol = op%nol ; nl = op%ncl ; ni = op%nci
     np =  op%np ;  id = op%id
     ! explicit part
+    call nvtxStartRange("evalx: alloc")
     allocate( vbr1(nor,my,mz),vbr2(nor,my,mz) )
 ! ghost data
    allocate( vbs1(nor,my,mz),vbs2(nor,my,mz) )
+   call nvtxEndRange
+   call nvtxStartRange("evalx: bdry")
    if( np > 1 ) then  ! use parallel solver
      vbs2 = v(mx-nor+1:mx,:,:)
      vbs1 = v(1:nor,:,:)
@@ -1214,6 +1218,7 @@ contains
         vbr2 = zero  ! no data or symmetry
       endif
     endif
+    call nvtxEndRange
     deallocate( vbs1,vbs2 )
     !$acc parallel loop copyin(op,v,vbr1,vbr2) copyout(dv)
     do k=1,mz
@@ -2723,6 +2728,7 @@ contains
     real(kind=c_double) :: tmp
     integer :: nb,nsr,i,j,k,z
     integer :: ax,ay,az,nor,nir,nr,nol,nl,ni,np  ! surrogates
+    call nvtxStartRange("evalx: startup")
     IF (op%null_op) THEN
       if( op%null_option == 0 ) dv = zero
       if( op%null_option == 1 ) dv = v
@@ -2747,10 +2753,15 @@ contains
     nol = op%nol ; nl = op%ncl ; ni = op%nci
     np =  op%np
     ! explicit part
+    call nvtxEndRange
+    call nvtxStartRange("evalx: alloc")
     allocate( vbr1(3,ay,az),vbr2(3,ay,az) )
 ! ghost data
     allocate( vbs1(3,ay,az),vbs2(3,ay,az) )
+    call nvtxEndRange
+    call nvtxStartRange("evalx: bdry")
     if( np > 1 ) then  ! use parallel solver
+      call nvtxStartRange("evalx: mpi")
       vbs2 = v(ax-2:ax,:,:)
       vbs1 = v(1:3,:,:)
       nsr = size(vbs1)
@@ -2760,6 +2771,7 @@ contains
       call MPI_Sendrecv( vbs1, nsr, MPI_DOUBLE_PRECISION, op%lo, 1, &
                          vbr2, nsr, MPI_DOUBLE_PRECISION, op%hi, 1, &
                          op%hash, mpistatus, mpierr )
+      call nvtxEndRange
     else if( op%periodic ) then
       vbr1 = v(ax-2:ax,:,:)
       vbr2 = v(1:3,:,:)
@@ -2781,7 +2793,10 @@ contains
         vbr2 = zero  ! no data or symmetry
       endif
     endif
+    call nvtxEndRange
+    call nvtxStartRange("evalx: dealloc")
     deallocate( vbs1,vbs2 )
+    call nvtxEndRange
     if (.true.) THEN
     !$acc parallel loop gang vector collapse(2) copyin(op, vbr1, v) copyout(dv)
     do k=1,az
@@ -2837,7 +2852,9 @@ contains
     end do
     end do
     endif
+    call nvtxStartRange("evalx: dealloc")
     deallocate( vbr1,vbr2 )
+    call nvtxEndRange
     ! this is only appropriate for explicit bc
     if( (op%lo == MPI_PROC_NULL) .and. abs(op%bc(1)) /= 1 .and. present(dv1)) dv(1,:,:)=dv1   ! supply lower solution
     if( (op%hi == MPI_PROC_NULL) .and. abs(op%bc(2)) /= 1 .and. present(dv2)) dv(ax,:,:)=dv2  ! supply upper solution
@@ -2850,7 +2867,10 @@ contains
     endif
     if( np == 1 ) return
     ! parallel solver
+      call nvtxStartRange("evalx: alloc")
       allocate( dvop(4,ay,az), dvo(4,ay,az,0:np-1) )
+      call nvtxEndRange
+      call nvtxStartRange("evalx: bdry")
       forall(i=1:2,j=1:ay,k=1:az) 
         dvop(i,j,k) = dv(i,j,k)
         dvop(i+2,j,k) = dv(ax+i-2,j,k)
@@ -2858,6 +2878,7 @@ contains
       if( op%lo == MPI_PROC_NULL ) dvop(1:2,:,:) = zero
       if( op%hi == MPI_PROC_NULL ) dvop(3:4,:,:) = zero
       nsr = size(dvop)
+      call nvtxEndRange
       select case( op%directcom )
       case( 1 ) ! mpi_allgather
         call mpi_allgather(dvop,nsr,MPI_DOUBLE_PRECISION,dvo,nsr,MPI_DOUBLE_PRECISION,op%hash,mpierr)
