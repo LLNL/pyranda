@@ -232,7 +232,7 @@ class pyrandaSim:
         # Actually compute the Initial Conditions
         for ic in ic_lines:
             ic_mod = ic #+ '+self.emptyScalar()'
-            exec(fortran3d(ic_mod,self.sMap))                           
+            exec(fortran3d(ic_mod,self.sMap))
         
         for ic in ic_lines:
             self.initial_conditions.append( ic )
