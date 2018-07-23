@@ -17,14 +17,22 @@
 #
 # parallel make does not work because of modfile dependencies in the f90 files...
 #
-# TODO: additional f2py flags we might want to look at:
-#  --f77flags=          Specify F77 compiler flags
-#  --f90flags=          Specify F90 compiler flags
-#  --opt=               Specify optimization flags
-#  --arch=              Specify architecture specific optimization flags
-#  --noopt              Compile without optimization
-#  --noarch             Compile without arch-dependent optimization
-#  --debug              Compile with debugging information
+# TODO: it seems like f2py is too fragile for systems and/or compilers that aren't very normal
+# so itstead f2py is just used to generate the wrapper source and we define how to compile
+# that. A config/host file is probably the way to go.
+#
+# it would need:
+# - mpif90
+# - cc
+# - fflags
+#  * position independent code
+#  * free form fortran
+# - c flags
+#  * position independent code
+# - link flags
+#  * shared library option (usually -shared)
+#
+# XXX: anything else??
 #
 
 ifeq ($(SYS_TYPE),)
@@ -43,12 +51,14 @@ chaos_5_x86_64_ib.np_arg       = -n
 toss_3_x86_64_ib.gnu.mpif90   = /usr/tce/packages/mvapich2/mvapich2-2.2-gcc-6.1.0/bin/mpif90
 toss_3_x86_64_ib.intel.mpif90 = /usr/tce/packages/mvapich2/mvapich2-2.2-intel-16.0.3/bin/mpif90
 toss_3_x86_64_ib.clang.mpif90 = /usr/tce/packages/mvapich2/mvapich2-2.2-clang-4.0.0/bin/mpif90
-toss_3_x86_64_ib.python       = /usr/tce/bin/python3
+toss_3_x86_64_ib.pgi.mpif90   = /usr/tce/packages/mvapich2/mvapich2-2.2-pgi-18.1/bin/mpif90
+toss_3_x86_64_ib.python       = /usr/tce/bin/python
 toss_3_x86_64_ib.compiler     = intel
 toss_3_x86_64_ib.mpirun       = srun
 toss_3_x86_64_ib.np_arg       = -n
 
-blueos_3_ppc64le_ib.ibm.mpif90 = /usr/tcetmp/packages/spectrum-mpi/spectrum-mpi-2017.04.03/bin/mpif90
+blueos_3_ppc64le_ib.xl.mpif90  = /usr/tce/packages/spectrum-mpi/spectrum-mpi-2018.04.27-xl-beta-2018.06.01/bin/mpif90
+blueos_3_ppc64le_ib.xl.cc      = /usr/tce/packages/xl/xl-beta-2018.06.01/bin/xlc
 blueos_3_ppc64le_ib.gnu.mpif90 = /usr/tcetmp/bin/mpigfortran
 blueos_3_ppc64le_ib.compiler   = gnu
 blueos_3_ppc64le_ib.python     = /usr/tcetmp/bin/python
@@ -72,7 +82,11 @@ gnu.fflags   = -fPIC -ffree-form -ffree-line-length-0 -fbackslash
 intel.fflags = -fPIC
 # TODO: what are clang's fflags here
 clang.fflags = -fPIC
-xlf.fflags = -fPIC -qsuppress=cmpmsg -qsuppress=1500-036 -qxlf2003=polymorphic -qnosave -qfree=f90 -qsuffix=cpp=f:f=f -qmaxmem=-1
+xl.fflags    = -fPIC -qsuppress=cmpmsg -qsuppress=1500-036 -qxlf2003=polymorphic -qnosave -qfree=f90 -qsuffix=cpp=f:f=f -qmaxmem=-1 -qextname
+xl.lopts     = -qmkshrobj
+pgi.fflags   = -fPIC
+
+default.lopts = -shared
 
 ifeq ($($(systype).compiler),)
 	systype=default
@@ -83,12 +97,12 @@ mpirun   ?= $($(systype).mpirun)
 np_arg   ?= $($(systype).np_arg)
 nprocs   ?= 2
 python   ?= $($(systype).python)
-mpif90   ?= $($(systype).$($(systype).compiler).mpif90)
+cc       ?= $(if $($(systype).$(compiler).cc),$($(systype).$(compiler).cc),cc)
+mpif90   ?= $($(systype).$(compiler).mpif90)
 # make sure we use this python's f2py unless the user wants something else
 f2py     ?= $(python) -c 'import numpy.f2py; numpy.f2py.main()'
-fflags   ?= $(if $($(systype).$($(systype).$(compiler)).fflags)\
-              ,$($(systype).$($(systype).$(compiler)).fflags)\
-              ,$($(compiler).fflags))
+fflags   ?= $($(compiler).fflags)
+lopts    ?= $(if $($(compiler).lopts),$($(compiler).lopts),$(default.lopts))
 
 #
 # The python/mpif90 combination is saved to a file (if the mpi4py integration test passes)
@@ -109,29 +123,67 @@ no_mpirun_verify_cmd = $(python) verify_mpi.py $(mpif90)
 mpirun_verify_cmd    = $(mpirun) $(np_arg) $(nprocs) $(no_mpirun_verify_cmd)
 verify_cmd 				   = $(mpirun_verify_cmd)
 
-exec = fort-test
+#
+# Python and numpy directories for use when building the f2py wrapped module
+# TODO: sysconfig.get_config_vars() has a lot of stuff that might make this better
+#
+python.Iflags = -I$(shell $(python) -c "from sysconfig import get_config_var; print(get_config_var('INCLUDEPY'))")
+python.Lflags = -L$(shell $(python) -c "from sysconfig import get_config_var; print(get_config_var('LIBDIR'))")
+python.major  = $(shell $(python) -c "import sys; print(sys.version_info[0])")
+python.minor  = $(shell $(python) -c "import sys; print(sys.version_info[1])")
+# TODO: a better way (use one of the vars in sysconfig.get_config_vars instead)
+# it's libpython2.7 or libpython3, libpython3.6m
+ifeq ($(python.major),2)
+	python.lflags = -lpython$(python.major).$(python.minor)
+else
+	python.lflags = -lpython$(python.major)
+endif
+numpy.dir    = $(shell $(python) -c "from sysconfig import get_paths; print(get_paths()['purelib'])")/numpy
+# TODO: python -c "import numpy; print(numpy.__path__)" might be better
+numpy.Iflags = -I$(numpy.dir)/core/include
+f2py.dir     = $(numpy.dir)/f2py/src
+f2py.Iflags  =-I$(f2py.dir)
+
+#
+# source order is important because of mod file dependencies
+#
 source = blockmath.o stencils.o patch.o pentadiagonal.o \
-	     comm.o compact.o mesh.o objects.o compact_operators.o operators.o parcop.o
+	     comm.o compact.o mesh.o objects.o compact_operators.o \
+			 operators.o
+
+vpath %.c $(f2py.dir)
 
 .PHONY: clean info test-mpi4py
 
 %.o: %.f90
 	$(mpif90) $(fflags) -c $<
 
-all: parcop.so fort-test
+%.o: %.c
+	$(cc) -fPIC $(python.Iflags) $(numpy.Iflags) $(f2py.Iflags) -c $^
+
+all: parcop.so test_pent
 
 # See nasa's page for reference:
 #	 https://modelingguru.nasa.gov/docs/DOC-2412
-parcop.so: $(verified_target) libparcop.a parcop.f90
-	@$(f2py) \
-		--include-paths . \
-		-c --f90exec=$(mpif90) \
-		libparcop.a \
-		-m parcop \
-		parcop.f90
+#parcop.so: libparcop.a parcop.f90
+#	@$(f2py) \
+#		-c --f90exec=$(mpif90) \
+#		-m parcop \
+#		parcop.f90
 
 libparcop.a: $(source)
 	@ar -ur $@ $(source)
+
+# TODO: is the '2' in of the f2pywrappers2.f90 the major python version?
+#                                        ^
+parcopmodule.c parcop-f2pywrappers2.f90: libparcop.a parcop.o
+	@$(f2py) --lower --wrap-functions -m parcop parcop.f90 --verbose
+
+parcop.so: parcopmodule.o fortranobject.o parcop-f2pywrappers2.o
+	$(mpif90) $(lopts) $(python.Lflags) \
+		parcopmodule.o fortranobject.o parcop.o parcop-f2pywrappers2.o libparcop.a $(python.lflags) \
+		-o parcop.so
+
 
 #
 # Checks to see that the python,mpif90 combo has been verified, if not
@@ -147,8 +199,8 @@ test-mpi4py:
 			{ echo "$(mpif90) failed mpi4py verification"; false; }; \
 	fi
 
-$(exec): test_pent.o libparcop.a
-	$(mpif90) $^ $(fflags) -o $@
+test_pent: libparcop.a parcop.o test_pent.o
+	$(mpif90) test_pent.o parcop.o libparcop.a -o $@
 
 info:
 	@echo "systype:    $(systype)"
@@ -159,6 +211,7 @@ info:
 	@echo "mpirun:     $(mpirun)"
 	@echo "nprocs arg: $(np_arg)"
 	@echo "nprocs:     $(nprocs)"
+	@echo "compiler:   $(compiler)"
 
 clean:
-	rm -rf *.o *.mod $(exec) *.so *.pyf *.pyc libparcop.a fort-test *.dSYM $(verifile)
+	rm -rf *.o *.mod test_pent *.so *.pyf *.pyc libparcop.a *.dSYM $(verifile) parcopmodule.c parcop-f2pywrappers*.f90

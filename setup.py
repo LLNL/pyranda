@@ -56,7 +56,7 @@ class PyrandaMakeMixin():
         ('mpiexec=', None, 'mpi exec command used to verify when verifying the mpi compiler'),
         ('numprocs-arg=', None, 'mpi exec num procs arg used when verifying the mpi compiler'),
         ('numprocs=', None, 'number of procs used when verifying mpi'),
-        ('no-mpi-compiler-check=', None, 'disable checking that the mpi compiler is compatible with mpi4py')
+        ('check-mpi-compatibility', None, 'check that the mpi compiler is compatible with mpi4py'),
     ]
 
     def initialize_options(self):
@@ -65,11 +65,10 @@ class PyrandaMakeMixin():
         self.mpiexec = None
         self.numprocs_arg = None
         self.numprocs = None
-        self.no_mpi_compiler_check = None
+        self.check_mpi_compatibility = None
 
     def finalize_options(self):
-        if self.no_mpi_compiler_check is None:
-            self.no_mpi_compiler_check = False
+        pass
 
     def clean(self):
         print("cleaning up from {} build".format(fortran_module))
@@ -83,17 +82,26 @@ class PyrandaMakeMixin():
     def run(self):
         mpi4py_mpif90 = find_mpi4py_mpif90_compiler()
         python = sys.executable
-        # build lib*.a
+        args = ['make', '-C', fortran_package, 'python={}'.format(python)]
+
+        if self.mpif90 is not None:
+            args.append('mpif90={}'.format(self.mpif90))
+        elif mpi4py_mpif90 is not None:
+            args.append('mpif90={}'.format(mpi4py_mpif90))
+
+        # test mpi X mpi4py compatibility
+        if self.check_mpi_compatibility:
+            print("trying to verify that the mpi compiler is compatible with mpi4py")
+            try:
+                subprocess.check_call(args + ['test-mpi4py'])
+            except subprocess.CalledProcessError:
+                print("mpi verification failed")
+                raise
+            print("mpi verification successful")
+
+        # build the .so module
         print("building {}".format(fortran_module))
         try:
-            # TODO: we shouldn't build in the source directory
-            args = ['make', '-C', fortran_package, 'python={}'.format(python)]
-
-            if self.mpif90 is not None:
-                args.append('mpif90={}'.format(self.mpif90))
-            elif mpi4py_mpif90 is not None:
-                args.append('mpif90={}'.format(mpi4py_mpif90))
-
             if self.fflags is not None:
                 args.append('fflags={}'.format(self.fflags))
             if self.numprocs_arg is not None:
@@ -102,9 +110,8 @@ class PyrandaMakeMixin():
                 args.append('mpirun={}'.format(self.mpiexec))
             if self.numprocs is not None:
                 args.append('numprocs={}'.format(self.numprocs))
-            if self.no_mpi_compiler_check is True:
-                print("skipping mpi4py verification")
-                args.append('verified=yes')
+
+            args.append(fortran_module_lib)
 
             subprocess.check_call(args)
         except subprocess.CalledProcessError:

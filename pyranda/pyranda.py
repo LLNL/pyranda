@@ -8,6 +8,7 @@
 #
 # Written by: Britton J. Olson, olson45@llnl.gov
 ################################################################################
+from __future__ import print_function
 from mpi4py import MPI
 import numpy 
 import re
@@ -38,7 +39,7 @@ class pyrandaSim:
 
         self.meshOptions = meshOptions
 
-        if meshOptions.has_key('type'):
+        if 'type' in meshOptions:
             self.meshType = meshOptions['type']
         else:            
             raise ValueError('No suitable mesh type specified.')
@@ -138,7 +139,7 @@ class pyrandaSim:
             self.nPDE += 1
             self.conserved.append( peq.LHS[0] )
             if len( peq.LHS ) > 1:
-                print 'Warning... only single return values for PDEs allowed'
+                print('Warning... only single return values for PDEs allowed')
                 exit()
         elif peq.kind == 'ALG':
             self.nALG += 1
@@ -202,7 +203,7 @@ class pyrandaSim:
                     nans = True
                     svars += ivar + ' '
             except:
-                print "%s is not a variable" % ivar
+                print("%s is not a variable" % ivar)
                 #import pdb
                 #pdb.set_trace()
         return svars

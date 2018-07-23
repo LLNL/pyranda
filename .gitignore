@@ -1,3 +1,8 @@
 *.mod
-pyranda/parcop/fort-test
+pyranda/parcop/test_pent
+build
+pyranda.egg-info
 *.pyc
+*.o
+*.so
+*.a

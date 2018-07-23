@@ -1,3 +1,4 @@
+from __future__ import print_function
 import sys
 import time
 import numpy 
@@ -93,7 +94,7 @@ while tt > time:
             plt.plot(xx[:,0],error[:,0],'b.-')
             plt.pause(.001)
 
-print numpy.sum( error[:,0] )
+print(numpy.sum( error[:,0] ))
 
             
 
