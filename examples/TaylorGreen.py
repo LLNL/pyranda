@@ -39,11 +39,11 @@ ss.addPackage( pyrandaTimestep(ss) )
 # Define the equations of motion
 eom ="""
 # Primary Equations of motion here
-ddt(:rho:)  =  -ddx(:rho:*:u:)                  - ddy(:rho:*:v:)                  - ddz(:rho:*:w:)
-ddt(:rhou:) =  -ddx(:rhou:*:u: + :p: - :tauxx:) - ddy(:rhou:*:v: - :tauxy:)       - ddz(:rhou:*:w: - :tauxz:)
-ddt(:rhov:) =  -ddx(:rhov:*:u: - :tauxy:)       - ddy(:rhov:*:v: + :p: - :tauyy:) - ddz(:rhov:*:w: - :tauyz:)
-ddt(:rhow:) =  -ddx(:rhow:*:u: - :tauxz:)       - ddy(:rhow:*:v: - :tauyz:)       - ddz(:rhow:*:w: + :p: - :tauzz:)
-ddt(:Et:)   =  -ddx( (:Et: - :tauxx:)*:u: - :tauxy:*:v: - :tauxz:*:w: ) - ddy( (:Et: - :tauyy:)*:v: -:tauxy:*:u: - :tauyz:*:w:) - ddz( (:Et: - :tauzz:)*:w: - :tauxz:*:u: - :tauyz:*:v: )
+ddt(:rho:)  =  -ddx(:rho:*:u:)            - ddy(:rho:*:v:)               - ddz(:rho:*:w:)
+ddt(:rhou:) =  -ddx(:rhou:*:u: - :tauxx:) - ddy(:rhou:*:v: - :tauxy:)    - ddz(:rhou:*:w: - :tauxz:)
+ddt(:rhov:) =  -ddx(:rhov:*:u: - :tauxy:) - ddy(:rhov:*:v: - :tauyy:)    - ddz(:rhov:*:w: - :tauyz:)
+ddt(:rhow:) =  -ddx(:rhow:*:u: - :tauxz:) - ddy(:rhow:*:v: - :tauyz:)    - ddz(:rhow:*:w: - :tauzz:)
+ddt(:Et:)   =  -ddx( (:Et: - :tauxx:)*:u: - :tauxy:*:v: - :tauxz:*:w: )  - ddy( (:Et: - :tauyy:)*:v: -:tauxy:*:u: - :tauyz:*:w:) - ddz( (:Et: - :tauzz:)*:w: - :tauxz:*:u: - :tauyz:*:v: )
 # Conservative filter of the EoM
 :rho:       =  fbar( :rho:  )
 :rhou:      =  fbar( :rhou: )
@@ -72,13 +72,13 @@ ddt(:Et:)   =  -ddx( (:Et: - :tauxx:)*:u: - :tauxy:*:v: - :tauxz:*:w: ) - ddy( (
 :S:         = sqrt( :ux:*:ux: + :vy:*:vy: + :wz:*:wz: + .5*((:uy:+:vx:)**2 + (:uz: + :wx:)**2 + (:vz:+:wy:)**2) )
 :mu:        =  gbar( abs(ring(:S:  )) ) * :rho: * 1.0e-4
 :beta:      =  gbar( abs(ring(:div:)) * :rho: )  * 7.0e-3
-:taudia:    =  (:beta:-2./3.*:mu:) *:div:
-:tauxx:     =  2.0*:mu:*:ux:   + :taudia: - :p:
-:tauyy:     =  2.0*:mu:*:vy:   + :taudia: - :p:
-:tauzz:     =  2.0*:mu:*:wz:   + :taudia: - :p:
-:tauxy:     = :mu:*(:uy:+:vx:) + :taudia:
-:tauxz:     = :mu:*(:uz:+:wx:) + :taudia:
-:tauyz:     = :mu:*(:vz:+:wz:) + :taudia:
+:taudia:    =  (:beta:-2./3.*:mu:) *:div: - :p:
+:tauxx:     =  2.0*:mu:*:ux:   + :taudia:
+:tauyy:     =  2.0*:mu:*:vy:   + :taudia:
+:tauzz:     =  2.0*:mu:*:wz:   + :taudia:
+:tauxy:     = :mu:*(:uy:+:vx:)
+:tauxz:     = :mu:*(:uz:+:wx:)
+:tauyz:     = :mu:*(:vz:+:wz:)
 :cs:  = sqrt( :p: / :rho: * :gamma: )
 :dt: = dt.courant(:u:,:v:,:w:,:cs:)*1.0
 :dt: = numpy.minimum(:dt:,0.2 * dt.diff(:beta:,:rho:))

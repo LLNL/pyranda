@@ -1,6 +1,6 @@
 # Copy and paste baselines here
 baselines = """
-taylorgreen -- 1.00127724838
+taylorgreen -- 1.00106718415
 """
 
 # Update dictionary of baseline scalars
