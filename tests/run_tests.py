@@ -4,7 +4,7 @@ import os,sys
 import numpy as npy
 import subprocess
 from testObj import *
-
+import time
 
 test_dir = os.path.dirname(os.path.abspath(__file__))
 bin_dir  = os.path.join( test_dir, '../bin')
@@ -27,6 +27,7 @@ execfile('cases/test2deuler.py')
 execfile('cases/testCylinder.py')
 execfile('cases/testHeat1D.py')
 execfile('cases/testTaylorGreen.py')
+execfile('cases/testShuOsher.py')
 
 
 summary = ''
@@ -36,6 +37,7 @@ new_baselines = ''
 
 
 # Run tests
+start = time.time()
 for test in tests:
 
     script = os.path.join(root_dir,test.script)
@@ -103,10 +105,11 @@ for test in tests:
         print(fout)
         new_baselines += fout + '\n'
         failed += 1
-
+end = time.time()
 print("\n\n\n=====Testing Summary======")
 print("Passed: %s" % passed)
 print("Failed: %s" % failed)
+print("Time elapsed: %s" % (end-start) )
 
 if failed > 0:
     print('\n\n\n===== New baselines =====')
