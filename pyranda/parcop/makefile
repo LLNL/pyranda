@@ -129,15 +129,9 @@ verify_cmd 				   = $(mpirun_verify_cmd)
 #
 python.Iflags = -I$(shell $(python) -c "from sysconfig import get_config_var; print(get_config_var('INCLUDEPY'))")
 python.Lflags = -L$(shell $(python) -c "from sysconfig import get_config_var; print(get_config_var('LIBDIR'))")
-python.major  = $(shell $(python) -c "import sys; print(sys.version_info[0])")
-python.minor  = $(shell $(python) -c "import sys; print(sys.version_info[1])")
-# TODO: a better way (use one of the vars in sysconfig.get_config_vars instead)
-# it's libpython2.7 or libpython3, libpython3.6m
-ifeq ($(python.major),2)
-	python.lflags = -lpython$(python.major).$(python.minor)
-else
-	python.lflags = -lpython$(python.major)
-endif
+python.ldversion = $(shell $(python) -c "from sysconfig import get_config_var; print(get_config_var('LDVERSION'))")
+python.lflags = -lpython$(python.ldversion)
+
 numpy.dir    = $(shell $(python) -c "from sysconfig import get_paths; print(get_paths()['purelib'])")/numpy
 # TODO: python -c "import numpy; print(numpy.__path__)" might be better
 numpy.Iflags = -I$(numpy.dir)/core/include

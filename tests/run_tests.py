@@ -113,3 +113,5 @@ if failed > 0:
     print(new_baselines)
 
 plt.show()
+
+sys.exit(failed)
