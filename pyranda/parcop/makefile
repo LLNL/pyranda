@@ -129,8 +129,9 @@ verify_cmd 				   = $(mpirun_verify_cmd)
 #
 python.Iflags = -I$(shell $(python) -c "from sysconfig import get_config_var; print(get_config_var('INCLUDEPY'))")
 python.Lflags = -L$(shell $(python) -c "from sysconfig import get_config_var; print(get_config_var('LIBDIR'))")
-python.ldversion = $(shell $(python) -c "from sysconfig import get_config_var; print(get_config_var('LDVERSION'))")
-python.lflags = -lpython$(python.ldversion)
+python.version = $(shell $(python) -c "from sysconfig import get_config_var; print(get_config_var('VERSION'))")
+python.abiflag = $(shell $(python) -c "import sys; print(getattr(sys, 'abiflags', ''))")
+python.lflags = -lpython$(python.version)$(python.abiflag)
 
 numpy.dir    = $(shell $(python) -c "from sysconfig import get_paths; print(get_paths()['purelib'])")/numpy
 # TODO: python -c "import numpy; print(numpy.__path__)" might be better
