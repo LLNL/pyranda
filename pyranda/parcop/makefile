@@ -53,7 +53,7 @@ toss_3_x86_64_ib.intel.mpif90 = /usr/tce/packages/mvapich2/mvapich2-2.2-intel-16
 toss_3_x86_64_ib.clang.mpif90 = /usr/tce/packages/mvapich2/mvapich2-2.2-clang-4.0.0/bin/mpif90
 toss_3_x86_64_ib.pgi.mpif90   = /usr/tce/packages/mvapich2/mvapich2-2.2-pgi-18.1/bin/mpif90
 toss_3_x86_64_ib.python       = /usr/tce/bin/python
-toss_3_x86_64_ib.compiler     = intel
+toss_3_x86_64_ib.compiler     = gnu
 toss_3_x86_64_ib.mpirun       = srun
 toss_3_x86_64_ib.np_arg       = -n
 
@@ -125,24 +125,19 @@ verify_cmd 				   = $(mpirun_verify_cmd)
 
 #
 # Python and numpy directories for use when building the f2py wrapped module
-# TODO: sysconfig.get_config_vars() has a lot of stuff that might make this better
+# TODO: specifying the lib lookup path may be linker-dependent
 #
-python.Iflags = -I$(shell $(python) -c "from sysconfig import get_config_var; print(get_config_var('INCLUDEPY'))")
-python.Lflags = -L$(shell $(python) -c "from sysconfig import get_config_var; print(get_config_var('LIBDIR'))")
-python.major  = $(shell $(python) -c "import sys; print(sys.version_info[0])")
-python.minor  = $(shell $(python) -c "import sys; print(sys.version_info[1])")
-# TODO: a better way (use one of the vars in sysconfig.get_config_vars instead)
-# it's libpython2.7 or libpython3, libpython3.6m
-ifeq ($(python.major),2)
-	python.lflags = -lpython$(python.major).$(python.minor)
-else
-	python.lflags = -lpython$(python.major)
-endif
-numpy.dir    = $(shell $(python) -c "from sysconfig import get_paths; print(get_paths()['purelib'])")/numpy
-# TODO: python -c "import numpy; print(numpy.__path__)" might be better
+python.Iflags  = -I$(shell $(python) -c "from sysconfig import get_config_var; print(get_config_var('INCLUDEPY'))")
+python.libdir  = $(shell $(python) -c "from sysconfig import get_config_var; print(get_config_var('LIBDIR'))")
+python.version = $(shell $(python) -c "from sysconfig import get_config_var; print(get_config_var('VERSION'))")
+python.abiflag = $(shell $(python) -c "import sys; print(getattr(sys,'abiflags',''))")
+python.Lflags  = -L$(python.libdir) -Wl,-R$(python.libdir)
+python.lflags  = -lpython$(python.version)$(python.abiflag)
+
+numpy.dir    = $(shell $(python) -c "import numpy; print(numpy.__path__[0])")
 numpy.Iflags = -I$(numpy.dir)/core/include
 f2py.dir     = $(numpy.dir)/f2py/src
-f2py.Iflags  =-I$(f2py.dir)
+f2py.Iflags  = -I$(f2py.dir)
 
 #
 # source order is important because of mod file dependencies

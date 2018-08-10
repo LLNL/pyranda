@@ -15,7 +15,7 @@ import sys
 import time
 from functools import reduce
 
-import parcop
+from . import parcop
 
 # Global patch/levels to create new instances
 GLOBAL_PATCH = 0
