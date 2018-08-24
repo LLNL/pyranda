@@ -122,6 +122,11 @@ if test == 0:
     results = ss.latex.addSection("Results")
     results.addFigure("Profiles",size=.45)
     results.body = "Here in the figure, we see the final profile of the advection"
+
+    plt.figure()
+    plt.plot( xx[:,0], ((phi-phi2)**2)[:,0,0] )
+    results.addFigure("Error",size=.45)
+    
     
     ss.latex.makeDoc()
     ss.latex.showPDF()
