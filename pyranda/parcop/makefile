@@ -9,29 +9,6 @@
 # Written by: Britton J. Olson, olson45@llnl.gov
 #===================================================================================================
 #
-# It's important to check that mpi4py is using the same mpi as what's used here,
-# there is a test-mpi4py target that will, given a python and mpif90, try to build and load a
-# fortran function from python to verify that the combination is okay.
-# You can run `python -c "import mpi4py;print mpi4py.get_config()"` to see which compilers
-# mpi4py is using, which will let you get at the underlying mpi.
-#
-# parallel make does not work because of modfile dependencies in the f90 files...
-#
-# TODO: it seems like f2py is too fragile for systems and/or compilers that aren't very normal
-# so itstead f2py is just used to generate the wrapper source and we define how to compile
-# that. A config/host file is probably the way to go.
-#
-# it would need:
-# - mpif90
-# - cc
-# - fflags
-#  * position independent code
-#  * free form fortran
-# - c flags
-#  * position independent code
-# - link flags
-#  * shared library option (usually -shared)
-#
 
 # return the first argument if it's defined, otherwise return the second argument
 # usage: $(call use-if,a,b)
@@ -72,7 +49,6 @@ lopts   ?= $(call use-if,$($(fcomp).lopts),-shared)
 
 #
 # Python and numpy directories for use when building the f2py wrapped module
-# TODO: specifying the lib lookup path may be linker-dependent
 #
 python.Iflags  = -I$(shell $(python) -c "from sysconfig import get_config_var; print(get_config_var('INCLUDEPY'))")
 python.libdir  = $(shell $(python) -c "from sysconfig import get_config_var; print(get_config_var('LIBDIR'))")
@@ -109,7 +85,12 @@ all: parcop.so test_pent
 libparcop.a: $(source)
 	@ar -ur $@ $(source)
 
+#
 # TODO: is the '2' in of the f2pywrappers2.f90 the major python version?
+#
+# f2py ended up not working well with certain compilers (ibm, pgi) so
+# instead build the wrapper components using above flags
+#
 parcopmodule.c parcop-f2pywrappers2.f90: libparcop.a parcop.o
 	@$(f2py) --lower --wrap-functions -m parcop parcop.f90 --verbose
 
