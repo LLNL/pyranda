@@ -55,7 +55,7 @@ gnu.fflags   = -fPIC -ffree-form -ffree-line-length-0 -fbackslash
 intel.fflags = -fPIC
 # it's likely that mpiclang is using gfortran
 clang.fflags = $(gnu.fflags)
-ibm.fflags   = -fPIC  -qxlf2003=polymorphic
+ibm.fflags   = -fPIC -qxlf2003=polymorphic
 ibm.lopts    = -qmkshrobj
 pgi.fflags   = -fPIC
 
