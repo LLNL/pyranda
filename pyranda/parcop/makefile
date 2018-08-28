@@ -32,96 +32,43 @@
 # - link flags
 #  * shared library option (usually -shared)
 #
-# XXX: anything else??
-#
 
-ifeq ($(SYS_TYPE),)
-  systype = $(shell uname)
-else
-	systype = $(SYS_TYPE)
-endif
+# return the first argument if it's defined, otherwise return the second argument
+# usage: $(call use-if,a,b)
+use-if = $(if $1,$1,$2)
 
 chaos_5_x86_64_ib.gnu.mpif90   = /collab/usr/gapps/python/build/spack/opt/spack/chaos_5_x86_64_ib/gcc-4.4.7/mpich-3.0.4-evwtvwqv5i2ujysfnivcdtrnppmpcsrg/bin/mpif90
 chaos_5_x86_64_ib.intel.mpif90 = /usr/local/tools/mvapich2-intel-2.2/bin/mpif90
 chaos_5_x86_64_ib.python       = /usr/local/bin/python
-chaos_5_x86_64_ib.compiler     = intel
-chaos_5_x86_64_ib.mpirun       = srun
-chaos_5_x86_64_ib.np_arg       = -n
 
 toss_3_x86_64_ib.gnu.mpif90   = /usr/tce/packages/mvapich2/mvapich2-2.2-gcc-6.1.0/bin/mpif90
 toss_3_x86_64_ib.intel.mpif90 = /usr/tce/packages/mvapich2/mvapich2-2.2-intel-16.0.3/bin/mpif90
 toss_3_x86_64_ib.clang.mpif90 = /usr/tce/packages/mvapich2/mvapich2-2.2-clang-4.0.0/bin/mpif90
 toss_3_x86_64_ib.pgi.mpif90   = /usr/tce/packages/mvapich2/mvapich2-2.2-pgi-18.1/bin/mpif90
 toss_3_x86_64_ib.python       = /usr/tce/bin/python
-toss_3_x86_64_ib.compiler     = gnu
-toss_3_x86_64_ib.mpirun       = srun
-toss_3_x86_64_ib.np_arg       = -n
 
-blueos_3_ppc64le_ib.xl.mpif90  = /usr/tce/packages/spectrum-mpi/spectrum-mpi-2018.04.27-xl-beta-2018.06.01/bin/mpif90
-blueos_3_ppc64le_ib.xl.cc      = /usr/tce/packages/xl/xl-beta-2018.06.01/bin/xlc
+blueos_3_ppc64le_ib.ibm.mpif90 = /usr/tce/packages/spectrum-mpi/spectrum-mpi-2018.04.27-xl-beta-2018.06.01/bin/mpif90
 blueos_3_ppc64le_ib.gnu.mpif90 = /usr/tcetmp/bin/mpigfortran
-blueos_3_ppc64le_ib.compiler   = gnu
 blueos_3_ppc64le_ib.python     = /usr/tcetmp/bin/python
-blueos_3_ppc64le_ib.mpirun     = mpirun
-blueos_3_ppc64le_ib.np_arg     = -n
-
-Darwin.gnu.mpif90 = $(shell which mpif90)
-Darwin.python     = $(shell which python)
-Darwin.compiler   = gnu
-Darwin.mpirun     = mpirun
-Darwin.np_arg     = -n
-
-# if the systype.compiler is empty setup will use the following:
-default.gnu.mpif90 = $(shell which mpif90)
-default.python     = $(shell which python)
-default.compiler   = gnu
-default.mpirun     = $(shell which mpirun)
-default.np_arg     = -n
 
 gnu.fflags   = -fPIC -ffree-form -ffree-line-length-0 -fbackslash
 intel.fflags = -fPIC
-# TODO: what are clang's fflags here
-clang.fflags = -fPIC
-xl.fflags    = -fPIC -qsuppress=cmpmsg -qsuppress=1500-036 -qxlf2003=polymorphic -qnosave -qfree=f90 -qsuffix=cpp=f:f=f -qmaxmem=-1 -qextname
-xl.lopts     = -qmkshrobj
+# it's likely that mpiclang is using gfortran
+clang.fflags = $(gnu.fflags)
+ibm.fflags   = -fPIC  -qxlf2003=polymorphic
+ibm.lopts    = -qmkshrobj
 pgi.fflags   = -fPIC
 
-default.lopts = -shared
-
-ifeq ($($(systype).compiler),)
-	systype=default
-endif
-
-compiler ?= $($(systype).compiler)
-mpirun   ?= $($(systype).mpirun)
-np_arg   ?= $($(systype).np_arg)
-nprocs   ?= 2
-python   ?= $($(systype).python)
-cc       ?= $(if $($(systype).$(compiler).cc),$($(systype).$(compiler).cc),cc)
-mpif90   ?= $($(systype).$(compiler).mpif90)
+sys_type = $(call use-if,$(SYS_TYPE),$(shell uname))
+python  ?= $(call use-if,$($(compiler).$(sys_type).python),$(shell which python))
+mpif90  ?= $(call use-if,$($(sys_type).$(compiler).mpif90),$(shell which mpif90))
+fcomp   ?= $(call use-if,$(compiler),$(shell ./vendor.sh $(mpif90)))
+mpicc   ?= $(dir $(mpif90))mpicc
+ccomp   ?= $(call use-if,$(compiler),$(shell ./vendor.sh $(mpicc)))
 # make sure we use this python's f2py unless the user wants something else
-f2py     ?= $(python) -c 'import numpy.f2py; numpy.f2py.main()'
-fflags   ?= $($(compiler).fflags)
-lopts    ?= $(if $($(compiler).lopts),$($(compiler).lopts),$(default.lopts))
-
-#
-# The python/mpif90 combination is saved to a file (if the mpi4py integration test passes)
-# so that we don't have to test everytime a user calls make.
-# the parcop.so target only uses the test-mpi4py target if the py/mpi combo hasn't 
-# been verified, otherwise it always rebuilds because test-mpi4py is never "up-to-date".
-#
-verifile  = verified_compiler
-verinfo   = "$(python),$(mpif90)"
-verified ?= $(if $(shell test -f $(verifile) && \
-					 test "`cat $(verifile)`" = "$(verinfo)" && echo "yes")\
-					 ,yes,no)
-ifneq ($(verified),yes)
-	verified_target=test-mpi4py
-endif
-
-no_mpirun_verify_cmd = $(python) verify_mpi.py $(mpif90)
-mpirun_verify_cmd    = $(mpirun) $(np_arg) $(nprocs) $(no_mpirun_verify_cmd)
-verify_cmd 				   = $(mpirun_verify_cmd)
+f2py    ?= $(python) -c 'import numpy.f2py; numpy.f2py.main()'
+fflags  ?= $($(fcomp).fflags)
+lopts   ?= $(call use-if,$($(fcomp).lopts),-shared)
 
 #
 # Python and numpy directories for use when building the f2py wrapped module
@@ -131,7 +78,8 @@ python.Iflags  = -I$(shell $(python) -c "from sysconfig import get_config_var; p
 python.libdir  = $(shell $(python) -c "from sysconfig import get_config_var; print(get_config_var('LIBDIR'))")
 python.version = $(shell $(python) -c "from sysconfig import get_config_var; print(get_config_var('VERSION'))")
 python.abiflag = $(shell $(python) -c "import sys; print(getattr(sys,'abiflags',''))")
-python.Lflags  = -L$(python.libdir) -Wl,-R$(python.libdir)
+#python.Lflags  = -L$(python.libdir) -Wl,-R$(python.libdir)
+python.Lflags  = -L$(python.libdir) -Wl,-rpath $(python.libdir)
 python.lflags  = -lpython$(python.version)$(python.abiflag)
 
 numpy.dir    = $(shell $(python) -c "import numpy; print(numpy.__path__[0])")
@@ -148,29 +96,20 @@ source = blockmath.o stencils.o patch.o pentadiagonal.o \
 
 vpath %.c $(f2py.dir)
 
-.PHONY: clean info test-mpi4py
+.PHONY: clean info
 
 %.o: %.f90
 	$(mpif90) $(fflags) -c $<
 
 %.o: %.c
-	$(cc) -fPIC $(python.Iflags) $(numpy.Iflags) $(f2py.Iflags) -c $^
+	$(mpicc) -fPIC $(python.Iflags) $(numpy.Iflags) $(f2py.Iflags) -c $^
 
 all: parcop.so test_pent
-
-# See nasa's page for reference:
-#	 https://modelingguru.nasa.gov/docs/DOC-2412
-#parcop.so: libparcop.a parcop.f90
-#	@$(f2py) \
-#		-c --f90exec=$(mpif90) \
-#		-m parcop \
-#		parcop.f90
 
 libparcop.a: $(source)
 	@ar -ur $@ $(source)
 
 # TODO: is the '2' in of the f2pywrappers2.f90 the major python version?
-#                                        ^
 parcopmodule.c parcop-f2pywrappers2.f90: libparcop.a parcop.o
 	@$(f2py) --lower --wrap-functions -m parcop parcop.f90 --verbose
 
@@ -179,34 +118,18 @@ parcop.so: parcopmodule.o fortranobject.o parcop-f2pywrappers2.o
 		parcopmodule.o fortranobject.o parcop.o parcop-f2pywrappers2.o libparcop.a $(python.lflags) \
 		-o parcop.so
 
-
-#
-# Checks to see that the python,mpif90 combo has been verified, if not
-# try to verify. If the verification is successful write the combo to the
-# "verifile" otherwise fail
-#
-test-mpi4py:
-	@if [ "$(verified)" = "yes" ]; then \
-		echo "compiler already verified"; \
-	else \
-		echo "running: $(verify_cmd)"; \
-		$(verify_cmd) && { echo "$(verinfo)" > $(verifile); echo "$(mpif90) verified"; } || \
-			{ echo "$(mpif90) failed mpi4py verification"; false; }; \
-	fi
-
 test_pent: libparcop.a parcop.o test_pent.o
 	$(mpif90) test_pent.o parcop.o libparcop.a -o $@
 
 info:
-	@echo "systype:    $(systype)"
-	@echo "python:     $(python) - verified: $(verified)"
-	@echo "mpif90:     $(mpif90) - verified: $(verified)"
-	@echo "f2py:       $(f2py)"
-	@echo "fflags:     $(fflags)"
-	@echo "mpirun:     $(mpirun)"
-	@echo "nprocs arg: $(np_arg)"
-	@echo "nprocs:     $(nprocs)"
-	@echo "compiler:   $(compiler)"
+	@echo "sys_type:  $(sys_type)"
+	@echo "python:    $(python)"
+	@echo "mpif90:    $(mpif90)"
+	@echo "mpicc:     $(mpicc)"
+	@echo "f2py:      $(f2py)"
+	@echo "fflags:    $(fflags)"
+	@echo "fcompiler: $(fcomp)"
+	@echo "ccompiler: $(ccomp)"
 
 clean:
-	rm -rf *.o *.mod test_pent *.so *.pyf *.pyc libparcop.a *.dSYM $(verifile) parcopmodule.c parcop-f2pywrappers*.f90
+	rm -rf *.o *.mod test_pent *.so *.pyf *.pyc libparcop.a *.dSYM parcopmodule.c parcop-f2pywrappers*.f90
