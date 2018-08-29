@@ -118,7 +118,11 @@ class pyrandaTex:
                     equations.append( eq.eqstr )
         elif (kind == "IC"):
             equations = self.pySim.initial_conditions
-
+        elif (kind == "ALG"):
+            for eq in self.pySim.equations:
+                if eq.kind == kind:
+                    equations.append( eq.eqstr )
+            
         
         # Loop over the equations of motion
         #   and return its latex string
@@ -211,4 +215,15 @@ class pyrandaTex:
 
         if self.pdfFile:
 
-            err = runCMD(['xpdf',self.pdfFile])
+            try:
+                err = runCMD(['xpdf',self.pdfFile])
+                return
+            except:
+                print("Error: 'xpdf' not found")
+
+            try:
+                err = runCMD(['open',self.pdfFile])
+                return
+            except:
+                print("Error: 'open' not found")
+

@@ -106,13 +106,13 @@ eps = 2.0e-1
                 plt.title(pvar)
                 plt.pause(.001)
 
-    return [xx[:,0],v[:,0]]
+    return [ss,xx[:,0],v[:,0]]
 
 
 Npts = [100,200,400,800]
 solution = []
 for Npt in Npts:
-    [x,rho] = getShu(Npt)
+    [ss,x,rho] = getShu(Npt)
     solution.append(  numpy.interp( 1.85 , x, rho )  )
     if not test:
         plt.plot( x, rho , label='N=%s'%Npt)
@@ -125,5 +125,44 @@ cr2 = numpy.log ( diff[-2] / diff[-3] ) / numpy.log( .5 )
 print( (cr1 + cr2) / 2.0 )
 
 if not test:
+    
+    # Make a tex file
+    ss.setupLatex()
+
+    ss.latex.tMap[":rho:"] = r'\rho '
+    ss.latex.tMap[":rhou:"] = r'\rho u'
+    ss.latex.tMap[":Et:"] = r'E_t '
+
+    
+    intro = ss.latex.addSection("Introduction")
+    intro.body = """
+    This brief document shows the ability to integrate the simulation with formal 
+    documentation.  The advection equations is solved and plotted below.
+    """
+
+    equations = ss.latex.addSection("Equations of Motion")
+    equations.body = """
+    Pyranda solves the following equations using a 10th order compact finite difference
+    stencil and a 5 stage RK4 temporal integration scheme.
+    """
+    equations.body += ss.latex.renderEqu()
+
+    equations.body += """
+    where terms are closed following:
+    """
+
+    equations.body += ss.latex.renderEqu('ALG')
+
+
+
+    
+    results = ss.latex.addSection("Results")
+    plt.figure(1)
+    results.addFigure("Profiles",size=.45)
+    results.body = "Here in the figure, we see the grid convergence"
+
+    ss.latex.makeDoc()
+    ss.latex.showPDF()
+
     plt.legend()
     plt.show()
