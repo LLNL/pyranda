@@ -54,68 +54,48 @@ python setup.py install
 ```
 
 
-## Legacy Instructions
+## Legacy Instructions - Manual Install
+This process should work on any system and will allow for an arbitrary compiler to be used for 
+the fortran and for the mpi4py.
 
-
-### python-
+### Step 1: Ensure python and numpy
+#### Python-
 Though other versions of python may very well work, we recommend and support
-python 2.7 for pyranda.  Python will need to see the python of pyranda.
-
-** Add pyranda/src/python to PYTHONPATH **
-
-### numpy-
+python 2.7, 3.5, and 3.6 for pyranda.
+#### numpy-
 As long as numpy is working with your version of python above, there will be no
 compability issues.  This can be installed in a number of ways. http://www.numpy.org
 
-### mpi4py
+### Step 2: Custom install of mpi4py
 This python package provides MPI bindings to python and may or may not exists on your system
-and python path.  At a minimum, the version of MPI used to build mpi4py must match the version
-of MPI of your fortran compiler.  
-
-To check your mpi4py config, run:
-python -c "import mpi4py;print mpi4py.get_config()"
-
-It is likely that you will need to build your own version of mpi4py to suite your specified compiler
-type.  https://bitbucket.org/mpi4py/mpi4py
-
-### Example install (this should work on LLNL-LC)
+and python path.
+#### Install mpi4py (this should work on most systems with a mpi compiler installed)
 ```
 wget https://bitbucket.org/mpi4py/mpi4py/downloads/mpi4py-3.0.0.tar.gz
 tar xvzf mpi4py-3.0.0.tar.gz
-cd mpi4py
-```
-
-#### Add this to mpi.cfg file
-```
-[llnl-intel]
-mpi_dir              = /usr/local/tools/mvapich2-intel-2.2
-mpicc                = %(mpi_dir)s/bin/mpicc
-mpicxx               = %(mpi_dir)s/bin/mpicxx
-library_dirs         = %(mpi_dir)s/lib
-```
-
-```
-python setup.py build --mpi=llnl-intel
+cd mpi4py*
+python setup.py build --mpicc=/where/you/have/mpicc
 python setup.py install --prefix=install_location_mpi4py
 ```
 
-** Add install_location/*/site_packages to PYTHONPATH **
+** Add install_location_mpi4py/*/site_packages to PYTHONPATH **
 
-
-### fortran-
-A fortran compiler with 2003 and above standards enforced and MPI libraries is required.
-The MPI version used here should match that of mpi4py.
-
-pyranda/src/fortran contains the fortran files and a makefile to create the python extension.  
-The fortran compiler will need to be set here.  
-
-f2py is also invoked at build time.  This utility installs with numpy and ought to be in your path.
-
-To build, type:
-
+### Step 3: Pyranda build/install
+A fortran compiler compatible with the mpicc used in mpi4py is used by default.  
+2003 and above standards enforced and MPI libraries is required.
+### Install pyranda
 ```
+git clone https://github.com/LLNL/pyranda.git
+cd pyranda
 python setup.py build
 python setup.py install --prefix=install_location_pyranda
 ```
 
 ** Add install_location_pyranda/*/site_packages to PYTHONPATH **
+
+### Step 4: Run tests to check install
+Trying navigating to pyranda/examples and running
+```
+python advection.py
+```
+
