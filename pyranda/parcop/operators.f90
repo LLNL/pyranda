@@ -786,6 +786,76 @@
      forall(i=1:ax,j=1:ay,k=1:az,l=-cx:cx,m=-cy:cy,n=-cz:cz) ff(3*i+l-1,3*j+m-1,3*k+n-1) = f3(i,j,k,l,m,n)
      deallocate(f3)
    END SUBROUTINE interp_Rubik_compact
+
+
+   ! Second order derivative
+   SUBROUTINE ddx2ndorder(f,df)
+     USE LES_ghost
+     IMPLICIT NONE
+     DOUBLE PRECISION, DIMENSION(:,:,:), INTENT(IN) :: f
+     DOUBLE PRECISION, DIMENSION(:,:,:), INTENT(OUT) :: df
+
+     DOUBLE PRECISION, DIMENSION(0:patch_ptr%nx+1,0:patch_ptr%ny+1,0:patch_ptr%nz+1) :: gf
+
+
+     gf(1:patch_ptr%nx,1:patch_ptr%ny,1:patch_ptr%nz) = f
+
+     CALL ghostdS(1,gf)
+     
+     df = ( gf(2:patch_ptr%nx+1,1:patch_ptr%ny,1:patch_ptr%nz) - gf(0:patch_ptr%nx-1,1:patch_ptr%ny,1:patch_ptr%nz))
+     df = df / (2.0 * mesh_ptr%d1 )        
+     
+   END SUBROUTINE ddx2ndorder
+
+
+   ! 4th  order derivative
+   SUBROUTINE ddx4thorder(f,df)
+     USE LES_ghost
+     IMPLICIT NONE
+     DOUBLE PRECISION, DIMENSION(:,:,:), INTENT(IN) :: f
+     DOUBLE PRECISION, DIMENSION(:,:,:), INTENT(OUT) :: df
+
+     DOUBLE PRECISION, DIMENSION(-1:patch_ptr%nx+2,-1:patch_ptr%ny+2,-1:patch_ptr%nz+2) :: gf
+
+
+     gf(1:patch_ptr%nx,1:patch_ptr%ny,1:patch_ptr%nz) = f
+
+     CALL ghostdS(1,gf)
+     
+     df = 8.0*( gf(2:patch_ptr%nx+1,1:patch_ptr%ny,1:patch_ptr%nz) - gf(0:patch_ptr%nx-1,1:patch_ptr%ny,1:patch_ptr%nz))
+
+     df = df + ( -gf(3:patch_ptr%nx+2,1:patch_ptr%ny,1:patch_ptr%nz) + gf(-1:patch_ptr%nx,1:patch_ptr%ny,1:patch_ptr%nz))
+     
+     
+     df = df / (12.0 * mesh_ptr%d1 )        
+     
+   END SUBROUTINE ddx4thorder
+
+
+      ! 4th  order derivative
+   SUBROUTINE ddx6thorder(f,df)
+     USE LES_ghost
+     IMPLICIT NONE
+     DOUBLE PRECISION, DIMENSION(:,:,:), INTENT(IN) :: f
+     DOUBLE PRECISION, DIMENSION(:,:,:), INTENT(OUT) :: df
+
+     DOUBLE PRECISION, DIMENSION(-2:patch_ptr%nx+3,-2:patch_ptr%ny+3,-2:patch_ptr%nz+3) :: gf
+
+
+     gf(1:patch_ptr%nx,1:patch_ptr%ny,1:patch_ptr%nz) = f
+
+     CALL ghostdS(1,gf)
+     
+     df = 45.0*( gf(2:patch_ptr%nx+1,1:patch_ptr%ny,1:patch_ptr%nz) - gf(0:patch_ptr%nx-1,1:patch_ptr%ny,1:patch_ptr%nz))
+
+     df = df - 9.0* (gf(3:patch_ptr%nx+2,1:patch_ptr%ny,1:patch_ptr%nz) - gf(-1:patch_ptr%nx,1:patch_ptr%ny,1:patch_ptr%nz))
+
+     df = df + (gf(4:patch_ptr%nx+3,1:patch_ptr%ny,1:patch_ptr%nz) - gf(-2:patch_ptr%nx-1,1:patch_ptr%ny,1:patch_ptr%nz))
+     
+     df = df / (60.0 * mesh_ptr%d1 )        
+     
+   END SUBROUTINE ddx6thorder
+
    
 !===================================================================================================
  END MODULE LES_operators

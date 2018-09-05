@@ -260,8 +260,8 @@ class parcop_der:
     def __init__(self):        
         pass
 
-    def ddx(self,val):        
-        return parcop.parcop.ddx( val )
+    def ddx(self,val,order):        
+        return parcop.parcop.ddx( val,order )
 
     def ddy(self,val):        
         return parcop.parcop.ddy( val )

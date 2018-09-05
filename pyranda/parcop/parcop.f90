@@ -15,6 +15,7 @@ MODULE parcop
   USE LES_compact_operators, ONLY : d1x, d1y, d1z
   USE LES_operators, ONLY : div,grad,Laplacian
   USE LES_operators, ONLY : curl,cross,filter,ring
+  USE LES_operators, ONLY : ddx2ndorder,ddx4thorder,ddx6thorder
 
   CONTAINS
 
@@ -89,17 +90,27 @@ MODULE parcop
     END SUBROUTINE set_patch
 
 
-    SUBROUTINE ddx(val,dval,nx,ny,nz)
+    SUBROUTINE ddx(val,dval,nx,ny,nz,order)
       IMPLICIT NONE
       INTEGER,               INTENT(IN) :: nx,ny,nz
+      INTEGER,               INTENT(IN) :: order
       real(kind=8), dimension(nx,ny,nz), intent(in) :: val
       real(kind=8), dimension(nx,ny,nz),intent(out) :: dval      
 
 
-      CALL d1x(val,dval)
-
+      IF (order == 10) THEN
+         CALL d1x(val,dval)
+      ELSEIF (order == 2) THEN
+         CALL ddx2ndorder(val,dval)
+      ELSEIF (order == 4) THEN
+         CALL ddx4thorder(val,dval)
+      ELSE
+         CALL ddx6thorder(val,dval)
+      END IF
+         
     END SUBROUTINE ddx
 
+    
     SUBROUTINE ddy(val,dval,nx,ny,nz)
       IMPLICIT NONE
       INTEGER,               INTENT(IN) :: nx,ny,nz

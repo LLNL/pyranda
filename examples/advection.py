@@ -32,7 +32,7 @@ xdom = (0.0, Lp,  Npts, periodic=True)
 ss = pyrandaSim('advection',imesh)
 
 # Define the equations of motion
-ss.EOM(" ddt(:phi:)  =  -:c: * ddx(:phi:) ")
+ss.EOM(" ddt(:phi:)  =  -:c: * ddx(:phi:,2) ")
 
 
 # Initialize variables

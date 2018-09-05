@@ -21,13 +21,14 @@ xdom = (0.0, Lp, Npts)
 ss = pyrandaSim('sod',imesh)
 ss.addPackage( pyrandaBC(ss) )
 
+order = 6
 
 # Define the equations of motion
 eom ="""
 # Primary Equations of motion here
-ddt(:rho:)  =  -ddx(:rho:*:u:)
-ddt(:rhou:) =  -ddx(:rhou:*:u: + :p: - :tau:)
-ddt(:Et:)   =  -ddx( (:Et: + :p: - :tau:)*:u: )
+ddt(:rho:)  =  -ddx(:rho:*:u:,##ORDER##)
+ddt(:rhou:) =  -ddx(:rhou:*:u: + :p: - :tau:,##ORDER##)
+ddt(:Et:)   =  -ddx( (:Et: + :p: - :tau:)*:u: ,##ORDER##)
 # Conservative filter of the EoM
 :rho:       =  fbar( :rho:  )
 :rhou:      =  fbar( :rhou: )
@@ -36,13 +37,13 @@ ddt(:Et:)   =  -ddx( (:Et: + :p: - :tau:)*:u: )
 :u:         =  :rhou: / :rho:
 :p:         =  ( :Et: - .5*:rho:*(:u:*:u:) ) * ( :gamma: - 1.0 )
 # Artificial bulk viscosity (old school way)
-:div:       =  ddx(:u:) 
-:beta:      =  gbar(abs(ring(:div:))) * :rho: * 7.0e-2
+:div:       =  ddx(:u:,##ORDER##) 
+:beta:      =  gbar(abs(ring(:div:))) * :rho: * 7.0e-2 * 1.0
 :tau:       =  :beta:*:div:
 # Apply constant BCs
 bc.extrap(['rho','Et'],['x1'])
 bc.const(['u'],['x1','xn'],0.0)
-"""
+""".replace('##ORDER##',str(order) )
 
 # Add the EOM to the solver
 ss.EOM(eom)

@@ -297,11 +297,11 @@ class pyrandaSim:
                         self.variables[eq.LHS[ii]].data = rhs[ii]
             
                     
-    def ddx(self,val):
+    def ddx(self,val,order):
         if self.nx <= 1:
             return 0.0
         if 1:
-            return self.PyMPI.der.ddx( val )
+            return self.PyMPI.der.ddx( val ,order)
             #dval1 = numpy.diff(val,axis=0) / self.dx
             #dval = val*0.0
             #dval[0:-1] = dval1
