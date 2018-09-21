@@ -23,7 +23,7 @@ except:
 problem = 'TGvortex'
 
 ## Define a mesh
-Npts = 32
+#Npts = 32
 imesh = """
 xdom = (0.0, 2*pi*FF,  Npts, periodic=True)
 ydom = (0.0, 2*pi*FF,  Npts, periodic=True)
@@ -148,7 +148,7 @@ TKE = []
 ENST = []
 TIME = []
 
-tstop = 1.0
+tstop = 25.0
 if test:
     tstop = .1
     
@@ -183,10 +183,10 @@ while time < tstop:
 
 if test:
     print(enst)
-            
-#if (ss.PyMPI.master):
-#    plt.figure()
-#    plt.plot(TIME,TKE,'k--')
-#    plt.plot(TIME,ENST,'b--')
-#    plt.show()            
+else:
+    if (ss.PyMPI.master):
+        plt.figure()
+        plt.plot(TIME,TKE,'k--')
+        plt.plot(TIME,ENST,'b--')
+        plt.show()            
 
