@@ -139,14 +139,6 @@ class pyrandaMPI():
         self.chunk_3d_hi = self.chunk_3d_hi - 1 # Convert to 0 based indexing
 
 
-
-            # Replace these objects with parcop ones
-            #self.der = CompactDerivative(self.grid_partition,
-            #(self.dx, self.dy, self.dz),
-            #                             self.order, self.periodic)
-            #self.fil = Filter( self.grid_partition, self.filter_type, periodic_dimensions=self.periodic )
-            #self.gfil = Filter( self.grid_partition, ('gaussian','gaussian','gaussian'), periodic_dimensions=self.periodic ) 
-
         self.der  = parcop_der()
         self.fil  = parcop_sfil()
         self.gfil = parcop_gfil()
@@ -154,10 +146,21 @@ class pyrandaMPI():
 
         self.setPatch()        
 
+        # Mesh data
+        self.CellVol = parcop.parcop.mesh_getcellvol(self.chunk_3d_size[0],
+                                                     self.chunk_3d_size[1],
+                                                     self.chunk_3d_size[2])
+        self.GridLen = parcop.parcop.mesh_getgridlen(self.chunk_3d_size[0],
+                                                     self.chunk_3d_size[1],
+                                                     self.chunk_3d_size[2])
+        
+
+        
+
+        # Communicators and proc boundaries
         self.master = False
         if self.comm.rank == 0:
             self.master = True
-
 
         self.x1proc = False
         if self.xcom.rank == 0:
@@ -231,7 +234,7 @@ class pyrandaMPI():
 
     def min3D(self,data):
 
-        lmin = numpy.max( data )
+        lmin = numpy.min( data )
         tmin = self.comm.allreduce( lmin, op=MPI.MIN )
 
         return tmin

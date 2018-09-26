@@ -1,6 +1,6 @@
 # Copy and paste baselines here
 baselines = """
-shu-osher-CR -- 1.57446677695
+shu-osher-CR -- 1.8476420822842743
 """
 
 # Update dictionary of baseline scalars

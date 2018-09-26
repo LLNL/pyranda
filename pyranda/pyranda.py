@@ -62,15 +62,11 @@ class pyrandaSim:
         self.dx = dx
         self.dy = dy
         self.dz = dz
-            
+                
         self.nx = nx
         self.ny = ny
         self.nz = nz
-
-        #self.PyMPI = pyrandaMPI(nx,ny,nz,dx,dy,dz,periodic)
-
-        #self.mesh = pyrandaMesh(self.meshOptions)
-
+            
         self.PyMPI = pyrandaMPI( meshOptions )
         self.mesh.options = meshOptions
         self.mesh.PyMPI = self.PyMPI
@@ -78,6 +74,9 @@ class pyrandaSim:
         self.mesh.dims  = meshOptions['dim']
         self.mesh.makeMesh()
 
+        # Grab some scalars off of parcop.mesh
+        
+        
         
         self.equations = []
         self.conserved = []

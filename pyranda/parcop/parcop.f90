@@ -82,6 +82,23 @@ MODULE parcop
     END SUBROUTINE xGrid
 
 
+    SUBROUTINE mesh_getCellVol(CellVol,nx,ny,nz)
+      IMPLICIT NONE
+      INTEGER,               INTENT(IN) :: nx,ny,nz
+      REAL(KIND=8), DIMENSION(nx,ny,nz),INTENT(out) :: CellVol
+      CellVol = mesh_ptr%CellVol            
+    END SUBROUTINE mesh_getCellVol
+
+    SUBROUTINE mesh_getGridLen(GridLen,nx,ny,nz)
+      IMPLICIT NONE
+      INTEGER,               INTENT(IN) :: nx,ny,nz
+      REAL(KIND=8), DIMENSION(nx,ny,nz),INTENT(out) :: GridLen
+      GridLen = mesh_ptr%GridLen
+    END SUBROUTINE mesh_getGridLen
+
+
+    
+
     SUBROUTINE set_patch(patch,level)
       IMPLICIT NONE
       INTEGER,               INTENT(IN) :: patch,level

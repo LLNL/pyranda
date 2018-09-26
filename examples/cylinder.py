@@ -80,13 +80,12 @@ ddt(:Et:)   =  -ddx( (:Et: + :p: - :tau:)*:u: - :tx:*:kappa:) - ddy( (:Et: + :p:
 :u:         =  :rhou: / :rho:
 :v:         =  :rhov: / :rho:
 :p:         =  ( :Et: - .5*:rho:*(:u:*:u: + :v:*:v:) ) * ( :gamma: - 1.0 )
-:T:         = :p: / :rho: 
+:T:         = :p: / (:rho: * :R: )
 # Artificial bulk viscosity (old school way)
 :div:       =  ddx(:u:) + ddy(:v:)
-:beta:      =  gbar(abs(ring(:div:))) * :rho: * 7.0e-2
-:tau:       =  :beta:*:div:
+:beta:      =  gbar( ring(:div:) * :rho: ) * 7.0e-2
 [:tx:,:ty:,:tz:] = grad(:T:)
-:kappa:     = gbar(abs(ring(:T:)) * :dx2:**(1./2.) * :rho: * :cs: ) * 0.0
+:kappa:     = gbar( ring(:T:)* :rho:*:cv:/(:T: * :dt: ) ) * 1.0e-3
 # Apply constant BCs
 [:u:,:v:,:w:] = ibmV( [:u:,:v:,0.0], :phi:, [:gx:,:gy:,:gz:], [:u1:,:u2:,0.0] )
 :rho: = ibmS( :rho: , :phi:, [:gx:,:gy:,:gz:] )
@@ -102,7 +101,8 @@ bc.const(['p'],['x1','y1','yn'],p0)
 :rhov: = :rho:*:v:
 :cs:  = sqrt( :p: / :rho: * :gamma: )
 :dt: = dt.courant(:u:,:v:,:w:,:cs:)
-:dt: = numpy.minimum(:dt:,0.2 * dt.diff(:beta:,:rho:))
+:dtB: = 0.2* dt.diff(:beta:,:rho:)
+:dt: = numpy.minimum(:dt:,:dtB:)
 :umag: = sqrt( :u:*:u: + :v:*:v: )
 """
 eom = eom.replace('u0',str(u0)).replace('p0',str(p0)).replace('rho0',str(rho0))
@@ -115,6 +115,9 @@ ss.EOM(eom)
 # Initialize variables
 ic = """
 :gamma: = 1.4
+:R: = 1.0
+:cp: = :R: / (1.0 - 1.0/:gamma: )
+:cv: = :cp: - :R:
 rad = sqrt( (meshx-numpy.pi)**2  +  (meshy-numpy.pi)**2 ) 
 :phi: = rad - numpy.pi/4.0
 :rho: = 1.0 + 3d()
@@ -143,7 +146,7 @@ x = ss.mesh.coords[0]
 y = ss.mesh.coords[1]
 z = ss.mesh.coords[2]
 dx = (x[1,0,0] - x[0,0,0])
-ss.variables['dx2'].data += dx**2
+#ss.variables['dx2'].data += dx**2
 
 
 # Write a time loop
@@ -159,12 +162,12 @@ yy   =  ss.PyMPI.zbar( y )
 
 # Start time loop
 cnt = 1
-viz_freq = 15
+viz_freq = 150
 pvar = 'p'
 
 #import pdb
 #pdb.set_trace()
-CFL = 0.125
+CFL = 1.0
 dt = ss.variables['dt'].data * CFL
 
 while tt > time:
@@ -176,7 +179,7 @@ while tt > time:
 
     
     # Print some output
-    ss.iprint("%s -- %s" % (cnt,time)  )
+    ss.iprint("%s -- %s --- %f" % (cnt,time,dt)  )
     cnt += 1
     if viz and (not test):
         v = ss.PyMPI.zbar( ss.variables[pvar].data )
