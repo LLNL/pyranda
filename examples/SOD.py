@@ -96,3 +96,5 @@ while tt > time:
             plt.title(pvar)
             plt.pause(.001)
 
+
+ss.PyHDF.makeFile(1.0)
