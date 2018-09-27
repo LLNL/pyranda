@@ -103,6 +103,7 @@ class pyrandaSim:
     def iprint(self,sprnt):
         if self.PyMPI.master and (not self.silent):
             print(sprnt)
+            sys.stdout.flush() 
         
     def addPackage(self,package):
         
