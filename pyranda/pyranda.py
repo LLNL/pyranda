@@ -12,7 +12,7 @@ from __future__ import print_function
 from mpi4py import MPI
 import numpy 
 import re
-import sys
+import sys,os
 import time
 import matplotlib.pyplot as plt
 
@@ -93,7 +93,10 @@ class pyrandaSim:
 
         # Time
         self.time = 0.0
+        self.cycle = 0
+        self.vizDumpHistory = []
 
+        
         # Print startup message
         self.iprint( code() )
         self.iprint( version() )
@@ -295,8 +298,73 @@ class pyrandaSim:
                         #import pdb
                         #pdb.set_trace()
                         self.variables[eq.LHS[ii]].data = rhs[ii]
+       
+
+        
+        
+    def write(self,wVars=[]):
+        """ 
+        Write viz file 
+        """
+        procInt = 5
+        visInt  = 5
+        if not wVars:
+            wVars = self.conserved
+
+        dumpFile = 'vis' + str(self.cycle).zfill(visInt)
+        
+        if self.PyMPI.master == 1:
+            try:
+                os.mkdir(os.path.join(self.PyIO.rootname, dumpFile))
+            except:
+                pass
             
+        rank = self.PyMPI.comm.rank
+        dumpFile = os.path.join( self.PyIO.rootname,
+                                 dumpFile,
+                                 'proc-%s.%s' % (str(rank).zfill(procInt),str(self.cycle).zfill(visInt)))
+
+
+        suff = 'vtk'
+        self.PyIO.makeDumpVTK(self.mesh,self.variables,wVars,dumpFile)
+
+        self.vizDumpHistory.append( [self.cycle, self.time] )
+
+        # Write .visit file
+        if self.PyMPI.master == 1:
+            vid = open( os.path.join(self.PyIO.rootname, 'pyranda.visit' ) , 'w')
+            vid.write("!NBLOCKS %s \n" % self.PyMPI.comm.Get_size() )
+            for vdump in self.vizDumpHistory:
+                iv = vdump[0]
+                for p in range(self.PyMPI.comm.Get_size()):
+                    vid.write("%s\n" % os.path.join('vis' + str(iv).zfill(visInt),
+                                                    'proc-%s.%s.%s' % (str(p).zfill(procInt),str(iv).zfill(visInt),suff ) ) )
+            vid.close()
                     
+            
+        
+
+        
+
+    def writeGrid(self):
+        """ 
+        Write grid file 
+        """
+        wlen = 3
+        shape = list(self.mesh.shape)
+        shape.append( wlen )
+        iodata = numpy.zeros( shape )
+        for i in range( 3 ):
+            iodata[:,:,:,i] = self.mesh.coords[i]
+
+        dumpName = 'grid' 
+        self.PyIO.makeDump(iodata,dumpName)
+
+        
+        
+
+        
+                        
     def ddx(self,val):
         if self.nx <= 1:
             return 0.0
@@ -461,6 +529,9 @@ class pyrandaSim:
             time = time_i + eta[ii]*dt
             self.time = time
             self.updateVars()
+
+        self.cycle += 1
+
         return time
 
     def get_sMap(self):

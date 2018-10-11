@@ -31,7 +31,7 @@ L = numpy.pi * 2.0
 dim = 2
 gamma = 1.4
 
-problem = 'cylinder' 
+problem = 'cylinder_test'
 
 Lp = L * (Npts-1.0) / Npts
 mesh_options = {}
@@ -46,7 +46,7 @@ if dim == 2:
 
 
 # Initialize a simulation object on a mesh
-ss = pyrandaSim('advection',mesh_options)
+ss = pyrandaSim(problem,mesh_options)
 ss.addPackage( pyrandaBC(ss) )
 ss.addPackage( pyrandaIBM(ss) )
 ss.addPackage( pyrandaTimestep(ss) )
@@ -153,7 +153,7 @@ time = 0.0
 viz = True
 
 # Approx a max dt and stopping time
-tt = 1.5 #
+tt = 0.3 #
 
 # Mesh for viz on master
 xx   =  ss.PyMPI.zbar( x )
@@ -183,25 +183,30 @@ while tt > time:
     if viz and (not test):
         v = ss.PyMPI.zbar( ss.variables[pvar].data )
         phi = ss.PyMPI.zbar( ss.variables['phi'].data )
-        if (ss.PyMPI.master) and (cnt%viz_freq == 1) :#or True:
+
+        if (cnt%viz_freq == 1): #or True:
+            ss.write()
+        
+        #if (ss.PyMPI.master) and (cnt%viz_freq == 1) :#or True:
 
             #foo = raw_input()
             
-            plt.figure(1)
-            plt.clf()
-            ny = ss.PyMPI.ny
-            plt.plot(xx[:,int(ny/2)],v[:,int(ny/2)] ,'k.-')
-            plt.title(pvar)
-            plt.pause(.001)
+            #plt.figure(1)
+            #plt.clf()
+            #ny = ss.PyMPI.ny
+            #plt.plot(xx[:,int(ny/2)],v[:,int(ny/2)] ,'k.-')
+            #plt.title(pvar)
+            #plt.pause(.001)
 
-            plt.figure(2)
-            plt.clf()            
-            plt.contourf( xx,yy,v ,64 , cmap=cm.jet)
-            plt.contour( xx,yy,phi,[0.0])
-            plt.title(pvar)
-            plt.pause(.001)
+            #plt.figure(2)
+            #plt.clf()            
+            #plt.contourf( xx,yy,v ,64 , cmap=cm.jet)
+            #plt.contour( xx,yy,phi,[0.0])
+            #plt.title(pvar)
+            #plt.pause(.001)
 
 
+            
 
 # Curve test.  Write file and print its name at the end
 if test:
@@ -212,3 +217,6 @@ if test:
     fname = testName + '.dat'
     numpy.savetxt( fname  , (x1d,v1d) )
     print(fname)
+
+
+ss.write()

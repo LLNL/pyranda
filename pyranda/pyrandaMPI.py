@@ -133,11 +133,18 @@ class pyrandaMPI():
         self.yzcom = MPI.Comm.f2py( parcop.parcop.commyz() )
         self.xzcom = MPI.Comm.f2py( parcop.parcop.commxz() )
 
-            
+        # Shifted comms
+        (self.xcom_lo,self.xcom_hi) = self.xcom.Shift(0,1)
+        (self.ycom_lo,self.ycom_hi) = self.ycom.Shift(0,1)
+        (self.zcom_lo,self.zcom_hi) = self.zcom.Shift(0,1)
 
         self.chunk_3d_size[0] = self.ax = int( self.nx / px )
         self.chunk_3d_size[1] = self.ay = int( self.ny / py )
         self.chunk_3d_size[2] = self.az = int( self.nz / pz )
+
+        self.px = px
+        self.py = py
+        self.pz = pz        
 
         self.chunk_3d_lo[0] = self.xcom.rank     * self.chunk_3d_size[0] + 1
         self.chunk_3d_hi[0] = (self.xcom.rank+1) * self.chunk_3d_size[0]
@@ -258,6 +265,128 @@ class pyrandaMPI():
                            [self.chunk_3d_lo[0],self.chunk_3d_hi[0]+1 ],
                            [self.chunk_3d_lo[1],self.chunk_3d_hi[1]+1 ])
     
+    def ghost(self,data,np=1):
+
+        bx = data.shape[0]
+        by = data.shape[1]
+        bz = data.shape[2]
+
+        npx = npy = npz = 0
+        if self.nx > 1:
+            npx = np
+        if self.ny > 1:
+            npy = np
+        if self.nz > 1:
+            npz = np
+        
+        gdata = numpy.zeros( (bx+2*npx,by+2*npy,bz+2*npz) )
+        gdata[npx:bx+npx,npy:by+npy,npz:bz+npz] = data
+
+        if self.nx > 1:
+            gdata = self.ghostx(gdata,npx)
+        if self.ny > 1:
+            gdata = self.ghosty(gdata,npy)
+        if self.nz > 1:
+            gdata = self.ghostz(gdata,npz)
+
+        return gdata
+
+    
+    def ghostx(self,data,np):
+
+        bx = data.shape[0]
+        by = data.shape[1]
+        bz = data.shape[2]
+
+        i = numpy.ascontiguousarray( data[np:2*np,:,:] )
+        o = i * 0.0
+        self.xcom.Sendrecv( i,  self.xcom_lo, 0,
+                            o,  self.xcom_hi, 0 )
+        data[bx-np:bx,:,:] = o
+
+        i = numpy.ascontiguousarray( data[bx-2*np:bx-np,:,:] )
+        o = i*0.0
+        self.xcom.Sendrecv( i,  self.xcom_hi, 1,
+                            o,  self.xcom_lo, 1 )
+        data[0:np,:,:] = o
+        
+        if self.periodic[0]:
+            return data
+                
+        if self.xcom.Get_rank() == 0:
+            for i in range(np):
+                data[i,:,:] = data[np,:,:]
+
+        if self.xcom.Get_rank() == self.px-1:
+            for i in range(np):
+                data[bx-np+i,:,:] = data[bx-np-1,:,:]
+
+        return data
+
+
+    def ghosty(self,data,np):
+
+        bx = data.shape[0]
+        by = data.shape[1]
+        bz = data.shape[2]
+
+        i = numpy.ascontiguousarray( data[:,np:2*np,:] )
+        o = i * 0.0
+        self.ycom.Sendrecv( i,  self.ycom_lo, 0,
+                            o,  self.ycom_hi, 0 )
+        data[:,by-np:by,:] = o
+
+        i = numpy.ascontiguousarray( data[:,by-2*np:by-np,:] )
+        o = i*0.0
+        self.ycom.Sendrecv( i,  self.ycom_hi, 1,
+                            o,  self.ycom_lo, 1 )
+        data[:,0:np,:] = o
+        
+        if self.periodic[1]:
+            return data
+                
+        if self.ycom.Get_rank() == 0:
+            for i in range(np):
+                data[:,i,:] = data[:,np,:]
+
+        if self.ycom.Get_rank() == self.py-1:
+            for i in range(np):
+                data[:,bx-np+i,:] = data[:,by-np-1,:]
+
+        return data
+
+
+
+    def ghostz(self,data,np):
+
+        bx = data.shape[0]
+        by = data.shape[1]
+        bz = data.shape[2]
+
+        i = numpy.ascontiguousarray( data[:,:,np:2*np] )
+        o = i * 0.0
+        self.zcom.Sendrecv( i,  self.zcom_lo, 0,
+                            o,  self.zcom_hi, 0 )
+        data[:,:,bz-np:bz] = o
+
+        i = numpy.ascontiguousarray( data[:,:,bz-2*np:bz-np] )
+        o = i*0.0
+        self.zcom.Sendrecv( i,  self.zcom_hi, 1,
+                            o,  self.zcom_lo, 1 )
+        data[:,:,0:np] = o
+        
+        if self.periodic[2]:
+            return data
+                
+        if self.zcom.Get_rank() == 0:
+            for i in range(np):
+                data[:,:,i] = data[:,:,np]
+
+        if self.zcom.Get_rank() == self.pz-1:
+            for i in range(np):
+                data[:,:,bz-np+i] = data[:,:,bz-np-1]
+
+        return data
 
 
 

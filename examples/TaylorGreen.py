@@ -139,7 +139,7 @@ dt = ss.variables['dt'].data * CFL
 
 # Viz
 cnt = 1
-viz_freq = 200
+viz_freq = 20
 pvar = 'u'
 
 tke0 = ss.var('tke').sum()
@@ -173,6 +173,9 @@ while time < tstop:
 
         dd = numpy.where( z == 0.0, 1.0, 0.0 )
         v = ss.PyMPI.zbar( dd*ss.variables[pvar].data )
+
+        if (cnt%viz_freq == 0):
+            ss.write()
         
         if (ss.PyMPI.master and (cnt%viz_freq == 0)) and True:
             plt.figure(2)
