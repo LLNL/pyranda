@@ -20,5 +20,12 @@ test.args = ['64','1',test.name]
 tests.append( test )
 
 
+script = 'examples/cylinder_curv.py'
+
+test = testObj('cylinder_curved-2d-64')
+test.script = script
+test.args = ['64','1',test.name]
+tests.append( test )
+
 
 

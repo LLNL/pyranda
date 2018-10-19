@@ -78,9 +78,10 @@ def plotError( baseline, pout ):
     plt.figure()
     plt.plot([1,2,3])
     plt.subplot(121)
-    plt.plot(base[0,:],base[1,:],'k-')
-    plt.plot(test[0,:],test[1,:],'b-')
-
+    plt.plot(base[0,:],base[1,:],'k-',label='Baseline')
+    plt.plot(test[0,:],test[1,:],'b-',label='New test')
+    plt.legend()
+    
     plt.subplot(122)
     plt.plot(base[0,:],diff,'r-')
 

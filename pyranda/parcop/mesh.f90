@@ -12,7 +12,6 @@
  MODULE LES_mesh ! MESH VARIABLES
 !===================================================================================================  
   USE iso_c_binding
-  !USE LES_input, ONLY : cb_transform,transform_exists
   USE LES_patch, ONLY : patch_type
   USE LES_comm, ONLY : comm_type
   USE LES_compact, ONLY : compact_type,compact_op1,mesh1_type,comm1_type,control_data,compact_weight_d1,MPI_PROC_NULL
@@ -21,8 +20,6 @@
   !USE wkt_mesh
   ! #endif
   IMPLICIT NONE
-
-  LOGICAL(c_bool)                :: transform_exists = .FALSE.
 
   logical, parameter :: custom=.true.
 
@@ -58,12 +55,16 @@
   CONTAINS
 !===================================================================================================
 
-   SUBROUTINE setup_mesh(mesh_data,patch_data,comm_data,compact_data)
+   SUBROUTINE setup_mesh(mesh_data,patch_data,comm_data,compact_data,xpy,ypy,zpy)
     IMPLICIT NONE
     CLASS(mesh_type),  INTENT(OUT) :: mesh_data ! Auto deallocation of all components on entry
     CLASS(patch_type), INTENT(IN)  :: patch_data
     CLASS(comm_type),  INTENT(IN)  :: comm_data
     CLASS(compact_type),  INTENT(IN)  :: compact_data
+    !REAL(c_double), DIMENSION(patch_data%nx,patch_data%ny,patch_data%nz), INTENT(IN), OPTIONAL :: xpy,ypy,zpy
+    REAL(c_double), DIMENSION(:,:,:), INTENT(IN), OPTIONAL :: xpy
+    REAL(c_double), DIMENSION(:,:,:), INTENT(IN), OPTIONAL :: ypy
+    REAL(c_double), DIMENSION(:,:,:), INTENT(IN), OPTIONAL :: zpy
     TYPE(compact_op1) :: custom_op
     TYPE(mesh1_type) :: custom_mesh
     TYPE(comm1_type) :: custom_comm
@@ -147,22 +148,21 @@
      xnproc = ( ix(ax) == nx .and. (.not. periodicx) .and. nx > 1 )
      ynproc = ( iy(ay) == ny .and. (.not. periodicy) .and. ny > 1 )
      znproc = ( iz(az) == nz .and. (.not. periodicz) .and. nz > 1 )
-     IF (transform_exists) THEN
-       FORALL (i=1:ax,j=1:ay,k=1:az)
-         d1(i,j,k) = x1+REAL(2*ix(i)-1,KIND=c_double)*half*dx ! AKA radius
-         d2(i,j,k) = y1+REAL(2*iy(j)-1,KIND=c_double)*half*dy ! AKA theta
-         d3(i,j,k) = z1+REAL(2*iz(k)-1,KIND=c_double)*half*dz ! AKA phi
-       END FORALL
-       !#ifdef LUA
-       !flag = cb_transform%eval(d1,d2,d3,simtime,xgrid,ygrid,zgrid)
-       !#endif
-     ELSE         
-       FORALL (i=1:ax,j=1:ay,k=1:az)
-         xgrid(i,j,k) = x1+REAL(2*ix(i)-1,KIND=c_double)*half*dx ! AKA radius
-         ygrid(i,j,k) = y1+REAL(2*iy(j)-1,KIND=c_double)*half*dy ! AKA theta
-         zgrid(i,j,k) = z1+REAL(2*iz(k)-1,KIND=c_double)*half*dz ! AKA phi
-       END FORALL 
+
+     IF ( PRESENT(xpy) ) THEN  ! All or nothing on passing grid explicitly
+        xgrid = xpy
+        ygrid = ypy
+        zgrid = zpy
+     ELSE
+        FORALL (i=1:ax,j=1:ay,k=1:az)
+           xgrid(i,j,k) = x1+REAL(2*ix(i)-1,KIND=c_double)*half*dx ! AKA radius
+           ygrid(i,j,k) = y1+REAL(2*iy(j)-1,KIND=c_double)*half*dy ! AKA theta
+           zgrid(i,j,k) = z1+REAL(2*iz(k)-1,KIND=c_double)*half*dz ! AKA phi
+        END FORALL
      END IF
+
+     
+     
 ! CELL VOLUMES AND MINIMUM GRID SPACINGS -----------------------------------------------------------     
      SELECT CASE(coordsys)
      CASE(0) ! Cartesian

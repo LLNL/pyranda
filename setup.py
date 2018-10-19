@@ -145,7 +145,7 @@ class InstallPyranda(install, PyrandaMakeMixin):
 
     def run(self):
         install.run(self)
-        PyrandaMakeMixin.clean(self)
+        #PyrandaMakeMixin.clean(self)
 
 
 setup_args = dict(

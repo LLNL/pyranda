@@ -19,23 +19,25 @@ MODULE parcop
   CONTAINS
 
 
-    SUBROUTINE setup(patch,level,COMM,nx,ny,nz,px,py,pz,x1,xn,y1,yn,z1,zn,bx1,bxn,by1,byn,bz1,bzn)
+    SUBROUTINE setup(patch,level,COMM, &
+         & nx,ny,nz,px,py,pz,coordsys, &
+         & x1,xn,y1,yn,z1,zn,bx1,bxn,by1,byn,bz1,bzn)
       IMPLICIT NONE
       INTEGER,               INTENT(IN) :: patch,level
       INTEGER,               INTENT(IN) :: COMM
       INTEGER,               INTENT(IN) :: nx,ny,nz,px,py,pz
+      INTEGER,               INTENT(IN) :: coordsys
       REAL(kind=8),   INTENT(IN)   :: x1,xn,y1,yn,z1,zn
       CHARACTER(LEN=*), INTENT(IN) :: bx1,bxn,by1,byn,bz1,bzn
       
       REAL(kind=8)                 :: x1f,xnf,y1f,ynf,z1f,znf
-      INTEGER                      :: color,key,coordsys
+      INTEGER                      :: color,key
       REAL(kind=8)                 :: simtime
       REAL(kind=8)                 :: dx,dy,dz
       
 
       color = 0
       key = 0
-      coordsys = 0
       simtime = 0.0D0
 
       LES_comm_world = COMM
@@ -52,34 +54,78 @@ MODULE parcop
       z1f = z1 - dz/2.0D0
       znf = zn + dz/2.0D0
       
-      CALL setup_objects(patch,level,color,key,coordsys,nx,ny,nz,px,py,pz,x1f,xnf,y1f,ynf,z1f,znf,bx1,bxn,by1,byn,bz1,bzn,simtime)  
-      CALL point_to_objects(patch,level)
-
-
+      CALL setup_objects(patch,level,color,key,coordsys,nx,ny,nz,px,py,pz,x1f,xnf,y1f,ynf,z1f,znf,bx1,bxn,by1,byn,bz1,bzn,simtime)
+      
+      
     END SUBROUTINE setup
 
 
-    SUBROUTINE dxGrid(patch,level,dxg,nx,ny,nz)
+    SUBROUTINE setup_mesh(patch,level)
       IMPLICIT NONE
       INTEGER,               INTENT(IN) :: patch,level
+
+      CALL setup_mesh_data(patch,level)
+      
+    END SUBROUTINE setup_mesh
+
+
+    SUBROUTINE setup_mesh_x3(patch,level,x1,x2,x3)
+      IMPLICIT NONE
+      INTEGER,               INTENT(IN) :: patch,level
+      REAL(kind=8), DIMENSION(:,:,:), INTENT(IN) :: x1,x2,x3
+      
+      CALL setup_mesh_data_x3(patch,level,x1,x2,x3)
+      
+    END SUBROUTINE setup_mesh_x3
+
+     
+    SUBROUTINE xGrid(dxg,nx,ny,nz)
+      IMPLICIT NONE
+      INTEGER,               INTENT(IN) :: nx,ny,nz
+      real(kind=8), dimension(nx,ny,nz),intent(out) :: dxg
+      
+      dxg = mesh_ptr%xgrid      
+    END SUBROUTINE xGrid
+
+    SUBROUTINE yGrid(dxg,nx,ny,nz)
+      IMPLICIT NONE
       INTEGER,               INTENT(IN) :: nx,ny,nz
       real(kind=8), dimension(nx,ny,nz),intent(out) :: dxg      
 
-      CALL point_to_objects(patch,level)
-      CALL d1x(mesh_ptr%xgrid,dxg) 
+      dxg = mesh_ptr%ygrid      
+    END SUBROUTINE yGrid
+
+    SUBROUTINE zGrid(dxg,nx,ny,nz)
+      IMPLICIT NONE
+      INTEGER,               INTENT(IN) :: nx,ny,nz
+      real(kind=8), dimension(nx,ny,nz),intent(out) :: dxg      
+
+      dxg = mesh_ptr%zgrid      
+    END SUBROUTINE zGrid
+
+        SUBROUTINE dxGrid(dxg,nx,ny,nz)
+      IMPLICIT NONE
+      INTEGER,               INTENT(IN) :: nx,ny,nz
+      real(kind=8), dimension(nx,ny,nz),intent(out) :: dxg
       
+      dxg = mesh_ptr%d1     
     END SUBROUTINE dxGrid
 
-    SUBROUTINE xGrid(patch,level,dxg,nx,ny,nz)
+    SUBROUTINE dyGrid(dxg,nx,ny,nz)
       IMPLICIT NONE
-      INTEGER,               INTENT(IN) :: patch,level
       INTEGER,               INTENT(IN) :: nx,ny,nz
       real(kind=8), dimension(nx,ny,nz),intent(out) :: dxg      
 
-      CALL point_to_objects(patch,level)
-      dxg = mesh_ptr%xgrid
-      
-    END SUBROUTINE xGrid
+      dxg = mesh_ptr%d2     
+    END SUBROUTINE dyGrid
+
+    SUBROUTINE dzGrid(dxg,nx,ny,nz)
+      IMPLICIT NONE
+      INTEGER,               INTENT(IN) :: nx,ny,nz
+      real(kind=8), dimension(nx,ny,nz),intent(out) :: dxg      
+
+      dxg = mesh_ptr%d3      
+    END SUBROUTINE dzGrid
 
 
     SUBROUTINE mesh_getCellVol(CellVol,nx,ny,nz)
@@ -105,7 +151,17 @@ MODULE parcop
       CALL point_to_objects(patch,level)
     END SUBROUTINE set_patch
 
+    SUBROUTINE divergence(fx,fy,fz,val,nx,ny,nz)
+      IMPLICIT NONE
+      INTEGER,    INTENT(IN) :: nx,ny,nz
+      real(kind=8), dimension(nx,ny,nz),intent(in)  :: fx,fy,fz 
+      real(kind=8), dimension(nx,ny,nz),intent(out) :: val
 
+      CALL div(fx,fy,fz,val)
+      
+      
+    END SUBROUTINE divergence
+    
     SUBROUTINE ddx(val,dval,nx,ny,nz)
       IMPLICIT NONE
       INTEGER,               INTENT(IN) :: nx,ny,nz
@@ -181,15 +237,6 @@ MODULE parcop
 
     END SUBROUTINE gFilter
 
-    SUBROUTINE divV(val1,val2,val3,dval,nx,ny,nz)
-      IMPLICIT NONE
-      INTEGER,               INTENT(IN) :: nx,ny,nz
-      real(kind=8), dimension(nx,ny,nz), intent(in) :: val1,val2,val3
-      real(kind=8), dimension(nx,ny,nz),intent(out) :: dval
-      
-      CALL div(val1,val2,val3,dval)
-
-    END SUBROUTINE divV
 
     SUBROUTINE gradS(val,val1,val2,val3,nx,ny,nz)
       IMPLICIT NONE
@@ -226,44 +273,38 @@ MODULE parcop
     END SUBROUTINE commFromPy
 
 
-    SUBROUTINE commx(patch,level,COMM)
+    SUBROUTINE commx(COMM)
       IMPLICIT NONE
-      INTEGER,               INTENT(IN) :: patch,level
       INTEGER,               INTENT(OUT) :: COMM      
       COMM = comm_ptr%xcom
     END SUBROUTINE commx
 
-    SUBROUTINE commy(patch,level,COMM)
+    SUBROUTINE commy(COMM)
       IMPLICIT NONE
-      INTEGER,               INTENT(IN) :: patch,level
       INTEGER,               INTENT(OUT) :: COMM      
       COMM = comm_ptr%ycom
     END SUBROUTINE commy
 
-    SUBROUTINE commz(patch,level,COMM)
+    SUBROUTINE commz(COMM)
       IMPLICIT NONE
-      INTEGER,               INTENT(IN) :: patch,level
       INTEGER,               INTENT(OUT) :: COMM      
       COMM = comm_ptr%zcom
     END SUBROUTINE commz
 
-    SUBROUTINE commxy(patch,level,COMM)
+    SUBROUTINE commxy(COMM)
       IMPLICIT NONE
-      INTEGER,               INTENT(IN) :: patch,level
       INTEGER,               INTENT(OUT) :: COMM      
       COMM = comm_ptr%xycom
     END SUBROUTINE commxy
 
-    SUBROUTINE commxz(patch,level,COMM)
+    SUBROUTINE commxz(COMM)
       IMPLICIT NONE
-      INTEGER,               INTENT(IN) :: patch,level
       INTEGER,               INTENT(OUT) :: COMM      
       COMM = comm_ptr%xzcom
     END SUBROUTINE commxz
 
-    SUBROUTINE commyz(patch,level,COMM)
+    SUBROUTINE commyz(COMM)
       IMPLICIT NONE
-      INTEGER,               INTENT(IN) :: patch,level
       INTEGER,               INTENT(OUT) :: COMM      
       COMM = comm_ptr%yzcom
     END SUBROUTINE commyz

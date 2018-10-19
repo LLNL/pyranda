@@ -44,7 +44,7 @@ class pyrandaIBM(pyrandaPackage):
         phiy = gphi[1]
         phiz = gphi[2]
 
-        lens = self.pyranda.PyMPI.dx * immersed_EPS
+        lens = self.pyranda.mesh.GridLen * immersed_EPS
     
         return self.slip_velocity( phi ,phix,phiy,phiz,
                                    u,v,w,lens,new=False,phivar=phivar)
@@ -65,7 +65,7 @@ class pyrandaIBM(pyrandaPackage):
     def smooth_terrain(self,SDF,gDx,gDy,gDz,val_in,epsi,new=False):
         
         val = val_in * 1.0
-        GridLen = self.pyranda.PyMPI.dx
+        GridLen = self.pyranda.mesh.GridLen
         
         for i in range(immersed_iter):
             [tvx,tvy,tvz] = self.pyranda.grad(val)
