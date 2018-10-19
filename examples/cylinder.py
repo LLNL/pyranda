@@ -31,13 +31,12 @@ L = numpy.pi * 2.0
 dim = 2
 gamma = 1.4
 
-problem = 'linear'
-problem = 'sod' 
+problem = 'cylinder' 
 
 Lp = L * (Npts-1.0) / Npts
 mesh_options = {}
-mesh_options['type'] = 'cartesian'
-mesh_options['periodic'] = numpy.array([False, False, True])
+mesh_options['coordsys'] = 0
+mesh_options['periodic'] = numpy.array([False, False, False])
 mesh_options['dim'] = 3
 mesh_options['x1'] = [ 0.0 , 0.0  ,  0.0 ]
 mesh_options['xn'] = [ Lp   , Lp    ,  Lp ]
@@ -101,7 +100,7 @@ bc.const(['p'],['x1','y1','yn'],p0)
 :rhov: = :rho:*:v:
 :cs:  = sqrt( :p: / :rho: * :gamma: )
 :dt: = dt.courant(:u:,:v:,:w:,:cs:)
-:dtB: = 0.2* dt.diff(:beta:,:rho:)
+:dtB: = 4.0* dt.diff(:beta:,:rho:)
 :dt: = numpy.minimum(:dt:,:dtB:)
 :umag: = sqrt( :u:*:u: + :v:*:v: )
 """
@@ -130,7 +129,7 @@ rad = sqrt( (meshx-numpy.pi)**2  +  (meshy-numpy.pi)**2 )
 :rhou: = :rho:*:u:
 :rhov: = :rho:*:v:
 :cs:  = sqrt( :p: / :rho: * :gamma: )
-:dt: = dt.courant(:u:,:v:,:w:,:cs:)
+:dt: = dt.courant(:u:,:v:,:w:,:cs:)*.1
 [:gx:,:gy:,:gz:] = grad( :phi: )
 :gx: = gbar( :gx: )
 :gy: = gbar( :gy: )
@@ -162,7 +161,7 @@ yy   =  ss.PyMPI.zbar( y )
 
 # Start time loop
 cnt = 1
-viz_freq = 150
+viz_freq = 25
 pvar = 'p'
 
 #import pdb

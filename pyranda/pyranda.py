@@ -39,25 +39,19 @@ class pyrandaSim:
 
         self.meshOptions = meshOptions
 
-        if 'type' in meshOptions:
-            self.meshType = meshOptions['type']
+        if 'coordsys' in meshOptions:
+            self.mesh.coordsys = meshOptions['coordsys']
         else:            
             raise ValueError('No suitable mesh type specified.')
 
-        if self.meshType == 'cartesian':
+        nx = meshOptions['nn'][0]
+        ny = meshOptions['nn'][1]
+        nz = meshOptions['nn'][2]
 
-            try:
-                nx = meshOptions['nn'][0]
-                ny = meshOptions['nn'][1]
-                nz = meshOptions['nn'][2]
-
-                dx = (meshOptions['xn'][0]-meshOptions['x1'][0])/max(nx-1,1)
-                dy = (meshOptions['xn'][1]-meshOptions['x1'][1])/max(ny-1,1)
-                dz = (meshOptions['xn'][2]-meshOptions['x1'][2])/max(nz-1,1)
-                periodic = meshOptions['periodic']
-
-            except:
-                raise ValueError("Invalid options given for cartesian mesh")
+        dx = (meshOptions['xn'][0]-meshOptions['x1'][0])/max(nx-1,1)
+        dy = (meshOptions['xn'][1]-meshOptions['x1'][1])/max(ny-1,1)
+        dz = (meshOptions['xn'][2]-meshOptions['x1'][2])/max(nz-1,1)
+        periodic = meshOptions['periodic']                    
 
         self.dx = dx
         self.dy = dy
@@ -66,16 +60,17 @@ class pyrandaSim:
         self.nx = nx
         self.ny = ny
         self.nz = nz
-            
-        self.PyMPI = pyrandaMPI( meshOptions )
-        self.mesh.options = meshOptions
-        self.mesh.PyMPI = self.PyMPI
-        self.mesh.kind  = meshOptions['type']
-        self.mesh.dims  = meshOptions['dim']
-        self.mesh.makeMesh()
-
-        # Grab some scalars off of parcop.mesh
         
+        self.mesh.options = meshOptions
+        self.mesh.dims  = meshOptions['dim']
+
+        self.PyMPI = pyrandaMPI( self.mesh )
+        self.mesh.PyMPI = self.PyMPI
+        
+        self.mesh.makeMesh()
+        
+        # Grab some scalars off of parcop.mesh
+        self.zero = self.PyMPI.emptyScalar()
         
         
         self.equations = []
@@ -300,42 +295,38 @@ class pyrandaSim:
     def ddx(self,val):
         if self.nx <= 1:
             return 0.0
-        if 1:
-            return self.PyMPI.der.ddx( val )
-            #dval1 = numpy.diff(val,axis=0) / self.dx
-            #dval = val*0.0
-            #dval[0:-1] = dval1
-            #dval[1:] += dval1
-            #dval[1:-1] /= 2.0
-            #return dval
-        else:
-            dfdx = self.emptyScalar()
-            try:
-                self.PyMPI.der.ddx( val, dfdx )
-            except:
-                import pdb
-                pdb.set_trace()
-            return dfdx
+        return self.PyMPI.der.ddx( val )
 
     def ddy(self,val):
         if self.ny <= 1:
             return 0.0
-        if 1:
-            return self.PyMPI.der.ddy( val )
-        else:
-            dfdy = self.emptyScalar()
-            self.PyMPI.der.ddy( val, dfdy )
-            return dfdy
+        return self.PyMPI.der.ddy( val )
 
     def ddz(self,val):
         if self.nz <= 1:
             return 0.0
-        if 1:
-            return self.PyMPI.der.ddz( val )
-        else:
-            dfdz = self.emptyScalar()
-            self.PyMPI.der.ddz( val, dfdz )
-            return dfdz
+        return self.PyMPI.der.ddz( val )
+
+        
+    def div(self,f1,f2=None,f3=None):
+
+        if (type(f2) == type(None) and type(f3) == type(None)):
+            if self.nx > 1:
+                return self.PyMPI.der.div(f1,self.zero,self.zero)
+            if self.ny > 1:
+                return self.PyMPI.der.div(self.zero,f1,self.zero)
+            if self.nz > 1:
+                return self.PyMPI.der.div(self.zero,self.zero,f1)
+
+        elif type(f3) == type(None):
+            if (self.nx > 1) and (self.ny > 1):
+                return self.PyMPI.der.div(f1,f2,self.zero)
+            if (self.nz > 1) and (self.ny > 1):
+                return self.PyMPI.der.div(self.zero,f1,f2)
+            if (self.nz > 1) and (self.nx > 1):
+                return self.PyMPI.der.div(f1,self.zero,f2)
+        else:            
+            return self.PyMPI.der.div(f1,f2,f3)
     
     def grad(self,val):
         return [self.ddx(val),self.ddy(val),self.ddz(val)]
@@ -470,15 +461,16 @@ class pyrandaSim:
     def get_sMap(self):
         sMap = {}
         
-        sMap["div(#arg#)"] = ""
-        if self.nx > 1:
-            sMap["div(#arg#)"] += "self.ddx(#arg#[:,:,:,0])"
-        if self.ny > 1:
-            sMap["div(#arg#)"] += "+self.ddy(#arg#[:,:,:,1])"
-        if self.nz > 1:
-            sMap["div(#arg#)"] += "+self.ddz(#arg#[:,:,:,2])"
+        #sMap["div(#arg#)"] = ""
+        #if self.nx > 1:
+        #    sMap["div(#arg#)"] += "self.ddx(#arg#[:,:,:,0])"
+        #if self.ny > 1:
+        #    sMap["div(#arg#)"] += "+self.ddy(#arg#[:,:,:,1])"
+        #if self.nz > 1:
+        #    sMap["div(#arg#)"] += "+self.ddz(#arg#[:,:,:,2])"
 
         # Simple find/replace mappings
+        sMap['div(' ] = 'self.div('
         sMap['ddx(' ] = 'self.ddx('
         sMap['ddy(' ] = 'self.ddy('
         sMap['ddz(' ] = 'self.ddz('

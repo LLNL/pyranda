@@ -14,11 +14,11 @@ class pyrandaTimestep(pyrandaPackage):
         PackageName = 'Timestep'
         pyrandaPackage.__init__(self,PackageName,pysim)
 
-        self.dx = pysim.dx
-        self.dy = pysim.dy
-        self.dz = pysim.dz
+        self.dx = pysim.mesh.d1
+        self.dy = pysim.mesh.d2
+        self.dz = pysim.mesh.d3
 
-        self.GridLen = pysim.PyMPI.GridLen
+        self.GridLen = pysim.mesh.GridLen
         
 
     def get_sMap(self):

@@ -40,7 +40,7 @@ problem = 'sod'
 
 Lp = L * (Npts-1.0) / Npts
 mesh_options = {}
-mesh_options['type'] = 'cartesian'
+mesh_options['coordsys'] = 0
 mesh_options['periodic'] = numpy.array([False, False, True])
 mesh_options['dim'] = 3
 mesh_options['x1'] = [ 0.0 , 0.0  ,  0.0 ]

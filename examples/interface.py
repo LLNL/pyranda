@@ -33,7 +33,7 @@ Lp = L * (Npts-1.0) / Npts
 twoD = False
 
 mesh_options = {}
-mesh_options['type'] = 'cartesian'
+mesh_options['coordsys'] = 0
 mesh_options['periodic'] = numpy.array([twoD, twoD, True])
 mesh_options['dim'] = 3
 mesh_options['x1'] = [ 0.0 , 0.0  ,  0.0 ]

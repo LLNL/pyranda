@@ -27,8 +27,10 @@ LEVEL_MAX = 10
 
 class pyrandaMPI():
 
-    def __init__(self,meshOptions):
+    def __init__(self,mesh):
 
+
+        meshOptions = mesh.options
         self.nx = meshOptions['nn'][0]
         self.ny = meshOptions['nn'][1]
         self.nz = meshOptions['nn'][2]
@@ -49,7 +51,15 @@ class pyrandaMPI():
         
         periodic = meshOptions['periodic']
         self.periodic = periodic
-        
+
+        self.coordsys = meshOptions['coordsys']
+
+        # Get the mesh function if it exists
+        try:
+            self.meshFunction = meshOptions['meshFunction']
+        except:
+            self.meshFunction = None
+            
         self.comm  = MPI.COMM_WORLD
         self.fcomm = self.comm.py2f()
             
@@ -103,28 +113,31 @@ class pyrandaMPI():
         self.patch = int(GLOBAL_PATCH)
         self.level = int(GLOBAL_LEVEL)
 
-            
-        parcop.parcop.setup( self.patch, self.level , self.fcomm, self.nx,self.ny,self.nz, 
-                             px , py, pz, x1,xn,y1,yn,
-                             z1,zn,bx1,bxn,by1,byn,
-                             bz1,bzn)
+        parcop.parcop.setup( self.patch, self.level , self.fcomm,
+                             self.nx,self.ny,self.nz, 
+                             px,py,pz,self.coordsys,
+                             x1,xn,y1,yn,z1,zn,
+                             bx1,bxn,by1,byn,bz1,bzn)
+
+
         
         self.chunk_3d_size = numpy.zeros(3, dtype=numpy.int32, order='F')
         self.chunk_3d_lo   = numpy.zeros(3, dtype=numpy.int32, order='F')
         self.chunk_3d_hi   = numpy.zeros(3, dtype=numpy.int32, order='F')
 
-        self.xcom  = MPI.Comm.f2py( parcop.parcop.commx (0,0) )
-        self.ycom  = MPI.Comm.f2py( parcop.parcop.commy (0,0) )
-        self.zcom  = MPI.Comm.f2py( parcop.parcop.commz (0,0) )
-        self.xycom = MPI.Comm.f2py( parcop.parcop.commxy(0,0) )
-        self.yzcom = MPI.Comm.f2py( parcop.parcop.commyz(0,0) )
-        self.xzcom = MPI.Comm.f2py( parcop.parcop.commxz(0,0) )
+        self.setPatch()
+        self.xcom  = MPI.Comm.f2py( parcop.parcop.commx()  )
+        self.ycom  = MPI.Comm.f2py( parcop.parcop.commy()  )
+        self.zcom  = MPI.Comm.f2py( parcop.parcop.commz()  )
+        self.xycom = MPI.Comm.f2py( parcop.parcop.commxy() )
+        self.yzcom = MPI.Comm.f2py( parcop.parcop.commyz() )
+        self.xzcom = MPI.Comm.f2py( parcop.parcop.commxz() )
 
             
 
-        self.chunk_3d_size[0] = self.nx / px
-        self.chunk_3d_size[1] = self.ny / py
-        self.chunk_3d_size[2] = self.nz / pz
+        self.chunk_3d_size[0] = self.ax = self.nx / px
+        self.chunk_3d_size[1] = self.ay = self.ny / py
+        self.chunk_3d_size[2] = self.az = self.nz / pz
 
         self.chunk_3d_lo[0] = self.xcom.rank     * self.chunk_3d_size[0] + 1
         self.chunk_3d_hi[0] = (self.xcom.rank+1) * self.chunk_3d_size[0]
@@ -144,16 +157,7 @@ class pyrandaMPI():
         self.gfil = parcop_gfil()
 
 
-        self.setPatch()        
-
-        # Mesh data
-        self.CellVol = parcop.parcop.mesh_getcellvol(self.chunk_3d_size[0],
-                                                     self.chunk_3d_size[1],
-                                                     self.chunk_3d_size[2])
-        self.GridLen = parcop.parcop.mesh_getgridlen(self.chunk_3d_size[0],
-                                                     self.chunk_3d_size[1],
-                                                     self.chunk_3d_size[2])
-        
+        #self.setPatch()        
 
         
 
@@ -272,12 +276,22 @@ class parcop_der:
     def ddz(self,val):        
         return parcop.parcop.ddz(  val )
 
+    def div(self,fx,fy,fz):
+        return parcop.parcop.divergence(fx,fy,fz)
+
     def laplacian(self,val):        
         return parcop.parcop.plaplacian(  val )
 
     def ring(self,val):
         return parcop.parcop.pring(  val )
 
+class parcop_mesh:
+
+    def __init__(self):
+        pass
+
+    #def get
+    
 class parcop_gfil:
 
     def __init__(self):
