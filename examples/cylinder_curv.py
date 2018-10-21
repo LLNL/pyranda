@@ -60,7 +60,7 @@ if dim == 2:
 
 
 # Initialize a simulation object on a mesh
-ss = pyrandaSim('advection',mesh_options)
+ss = pyrandaSim(problem,mesh_options)
 ss.addPackage( pyrandaBC(ss) )
 ss.addPackage( pyrandaIBM(ss) )
 ss.addPackage( pyrandaTimestep(ss) )
@@ -217,17 +217,13 @@ while tt > time:
     if viz and (not test):
         v = ss.PyMPI.zbar( ss.variables[pvar].data )
         phi = ss.PyMPI.zbar( ss.variables['phi'].data )
+        if (cnt%viz_freq == 1) :
+            ss.write()
+        
         if (ss.PyMPI.master) and (cnt%viz_freq == 1) :#or True:
 
-            #foo = raw_input()
             
-            #plt.figure(1)
-            #plt.clf()
-            #ny = ss.PyMPI.ny
-            #plt.plot(xx[:,int(ny/2)],v[:,int(ny/2)] ,'k.-')
-            #plt.title(pvar)
-            #plt.pause(.001)
-
+            
             plt.figure(2)
             plt.clf()            
             plt.contourf( xx,yy,v ,64 , cmap=cm.jet)

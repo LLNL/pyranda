@@ -171,7 +171,7 @@ while time < tstop:
     cnt += 1
     if viz:
 
-        dd = numpy.where( z == 0.0, 1.0, 0.0 )
+        dd = numpy.where( z <= 1.0e-10, 1.0, 0.0 )
         v = ss.PyMPI.zbar( dd*ss.variables[pvar].data )
 
         if (cnt%viz_freq == 0):

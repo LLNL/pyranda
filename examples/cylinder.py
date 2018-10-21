@@ -153,7 +153,7 @@ time = 0.0
 viz = True
 
 # Approx a max dt and stopping time
-tt = 0.3 #
+tt = 1.5 #
 
 # Mesh for viz on master
 xx   =  ss.PyMPI.zbar( x )
