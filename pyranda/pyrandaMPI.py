@@ -135,9 +135,9 @@ class pyrandaMPI():
 
             
 
-        self.chunk_3d_size[0] = self.ax = self.nx / px
-        self.chunk_3d_size[1] = self.ay = self.ny / py
-        self.chunk_3d_size[2] = self.az = self.nz / pz
+        self.chunk_3d_size[0] = self.ax = int( self.nx / px )
+        self.chunk_3d_size[1] = self.ay = int( self.ny / py )
+        self.chunk_3d_size[2] = self.az = int( self.nz / pz )
 
         self.chunk_3d_lo[0] = self.xcom.rank     * self.chunk_3d_size[0] + 1
         self.chunk_3d_hi[0] = (self.xcom.rank+1) * self.chunk_3d_size[0]
