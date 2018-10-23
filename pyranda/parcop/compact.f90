@@ -2728,6 +2728,7 @@ contains
     real(kind=c_double) :: tmp
     integer :: nb,nsr,i,j,k,z
     integer :: ax,ay,az,nor,nir,nr,nol,nl,ni,np  ! surrogates
+    real(kind=c_double) :: this_v, this_sum
     call nvtxStartRange("evalx: startup")
     IF (op%null_op) THEN
       if( op%null_option == 0 ) dv = zero
@@ -2797,61 +2798,25 @@ contains
     call nvtxStartRange("evalx: dealloc")
     deallocate( vbs1,vbs2 )
     call nvtxEndRange
-    if (.true.) THEN
-    !$acc parallel loop gang vector collapse(2) copyin(op, vbr1, v) copyout(dv)
-    do k=1,az
-    do j=1,ay
-      dv(1,j,k) = sum(op%ar(1:3,1)*vbr1(1:3,j,k))+sum(op%ar(4:7,1)*v(1:4,j,k))
-      dv(2,j,k) = sum(op%ar(1:2,2)*vbr1(2:3,j,k))+sum(op%ar(3:7,2)*v(1:5,j,k))
-      dv(3,j,k) = sum(op%ar(1:1,3)*vbr1(3:3,j,k))+sum(op%ar(2:7,3)*v(1:6,j,k))
-      dv(1,j,k) = dv(1,j,k) * scalefac
-      dv(2,j,k) = dv(2,j,k) * scalefac
-      dv(3,j,k) = dv(3,j,k) * scalefac
-    end do
-    end do
-    !$acc parallel loop gang vector collapse(3) copyin(op, v) copyout(dv)
-    do k=1,az
-    do j=1,ay
-      do i=4,ax-3
-        dv(i,j,k) = sum(op%ar(:,i)*v(i-3:i+3,j,k))
-        dv(i,j,k) = dv(i,j,k) * scalefac
-      end do
-    end do
-    end do
-    !$acc parallel loop gang vector collapse(2) copyin(op, vbr2, v) copyout(dv)
-    do k=1,az
-    do j=1,ay
-      dv(ax-2,j,k) = sum(op%ar(1:6,ax-2)*v(ax-5:ax,j,k))+sum(op%ar(7:7,ax-2)*vbr2(1:1,j,k))
-      dv(ax-1,j,k) = sum(op%ar(1:5,ax-1)*v(ax-4:ax,j,k))+sum(op%ar(6:7,ax-1)*vbr2(1:2,j,k))
-      dv(ax  ,j,k) = sum(op%ar(1:4,ax  )*v(ax-3:ax,j,k))+sum(op%ar(5:7,ax  )*vbr2(1:3,j,k))
-      dv(ax-2,j,k) = dv(ax-2,j,k) * scalefac
-      dv(ax-1,j,k) = dv(ax-1,j,k) * scalefac
-      dv(ax,j,k) = dv(ax,j,k) * scalefac
-    end do
-    end do
-    else
-    !        This is an experiment. The above 3 loops are combined. It'll be more branching
-    !        but also more parallelism. It's slower for x, since the branching is within
-    !        warps, but should be faster for y and z. 
-    dv=0.0
-    !$acc parallel loop gang vector collapse(3) copyin(op, v, vbr1, vbr2) create(dv)
+    !$acc parallel loop gang vector collapse(3) copyin(op, vbr1, vbr2, v) copyout(dv)
     do k=1,az
     do j=1,ay
     do i=1,ax
-        do z=-3,3
-           if (z+i<1) then
-              dv(i,j,k) = dv(i,j,k) + op%ar(z+4,i)*vbr1(z+i+3,j,k)
-           elseif (z+i>ax) then
-              dv(i,j,k) = dv(i,j,k) + op%ar(z+4,i)*vbr2(z+i-ax,j,k)
-           else
-              dv(i,j,k) = dv(i,j,k) + op%ar(z+4,i)*v(z+i,j,k) !sum(op%ar(:,i)*v(i-3:i+3,j,k))
-           endif
-        enddo
-        dv(i,j,k) = dv(i,j,k) * scalefac
+      this_sum = 0.0d0
+      do z=-3,3
+        if (z+i<1) then
+           this_v = vbr1(z+i+3,j,k)
+        elseif (z+i>ax) then
+           this_v = vbr2(z+i-ax,j,k)
+        else
+           this_v = v(z+i,j,k)
+        endif
+        this_sum = this_sum + op%ar(z+4,i)*this_v
+      end do
+      dv(i,j,k) = this_sum * scalefac
     end do
     end do
     end do
-    endif
     call nvtxStartRange("evalx: dealloc")
     deallocate( vbr1,vbr2 )
     call nvtxEndRange
@@ -2929,8 +2894,9 @@ contains
     real(kind=c_double), dimension(:,:,:), allocatable :: vbr1,vbr2,vbs1,vbs2
     real(kind=c_double), dimension(:,:,:), allocatable :: dvop
     real(kind=c_double), dimension(:,:,:,:), allocatable :: dvo
-    integer :: nb,nsr,i,j,k
+    integer :: nb,nsr,i,j,k,z
     integer :: ax,ay,az,nor,nir,nr,nol,nl,ni,np  ! surrogates
+    real(kind=c_double) :: this_v, this_sum
     IF (op%null_op) THEN
       if( op%null_option == 0 ) dv = zero
       if( op%null_option == 1 ) dv = v
@@ -2990,35 +2956,23 @@ contains
       endif
     endif
     deallocate( vbs1,vbs2 )
-    !$acc parallel loop gang vector collapse(2) copyin(op, vbr1, v) copyout(dv)
+    !$acc parallel loop gang vector collapse(3) copyin(op, vbr1, vbr2, v) copyout(dv)
     do k=1,az
+    do j=1,ay
     do i=1,ax
-      dv(i,1,k) = sum(op%ar(1:3,1)*vbr1(i,1:3,k))+sum(op%ar(4:7,1)*v(i,1:4,k))
-      dv(i,2,k) = sum(op%ar(1:2,2)*vbr1(i,2:3,k))+sum(op%ar(3:7,2)*v(i,1:5,k))
-      dv(i,3,k) = sum(op%ar(1:1,3)*vbr1(i,3:3,k))+sum(op%ar(2:7,3)*v(i,1:6,k))
-      dv(i,1,k) = dv(i,1,k) * scalefac
-      dv(i,2,k) = dv(i,2,k) * scalefac
-      dv(i,3,k) = dv(i,3,k) * scalefac
+      this_sum = 0.0d0
+      do z=-3,3
+        if (z+j<1) then
+           this_v = vbr1(i,z+j+3,k)
+        elseif (z+j>ay) then
+           this_v = vbr2(i,z+j-ay,k)
+        else
+           this_v = v(i,z+j,k)
+        endif
+        this_sum = this_sum + op%ar(z+4,j)*this_v
+      end do
+      dv(i,j,k) = this_sum * scalefac
     end do
-    end do
-    !$acc parallel loop gang vector collapse(3) copyin(op, v) copyout(dv)
-    do k=1,az
-    do j=4,ay-3
-    do i=1,ax
-        dv(i,j,k) = sum(op%ar(:,j)*v(i,j-3:j+3,k))
-        dv(i,j,k) = dv(i,j,k) * scalefac
-    end do
-    end do
-    end do
-    !$acc parallel loop gang vector collapse(2) copyin(op, vbr2, v) copyout(dv)
-    do k=1,az
-    do i=1,ax
-      dv(i,ay-2,k) = sum(op%ar(1:6,ay-2)*v(i,ay-5:ay,k))+sum(op%ar(7:7,ay-2)*vbr2(i,1:1,k))
-      dv(i,ay-1,k) = sum(op%ar(1:5,ay-1)*v(i,ay-4:ay,k))+sum(op%ar(6:7,ay-1)*vbr2(i,1:2,k))
-      dv(i,ay  ,k) = sum(op%ar(1:4,ay  )*v(i,ay-3:ay,k))+sum(op%ar(5:7,ay  )*vbr2(i,1:3,k))
-      dv(i,ay-2,k) = dv(i,ay-2,k) * scalefac
-      dv(i,ay-1,k) = dv(i,ay-1,k) * scalefac
-      dv(i,ay,k) = dv(i,ay,k) * scalefac
     end do
     end do
     deallocate( vbr1,vbr2 )
@@ -3092,8 +3046,9 @@ contains
     real(kind=c_double), dimension(:,:,:), allocatable :: vbr1,vbr2,vbs1,vbs2
     real(kind=c_double), dimension(:,:,:), allocatable :: dvop
     real(kind=c_double), dimension(:,:,:,:), allocatable :: dvo
-    integer :: nb,nsr,i,j,k
+    integer :: nb,nsr,i,j,k,z
     integer :: ax,ay,az,nor,nir,nr,nol,nl,ni,np  ! surrogates
+    real(kind=c_double) :: this_v, this_sum
     IF (op%null_op) THEN
       if( op%null_option == 0 ) dv = zero
       if( op%null_option == 1 ) dv = v
@@ -3153,35 +3108,23 @@ contains
       endif
     endif
     deallocate( vbs1,vbs2 )
-    !$acc parallel loop gang vector collapse(2) copyin(op, vbr1, v) copyout(dv)
+    !$acc parallel loop gang vector collapse(3) copyin(op, vbr1, vbr2, v) copyout(dv)
+    do k=1,az
     do j=1,ay
     do i=1,ax
-      dv(i,j,1) = sum(op%ar(1:3,1)*vbr1(i,j,1:3))+sum(op%ar(4:7,1)*v(i,j,1:4))
-      dv(i,j,2) = sum(op%ar(1:2,2)*vbr1(i,j,2:3))+sum(op%ar(3:7,2)*v(i,j,1:5))
-      dv(i,j,3) = sum(op%ar(1:1,3)*vbr1(i,j,3:3))+sum(op%ar(2:7,3)*v(i,j,1:6))
-      dv(i,j,1) = dv(i,j,1) * scalefac
-      dv(i,j,2) = dv(i,j,2) * scalefac
-      dv(i,j,3) = dv(i,j,3) * scalefac
+      this_sum = 0.0d0
+      do z=-3,3
+        if (z+k<1) then
+           this_v = vbr1(i,j,z+k+3)
+        elseif (z+k>az) then
+           this_v = vbr2(i,j,z+k-az)
+        else
+           this_v = v(i,j,z+k)
+        endif
+        this_sum = this_sum + op%ar(z+4,k)*this_v
+      end do
+      dv(i,j,k) = this_sum * scalefac
     end do
-    end do
-    !$acc parallel loop gang vector collapse(3) copyin(op, v) copyout(dv)
-    do k=4,az-3
-    do j=1,ay
-    do i=1,ax
-        dv(i,j,k) = sum(op%ar(:,k)*v(i,j,k-3:k+3))
-        dv(i,j,k) = dv(i,j,k) * scalefac
-    end do
-    end do
-    end do
-    !$acc parallel loop gang vector collapse(2) copyin(op, vbr2, v) copyout(dv)
-    do j=1,ay
-    do i=1,ax
-      dv(i,j,az-2) = sum(op%ar(1:6,az-2)*v(i,j,az-5:az))+sum(op%ar(7:7,az-2)*vbr2(i,j,1:1))
-      dv(i,j,az-1) = sum(op%ar(1:5,az-1)*v(i,j,az-4:az))+sum(op%ar(6:7,az-1)*vbr2(i,j,1:2))
-      dv(i,j,az  ) = sum(op%ar(1:4,az  )*v(i,j,az-3:az))+sum(op%ar(5:7,az  )*vbr2(i,j,1:3))
-      dv(i,j,az-2) = dv(i,j,az-2) * scalefac
-      dv(i,j,az-1) = dv(i,j,az-1) * scalefac
-      dv(i,j,az) = dv(i,j,az) * scalefac
     end do
     end do
     deallocate( vbr1,vbr2 )
