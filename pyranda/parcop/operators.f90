@@ -389,7 +389,9 @@
       CALL d2x(f,Lapf)
       CALL d2y(f,tmp)
       CALL d2z(f,dum)
+      !$acc kernels
       Lapf = Lapf+tmp+dum
+      !$acc end kernels
      CASE(1) ! Cylindrical
       CALL ddx(f,tmp)
       dum = mesh_ptr%xgrid*tmp
