@@ -19,23 +19,23 @@ MODULE parcop
   CONTAINS
 
 
-    SUBROUTINE setup(patch,level,COMM,nx,ny,nz,px,py,pz,x1,xn,y1,yn,z1,zn,bx1,bxn,by1,byn,bz1,bzn)
+    SUBROUTINE setup(patch,level,COMM,nx,ny,nz,px,py,pz,x1,xn,y1,yn,z1,zn,bx1,bxn,by1,byn,bz1,bzn,coordsys)
       IMPLICIT NONE
       INTEGER,               INTENT(IN) :: patch,level
       INTEGER,               INTENT(IN) :: COMM
       INTEGER,               INTENT(IN) :: nx,ny,nz,px,py,pz
-      REAL(kind=8),   INTENT(IN)   :: x1,xn,y1,yn,z1,zn
-      CHARACTER(LEN=*), INTENT(IN) :: bx1,bxn,by1,byn,bz1,bzn
+      REAL(kind=8),          INTENT(IN) :: x1,xn,y1,yn,z1,zn
+      CHARACTER(LEN=*),      INTENT(IN) :: bx1,bxn,by1,byn,bz1,bzn
+      INTEGER,               INTENT(IN) :: coordsys
       
       REAL(kind=8)                 :: x1f,xnf,y1f,ynf,z1f,znf
-      INTEGER                      :: color,key,coordsys
+      INTEGER                      :: color,key
       REAL(kind=8)                 :: simtime
       REAL(kind=8)                 :: dx,dy,dz
       
 
       color = 0
       key = 0
-      coordsys = 0
       simtime = 0.0D0
 
       LES_comm_world = COMM
@@ -173,6 +173,29 @@ MODULE parcop
       CALL div(val1,val2,val3,dval)
 
     END SUBROUTINE divV
+
+    SUBROUTINE divT( & 
+         valx1,valx2,valx3, &
+         valy1,valy2,valy3, &
+         valz1,valz2,valz3, &
+         valf1,valf2,valf3, &
+         nx,ny,nz)         
+      IMPLICIT NONE
+      INTEGER,               INTENT(IN) :: nx,ny,nz
+      real(kind=8), dimension(nx,ny,nz), intent(in) :: valx1,valx2,valx3
+      real(kind=8), dimension(nx,ny,nz), intent(in) :: valy1,valy2,valy3
+      real(kind=8), dimension(nx,ny,nz), intent(in) :: valz1,valz2,valz3
+      real(kind=8), dimension(nx,ny,nz),intent(out) :: valf1,valf2,valf3
+      
+      CALL div(valx1,valx2,valx3,&
+           valy1,valy2,valy3,&
+           valz1,valz2,valz3,&
+           valf1,valf2,valf3)
+      
+    END SUBROUTINE divT
+
+
+    
 
     SUBROUTINE gradS(val,val1,val2,val3,nx,ny,nz)
       IMPLICIT NONE

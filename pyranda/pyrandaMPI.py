@@ -46,10 +46,23 @@ class pyrandaMPI():
         self.dx = dx
         self.dy = dy
         self.dz = dz
-        
+
+        # Periodicity
         periodic = meshOptions['periodic']
         self.periodic = periodic
+
+        # Coordsys type
+        coordsys = 0
+        kind = meshOptions['type']        
+        if 'cart' in kind.lower():
+            coordsys = 1
+        elif 'curv' in kind.lower():
+            coordsys = 3
+
+        import pdb
+        pdb.set_trace()
         
+        # MPI communicator
         self.comm  = MPI.COMM_WORLD
         self.fcomm = self.comm.py2f()
             
@@ -107,7 +120,7 @@ class pyrandaMPI():
         parcop.parcop.setup( self.patch, self.level , self.fcomm, self.nx,self.ny,self.nz, 
                              px , py, pz, x1,xn,y1,yn,
                              z1,zn,bx1,bxn,by1,byn,
-                             bz1,bzn)
+                             bz1,bzn,coordsys)
         
         self.chunk_3d_size = numpy.zeros(3, dtype=numpy.int32, order='F')
         self.chunk_3d_lo   = numpy.zeros(3, dtype=numpy.int32, order='F')
@@ -147,7 +160,7 @@ class pyrandaMPI():
             #self.fil = Filter( self.grid_partition, self.filter_type, periodic_dimensions=self.periodic )
             #self.gfil = Filter( self.grid_partition, ('gaussian','gaussian','gaussian'), periodic_dimensions=self.periodic ) 
 
-        self.der  = parcop_der()
+        self.der  = parcop_der(self)
         self.fil  = parcop_sfil()
         self.gfil = parcop_gfil()
 
@@ -257,7 +270,8 @@ class pyrandaMPI():
 
 class parcop_der:
 
-    def __init__(self):        
+    def __init__(self,PyMPI):
+        self.PyMPI = PyMPI
         pass
 
     def ddx(self,val):        
@@ -274,6 +288,21 @@ class parcop_der:
 
     def ring(self,val):
         return parcop.parcop.pring(  val )
+
+    # Div operator and overloads
+    def div(self,valx,valy,valz):
+
+        if type(valx) == type(1.0):
+            valx = self.PyMPI.emptyScalar()
+        if type(valy) == type(1.0):
+            valy = self.PyMPI.emptyScalar()
+        if type(valz) == type(1.0):
+            valz = self.PyMPI.emptyScalar()
+        return parcop.parcop.divv( valx, valy, valz )
+
+
+
+    
 
 class parcop_gfil:
 

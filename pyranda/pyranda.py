@@ -44,34 +44,20 @@ class pyrandaSim:
         else:            
             raise ValueError('No suitable mesh type specified.')
 
-        if self.meshType == 'cartesian':
 
-            try:
-                nx = meshOptions['nn'][0]
-                ny = meshOptions['nn'][1]
-                nz = meshOptions['nn'][2]
-
-                dx = (meshOptions['xn'][0]-meshOptions['x1'][0])/max(nx-1,1)
-                dy = (meshOptions['xn'][1]-meshOptions['x1'][1])/max(ny-1,1)
-                dz = (meshOptions['xn'][2]-meshOptions['x1'][2])/max(nz-1,1)
-                periodic = meshOptions['periodic']
-
-            except:
-                raise ValueError("Invalid options given for cartesian mesh")
-
-        self.dx = dx
-        self.dy = dy
-        self.dz = dz
-            
-        self.nx = nx
-        self.ny = ny
-        self.nz = nz
-
-        #self.PyMPI = pyrandaMPI(nx,ny,nz,dx,dy,dz,periodic)
-
-        #self.mesh = pyrandaMesh(self.meshOptions)
-
+        # Initialize mesh/solver/comms
         self.PyMPI = pyrandaMPI( meshOptions )
+
+        self.dx = self.PyMPI.dx
+        self.dy = self.PyMPI.dy
+        self.dz = self.PyMPI.dz
+            
+        self.nx = self.PyMPI.nx
+        self.ny = self.PyMPI.ny
+        self.nz = self.PyMPI.nz
+
+        self.periodic = self.PyMPI.periodic
+        
         self.mesh.options = meshOptions
         self.mesh.PyMPI = self.PyMPI
         self.mesh.kind  = meshOptions['type']
@@ -266,9 +252,15 @@ class pyrandaSim:
         for eqo in self.equations:
             eq = eqo.eqstr
             if ( eqo.kind == 'PDE' ):
-                lhs = eqo.LHS[0]
-                Srhs = eq.split('=')[1]  # This is a string to evaluate
-                flux[lhs] = eqo.RHS(self)
+                try:
+                    lhs = eqo.LHS[0]
+                    Srhs = eq.split('=')[1]  # This is a string to evaluate
+                    flux[lhs] = eqo.RHS(self)
+                except:
+                    if self.PyMPI.master == 1:
+                        print("Error evaluating equation:")
+                        print("%s = %s" % (lhs,Srhs) )
+                        print("%s" % (eqo.sRHS) )
 
         return flux
 
@@ -340,6 +332,9 @@ class pyrandaSim:
     def grad(self,val):
         return [self.ddx(val),self.ddy(val),self.ddz(val)]
 
+    def div(self,valx,valy,valz):
+        return self.PyMPI.der.div( valx, valy, valz )
+    
     def laplacian(self,val):
         return self.PyMPI.der.laplacian( val )
 
@@ -470,14 +465,22 @@ class pyrandaSim:
     def get_sMap(self):
         sMap = {}
         
-        sMap["div(#arg#)"] = ""
-        if self.nx > 1:
-            sMap["div(#arg#)"] += "self.ddx(#arg#[:,:,:,0])"
-        if self.ny > 1:
-            sMap["div(#arg#)"] += "+self.ddy(#arg#[:,:,:,1])"
-        if self.nz > 1:
-            sMap["div(#arg#)"] += "+self.ddz(#arg#[:,:,:,2])"
+        sMap["div("] = "self.div("
+        #iarg = 0
+        #sMap["div(#arg#)"] += " (#arg#)[%s] , " % iarg
+        #if self.ny > 1:
+        #    iarg += 1
+        #    sMap["div(#arg#)"] += " (#arg#)[%s] , " % iarg
+        #else:
+        #    sMap["div(#arg#)"] += " (#arg#)[0] , "
+        #    
+        #if self.nz > 1:
+        #    iarg += 1
+        #    sMap["div(#arg#)"] += " (#arg#)[%s] ) " % iarg
+        #else:
+        #    sMap["div(#arg#)"] += " (#arg#)[0] ) " 
 
+            
         # Simple find/replace mappings
         sMap['ddx(' ] = 'self.ddx('
         sMap['ddy(' ] = 'self.ddy('
@@ -485,7 +488,7 @@ class pyrandaSim:
         sMap['fbar('] = 'self.filter('
         sMap['gbar('] = 'self.gfilter('
         sMap['grad('] = 'self.grad('
-        sMap['simtime'] = 'self.time'
+        sMap['simtime'] = 'self.time' 
         sMap['lap(' ] = 'self.laplacian('
         sMap['ring(' ] = 'self.ring('
         sMap['sum(' ] = 'self.PyMPI.sum3D('

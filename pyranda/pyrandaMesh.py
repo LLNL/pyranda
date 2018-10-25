@@ -12,6 +12,20 @@ import numpy
 from .pyrandaUtils import *
 
 
+
+class pyrandaMeshType:
+
+    def __init__(self,kind):
+
+        self.coordsys = 0
+        self.kind = kind
+        
+        if 'cart' in kind.lower():
+            self.kind = 1
+        elif 'curv' in kind.lower():
+            self.kind = 3
+        
+
 class pyrandaMesh:
 
     def __init__(self):#,mesh_options):
@@ -26,10 +40,12 @@ class pyrandaMesh:
         self.z = None
         self.coords = None
         self.shape = None
-        #self.makeMesh()
 
     def makeMeshStr(self,str_mesh):
-
+        """
+        Default mesh options to be overwritten by string
+        """
+        
         mesh_options = {}
         meshStrLines = splitLines( str_mesh ) # Split into lines
 
