@@ -217,6 +217,3 @@ if test:
     fname = testName + '.dat'
     numpy.savetxt( fname  , (x1d,v1d) )
     print(fname)
-
-
-ss.write()
