@@ -33,13 +33,13 @@ Lp = L * (Npts-1.0) / Npts
 twoD = True
 
 mesh_options = {}
-mesh_options['type'] = 'cartesian'
+mesh_options['coordsys'] = 0
 mesh_options['periodic'] = numpy.array([twoD, twoD, True])
 mesh_options['dim'] = 3
-#mesh_options['x1'] = [ 0.0 , 0.0  ,  0.0 ]
-#mesh_options['xn'] = [ Lp   , Lp    ,  Lp ]
-mesh_options['x1'] = [ -Lp/2.0 , -Lp/2.0  ,  0.0 ]
-mesh_options['xn'] = [ Lp/2.0   , Lp/2.0    ,  Lp ]
+mesh_options['x1'] = [ 0.0 , 0.0  ,  0.0 ]
+mesh_options['xn'] = [ Lp   , Lp    ,  Lp ]
+#mesh_options['x1'] = [ -Lp/2.0 , -Lp/2.0  ,  0.0 ]
+#mesh_options['xn'] = [ Lp/2.0   , Lp/2.0   ,  Lp ]
 
 mesh_options['nn'] = [ Npts, 1 ,  1  ]
 if twoD:
@@ -47,7 +47,7 @@ if twoD:
 
 
 # Initialize a simulation object on a mesh
-ss = pyrandaSim('advection',mesh_options)
+ss = pyrandaSim('swirl',mesh_options)
 ss.addPackage( pyrandaIBM(ss) )
 
 
@@ -114,8 +114,7 @@ if not twoD:
 else:
     ss.variables['rho'].data  += 1.0
     ss.variables['rhoA'].data += 1.0e6
-    r = numpy.sqrt( (x-numpy.pi)**2 + (y-numpy.pi)**2 )
-    r = numpy.sqrt( (x)**2 + (y-numpy.pi/2.0)**2 )
+    r = numpy.sqrt( (x-numpy.pi/2.0)**2 + (y-numpy.pi/2.0)**2 )
     ss.variables['phi'].data = ss.gfilter( numpy.minimum( r - numpy.pi/4.0 , 10.0*dx ) )
     if False:
         ss.variables['vA'].data += 1.0
@@ -184,6 +183,10 @@ while tt > time:
         v2 = ss.PyMPI.zbar( ss.variables['rhoT'].data )
         v = ss.PyMPI.zbar( ss.variables['rho'].data )
         vA = ss.PyMPI.zbar( ss.variables['rhoA'].data )
+        if (cnt%viz_freq == 0):
+            ss.write(['rhoT','phi','u','v'])
+        
+        
         if ss.PyMPI.master and (cnt%viz_freq == 0) and True:
             plt.figure(1)
             plt.clf()
@@ -202,6 +205,10 @@ while tt > time:
             #pdb.set_trace()
 
 
+if viz and (not test):
+    ss.write(['rhoT','phi','u','v'])
+
+            
 v2 = ss.PyMPI.zbar( ss.variables['rhoT'].data )
 error = numpy.min( v2[Npts/2:,0] )
 ss.iprint( error )
