@@ -33,4 +33,4 @@ install:
   - python setup.py install
 
 script:
-  - cd tests && python run_tests.py
+  - cd tests && python run_tests.py 1
