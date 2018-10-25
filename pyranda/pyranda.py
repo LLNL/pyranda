@@ -318,7 +318,8 @@ class pyrandaSim:
                 os.mkdir(os.path.join(self.PyIO.rootname, dumpFile))
             except:
                 pass
-            
+
+        self.PyMPI.comm.barrier()   # Wait for directory to be made
         rank = self.PyMPI.comm.rank
         dumpFile = os.path.join( self.PyIO.rootname,
                                  dumpFile,

@@ -30,7 +30,8 @@ class pyrandaIO:
                 os.mkdir(rootname)
             except:
                 pass
-
+        self.PyMPI.comm.barrier()   # Wait for directory to be made
+            
     def makeDump(self,data,dumpName):
         
         dumpFile = dumpName
@@ -52,7 +53,7 @@ class pyrandaIO:
 
     def makeDumpVTK(self,mesh,variables,varList,dumpFile):
 
-        ghost = False
+        ghost = True
 
         if ghost:
             fx = self.PyMPI.ghost(mesh.coords[0])
@@ -67,9 +68,9 @@ class pyrandaIO:
         ay = fx.shape[1]
         az = fx.shape[2]
         
-        fx = fx.flatten()
-        fy = fy.flatten()
-        fz = fz.flatten()
+        fx = fx.flatten(order='F')
+        fy = fy.flatten(order='F')
+        fz = fz.flatten(order='F')
         
         mesh = numpy.vstack((fx,fy,fz)).transpose()
         
@@ -93,7 +94,7 @@ class pyrandaIO:
                 gdata = self.PyMPI.ghost( variables[var].data )
             else:
                 gdata = variables[var].data
-            numpy.savetxt(fid,gdata.flatten() ,fmt='%f')
+            numpy.savetxt(fid,gdata.flatten(order='F') ,fmt='%f')
         
         fid.close()
         

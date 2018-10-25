@@ -42,7 +42,7 @@ mesh_options['x1'] = [ 0.0 , 0.0  ,  0.0 ]
 mesh_options['xn'] = [ Lp   , Lp    ,  Lp ]
 mesh_options['nn'] = [ Npts, 1 ,  1  ]
 if dim == 2:
-    mesh_options['nn'] = [ Npts, Npts ,  1  ]
+    mesh_options['nn'] = [ Npts , Npts ,  1  ]
 
 
 # Initialize a simulation object on a mesh

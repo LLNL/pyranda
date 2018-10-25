@@ -188,7 +188,16 @@ class pyrandaMPI():
         self.ynproc = False
         if self.ycom.rank == self.ycom.size - 1:
             self.ynproc = True
-                                 
+
+        self.z1proc = False
+        if self.zcom.rank == 0:
+            self.z1proc = True
+
+        self.znproc = False
+        if self.zcom.rank == self.zcom.size - 1:
+            self.znproc = True
+
+            
     def setPatch(self):                                 
         parcop.parcop.set_patch( self.patch, self.level )
 
@@ -289,6 +298,26 @@ class pyrandaMPI():
         if self.nz > 1:
             gdata = self.ghostz(gdata,npz)
 
+        
+        # For periodic data, clip sides
+        if self.nx > 1:
+            if self.x1proc:
+                gdata = gdata[np:,:,:]
+            if self.xnproc:
+                gdata = gdata[:-np,:,:]
+
+        if self.ny > 1:
+            if self.y1proc:
+                gdata = gdata[:,np:,:]
+            if self.ynproc:
+                gdata = gdata[:,:-np,:]
+
+        if self.nz > 1 :
+            if self.z1proc:
+                gdata = gdata[:,:,np:]
+            if self.znproc:
+                gdata = gdata[:,:,:-np]
+            
         return gdata
 
     
@@ -351,7 +380,7 @@ class pyrandaMPI():
 
         if self.ycom.Get_rank() == self.py-1:
             for i in range(np):
-                data[:,bx-np+i,:] = data[:,by-np-1,:]
+                data[:,by-np+i,:] = data[:,by-np-1,:]
 
         return data
 
