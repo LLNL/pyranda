@@ -15,6 +15,13 @@ tests = []    # List of test objects
 dbase = {}    # Dictionary of baselines
 relE  = {}    # Dictionary of relative errors for baselines
 
+verbose = False
+try:
+    verbose = sys.argv[1]
+    print('Running in verbose mode')
+except:
+    pass
+    
 # Since Python 3 doesn't have execfile
 def execfile(file_name):
     exec(compile(open(file_name, "rb").read(), file_name, 'exec'))
@@ -59,7 +66,12 @@ for test in tests:
     curve = False
     if '.dat' in pout:
         curve = True
-    
+        
+    # Verbose output
+    if verbose:
+        for po in out[1].decode('utf-8').split('\n'):
+            print(po)
+            
     # Diff against baseline
     try:
         baseline = dbase[test.name]  # Baseline value/file
