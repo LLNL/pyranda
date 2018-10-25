@@ -60,6 +60,7 @@ ddt(:phi:)  =  - :gx: * :u1: - :gy: * :v1:  - .01*sign(:phi:)*(:mgp:-1.0)
 # Conservative filter of the EoM
 :rho:       =  fbar( :rho:  )
 :rhoA:      =  fbar( :rhoA:  )
+#:phi:       =  fbar( :phi: )
 # Update the primatives and enforce the EOS
 :dr:        = ddx(:rho:)
 :drA:       = ddx(:rhoA:)
@@ -112,8 +113,10 @@ if not twoD:
     ss.variables['u1'].data += 1.0
 
 else:
-    ss.variables['rho'].data  += 1.0
+    r = numpy.sqrt( (x-numpy.pi/2.0*3.0)**2 + (y-numpy.pi/2.0*3.0)**2 )
+    ss.variables['rho'].data  += 1.0 #+ 1.0e6*numpy.exp( -numpy.abs(r) / (20.0*dx)**2 )
     ss.variables['rhoA'].data += 1.0e6
+
     r = numpy.sqrt( (x-numpy.pi/2.0)**2 + (y-numpy.pi/2.0)**2 )
     ss.variables['phi'].data = ss.gfilter( numpy.minimum( r - numpy.pi/4.0 , 10.0*dx ) )
     if False:
@@ -167,6 +170,12 @@ viz_freq = 5
 if twoD:
     viz_freq = 10
 
+
+    
+viz_vars = ['rhoT','phi','u','v']
+if viz and (not test):
+    ss.write(viz_vars)
+    
 while tt > time:
 
     time = ss.rk4(time,dt)
@@ -184,7 +193,7 @@ while tt > time:
         v = ss.PyMPI.zbar( ss.variables['rho'].data )
         vA = ss.PyMPI.zbar( ss.variables['rhoA'].data )
         if (cnt%viz_freq == 0):
-            ss.write(['rhoT','phi','u','v'])
+            ss.write(viz_vars)
         
         
         if ss.PyMPI.master and (cnt%viz_freq == 0) and True:
@@ -206,7 +215,7 @@ while tt > time:
 
 
 if viz and (not test):
-    ss.write(['rhoT','phi','u','v'])
+    ss.write(viz_vars)
 
             
 v2 = ss.PyMPI.zbar( ss.variables['rhoT'].data )
