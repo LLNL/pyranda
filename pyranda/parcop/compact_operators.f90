@@ -39,7 +39,7 @@ contains
  !     if( compact_ops%d1x(iop)%id == 0 ) print *,'using compact d1x(',iop,')'
     endif
     ! calculate grid derivative sans metric
-    dv = compact_ops%d1x(iop)%evalx(v,vb1,vb2,scalefac_=1.0d0/compact_ops%dx)
+    CALL compact_ops%d1x(iop)%evalx(dv,v,vb1,vb2,scalefac_=1.0d0/compact_ops%dx)
     ! apply metric here or later? here d is scalar or size(dv,1)
     !!$acc parallel loop collapse(2) copy(dv) copyin(compact_ops)
     !do j=1,size(dv,2)
@@ -72,7 +72,7 @@ contains
       if( bc == -1 .and. allocated(compact_ops%d1y(2)%ar) ) iop = 2
     endif
     ! calculate grid derivative sans metric
-    dv = compact_ops%d1y(iop)%evaly(v,vb1,vb2,scalefac_=1.0d0/compact_ops%dy**2)
+    CALL compact_ops%d1y(iop)%evaly(dv,v,vb1,vb2,scalefac_=1.0d0/compact_ops%dy**2)
     ! apply metric here or later? here d is scalar or size(dv,2)
     !forall(i=1:size(dv,1),k=1:size(dv,3)) dv(i,:,k) = dv(i,:,k)/compact_ops%dy
     ! dv = dv/mesh_data%d2  ! 3D metric
@@ -99,7 +99,7 @@ contains
       if( bc == -1 .and. allocated(compact_ops%d1z(2)%ar) ) iop = 2
     endif
     ! calculate grid derivative sans metric
-    dv = compact_ops%d1z(iop)%evalz(v,vb1,vb2,scalefac_=1.0d0/compact_ops%dz)
+    CALL compact_ops%d1z(iop)%evalz(dv,v,vb1,vb2,scalefac_=1.0d0/compact_ops%dz)
     ! apply metric here or later? here d is scalar or size(dv,3)
     !forall(i=1:size(dv,1),j=1:size(dv,2)) dv(i,j,:) = dv(i,j,:)/compact_ops%dz
     ! dv = dv/mesh_data%d3  ! 3D metric
@@ -129,7 +129,7 @@ contains
     endif
     ! calculate grid derivative sans metric
     call nvtxStartRange("d2x_evalx")
-    dv = compact_ops%d2x(iop)%evalx(v,vb1,vb2,scalefac_=1.0d0/compact_ops%dx**2)
+    CALL compact_ops%d2x(iop)%evalx(dv,v,vb1,vb2,scalefac_=1.0d0/compact_ops%dx**2)
     call nvtxEndRange
     ! apply metric here or later? here d is scalar or size(dv,1)
     !!$acc parallel loop collapse(2) copyin(compact_ops) copy(dv)
@@ -165,7 +165,7 @@ contains
       if( bc == -1 .and. allocated(compact_ops%d2y(2)%ar) ) iop = 2
     endif
     ! calculate grid derivative sans metric
-    dv = compact_ops%d2y(iop)%evaly(v,vb1,vb2,scalefac_=1.0d0/compact_ops%dy**2)
+    CALL compact_ops%d2y(iop)%evaly(dv,v,vb1,vb2,scalefac_=1.0d0/compact_ops%dy**2)
     ! apply metric here or later? here d is scalar or size(dv,2)
     !!$acc parallel loop collapse(3) copy(dv) copyin(compact_ops)
     !do k=1,size(dv,3)
@@ -202,7 +202,7 @@ contains
       if( bc == -1 .and. allocated(compact_ops%d2z(2)%ar) ) iop = 2
     endif
     ! calculate grid derivative sans metric
-    dv = compact_ops%d2z(iop)%evalz(v,vb1,vb2,scalefac_=1.0d0/compact_ops%dz**2)
+    CALL compact_ops%d2z(iop)%evalz(dv,v,vb1,vb2,scalefac_=1.0d0/compact_ops%dz**2)
     ! apply metric here or later? here d is scalar or size(dv,3)
     !!$acc parallel loop collapse(3) copy(dv) copyin(compact_ops)
     !do k=1,size(dv,3)
@@ -237,7 +237,7 @@ contains
       if( bc == -1 .and. allocated(compact_ops%d8x(2)%ar) ) iop = 2
     endif
     ! calculate grid derivative sans metric
-    dv = compact_ops%d8x(iop)%evalx(v,vb1,vb2)
+    CALL compact_ops%d8x(iop)%evalx(dv,v,vb1,vb2)
     ! apply metric here or later? here d is scalar or size(dv,1)
  !   forall(j=1:size(dv,2),k=1:size(dv,3)) dv(:,j,k) = dv(:,j,k)/compact_ops%dx**8
     ! dv = dv/mesh_data%d1**8  ! 3D metric
@@ -264,7 +264,7 @@ contains
       if( bc == -1 .and. allocated(compact_ops%d8y(2)%ar) ) iop = 2
     endif
     ! calculate grid derivative sans metric
-    dv = compact_ops%d8y(iop)%evaly(v,vb1,vb2)
+    CALL compact_ops%d8y(iop)%evaly(dv,v,vb1,vb2)
     ! apply metric here or later? here d is scalar or size(dv,2)
  !   forall(i=1:size(dv,1),k=1:size(dv,3)) dv(i,:,k) = dv(i,:,k)/compact_ops%dy**8
     ! dv = dv/mesh_data%d2**8  ! 3D metric
@@ -291,7 +291,7 @@ contains
       if( bc == -1 .and. allocated(compact_ops%d8z(2)%ar) ) iop = 2
     endif
     ! calculate grid derivative sans metric
-    dv = compact_ops%d8z(iop)%evalz(v,vb1,vb2)
+    CALL compact_ops%d8z(iop)%evalz(dv,v,vb1,vb2)
     ! apply metric here or later? here d is scalar or size(dv,3)
 !    forall(i=1:size(dv,1),j=1:size(dv,2)) dv(i,j,:) = dv(i,j,:)/compact_ops%dz**8
     ! dv = dv/mesh_data%d3**8  ! 3D metric
@@ -320,15 +320,15 @@ contains
     endif
     ! select filter
     if( nf == compact_ops%control%gfspec ) then
-      fv = compact_ops%gfx(iop)%evalx(v,vb1,vb2)
+      CALL compact_ops%gfx(iop)%evalx(fv,v,vb1,vb2)
       return
     endif
     if( nf == compact_ops%control%sfspec ) then
-      fv = compact_ops%sfx(iop)%evalx(v,vb1,vb2)
+      CALL compact_ops%sfx(iop)%evalx(fv,v,vb1,vb2)
       return
     endif
     if( nf == compact_ops%control%tfspec ) then
-      fv = compact_ops%tfx(iop)%evalx(v,vb1,vb2)
+      CALL compact_ops%tfx(iop)%evalx(fv,v,vb1,vb2)
       return
     endif
     call nvtxEndRange()
@@ -356,15 +356,15 @@ contains
     endif
     ! select filter
     if( nf == compact_ops%control%gfspec ) then
-      fv = compact_ops%gfy(iop)%evaly(v,vb1,vb2)
+      CALL compact_ops%gfy(iop)%evaly(fv,v,vb1,vb2)
       return
     endif
     if( nf == compact_ops%control%sfspec ) then
-      fv = compact_ops%sfy(iop)%evaly(v,vb1,vb2)
+      CALL compact_ops%sfy(iop)%evaly(fv,v,vb1,vb2)
       return
     endif
     if( nf == compact_ops%control%tfspec ) then
-      fv = compact_ops%tfy(iop)%evaly(v,vb1,vb2)
+      CALL compact_ops%tfy(iop)%evaly(fv,v,vb1,vb2)
       return
     endif
     call nvtxEndRange()
@@ -392,15 +392,15 @@ contains
     endif
     ! select filter
     if( nf == compact_ops%control%gfspec ) then
-      fv = compact_ops%gfz(iop)%evalz(v,vb1,vb2)
+      CALL compact_ops%gfz(iop)%evalz(fv,v,vb1,vb2)
       return
     endif
     if( nf == compact_ops%control%sfspec ) then
-      fv = compact_ops%sfz(iop)%evalz(v,vb1,vb2)
+      CALL compact_ops%sfz(iop)%evalz(fv,v,vb1,vb2)
       return
     endif
     if( nf == compact_ops%control%tfspec ) then
-      fv = compact_ops%tfz(iop)%evalz(v,vb1,vb2)
+      CALL compact_ops%tfz(iop)%evalz(fv,v,vb1,vb2)
       return
     endif
     call nvtxEndRange()
@@ -425,7 +425,7 @@ contains
       if( bc > 0 ) iop = bc
       if( bc == -1 .and. allocated(compact_ops%islx(2)%ar) ) iop = 2
     endif
-    iv = compact_ops%islx(iop)%evalx(v,vb1,vb2)
+    CALL compact_ops%islx(iop)%evalx(iv,v,vb1,vb2)
     call nvtxEndRange()
   end subroutine islx
 
@@ -448,7 +448,7 @@ contains
       if( bc > 0 ) iop = bc
       if( bc == -1 .and. allocated(compact_ops%isly(2)%ar) ) iop = 2
     endif
-    iv = compact_ops%isly(iop)%evaly(v,vb1,vb2)
+    CALL compact_ops%isly(iop)%evaly(iv,v,vb1,vb2)
     call nvtxEndRange()
   end subroutine isly
 
@@ -471,7 +471,7 @@ contains
       if( bc > 0 ) iop = bc
       if( bc == -1 .and. allocated(compact_ops%islz(2)%ar) ) iop = 2
     endif
-    iv = compact_ops%islz(iop)%evalz(v,vb1,vb2)
+    CALL compact_ops%islz(iop)%evalz(iv,v,vb1,vb2)
     call nvtxEndRange()
   end subroutine islz
 
@@ -494,7 +494,7 @@ contains
       if( bc > 0 ) iop = bc
       if( bc == -1 .and. allocated(compact_ops%isrx(2)%ar) ) iop = 2
     endif
-    iv = compact_ops%isrx(iop)%evalx(v,vb1,vb2)
+    CALL compact_ops%isrx(iop)%evalx(iv,v,vb1,vb2)
     call nvtxEndRange()
   end subroutine isrx
 
@@ -517,7 +517,7 @@ contains
       if( bc > 0 ) iop = bc
       if( bc == -1 .and. allocated(compact_ops%isry(2)%ar) ) iop = 2
     endif
-    iv = compact_ops%isry(iop)%evaly(v,vb1,vb2)
+    CALL compact_ops%isry(iop)%evaly(iv,v,vb1,vb2)
     call nvtxEndRange()
   end subroutine isry
 
@@ -540,7 +540,7 @@ contains
       if( bc > 0 ) iop = bc
       if( bc == -1 .and. allocated(compact_ops%isrz(2)%ar) ) iop = 2
     endif
-    iv = compact_ops%isrz(iop)%evalz(v,vb1,vb2)
+    CALL compact_ops%isrz(iop)%evalz(iv,v,vb1,vb2)
     call nvtxEndRange()
   end subroutine isrz
 
@@ -564,7 +564,7 @@ contains
       if( bc > 0 ) iop = bc
       if( bc == -1 .and. allocated(compact_ops%imcfx(2)%ar) ) iop = 2
     endif
-    iv = compact_ops%imcfx(iop)%evalcfx(v,vb1,vb2,iv1,iv2)
+    CALL compact_ops%imcfx(iop)%evalcfx(iv,v,vb1,vb2,iv1,iv2)
     call nvtxEndRange()
   end subroutine icfx
 
@@ -588,7 +588,7 @@ contains
       if( bc > 0 ) iop = bc
       if( bc == -1 .and. allocated(compact_ops%imcfy(2)%ar) ) iop = 2
     endif
-    iv = compact_ops%imcfy(iop)%evalcfy(v,vb1,vb2,iv1,iv2)
+    CALL compact_ops%imcfy(iop)%evalcfy(iv,v,vb1,vb2,iv1,iv2)
     call nvtxEndRange()
   end subroutine icfy
 
@@ -612,7 +612,7 @@ contains
       if( bc > 0 ) iop = bc
       if( bc == -1 .and. allocated(compact_ops%imcfz(2)%ar) ) iop = 2
     endif
-    iv = compact_ops%imcfz(iop)%evalcfz(v,vb1,vb2,iv1,iv2)
+    CALL compact_ops%imcfz(iop)%evalcfz(iv,v,vb1,vb2,iv1,iv2)
     call nvtxEndRange()
   end subroutine icfz
 
@@ -636,7 +636,7 @@ contains
       if( bc > 0 ) iop = bc
       if( bc == -1 .and. allocated(compact_ops%imfcx(2)%ar) ) iop = 2
     endif
-    iv = compact_ops%imfcx(iop)%evalfcx(v,vb1,vb2,iv1,iv2)
+    CALL compact_ops%imfcx(iop)%evalfcx(iv,v,vb1,vb2,iv1,iv2)
     call nvtxEndRange()
   end subroutine ifcx
 
@@ -660,7 +660,7 @@ contains
       if( bc > 0 ) iop = bc
       if( bc == -1 .and. allocated(compact_ops%imfcy(2)%ar) ) iop = 2
     endif
-    iv = compact_ops%imfcy(iop)%evalfcy(v,vb1,vb2,iv1,iv2)
+    CALL compact_ops%imfcy(iop)%evalfcy(iv,v,vb1,vb2,iv1,iv2)
     call nvtxEndRange()
   end subroutine ifcy
 
@@ -684,7 +684,7 @@ contains
       if( bc > 0 ) iop = bc
       if( bc == -1 .and. allocated(compact_ops%imfcz(2)%ar) ) iop = 2
     endif
-    iv = compact_ops%imfcz(iop)%evalfcz(v,vb1,vb2,iv1,iv2)
+    CALL compact_ops%imfcz(iop)%evalfcz(iv,v,vb1,vb2,iv1,iv2)
     call nvtxEndRange()
   end subroutine ifcz
 
@@ -707,7 +707,7 @@ contains
       if( bc > 0 ) iop = bc
       if( bc == -1 .and. allocated(compact_ops%amrcfx(2)%ar) ) iop = 2
     endif
-    iv = compact_ops%amrcfx(iop)%evalx(v,vb1,vb2)
+    CALL compact_ops%amrcfx(iop)%evalx(iv,v,vb1,vb2)
     call nvtxEndRange()
   end subroutine amrcfx
 
@@ -730,7 +730,7 @@ contains
       if( bc > 0 ) iop = bc
       if( bc == -1 .and. allocated(compact_ops%amrfcx(2)%ar) ) iop = 2
     endif
-    iv = compact_ops%amrfcx(iop)%evalx(v,vb1,vb2)
+    CALL compact_ops%amrfcx(iop)%evalx(iv,v,vb1,vb2)
     call nvtxEndRange()
   end subroutine amrfcx
 
@@ -753,7 +753,7 @@ contains
       if( bc > 0 ) iop = bc
       if( bc == -1 .and. allocated(compact_ops%amrcfy(2)%ar) ) iop = 2
     endif
-    iv = compact_ops%amrcfy(iop)%evaly(v,vb1,vb2)
+    CALL compact_ops%amrcfy(iop)%evaly(iv,v,vb1,vb2)
     call nvtxEndRange()
   end subroutine amrcfy
 
@@ -776,7 +776,7 @@ contains
       if( bc > 0 ) iop = bc
       if( bc == -1 .and. allocated(compact_ops%amrfcy(2)%ar) ) iop = 2
     endif
-    iv = compact_ops%amrfcy(iop)%evaly(v,vb1,vb2)
+    CALL compact_ops%amrfcy(iop)%evaly(iv,v,vb1,vb2)
     call nvtxEndRange()
   end subroutine amrfcy
 
@@ -799,7 +799,7 @@ contains
       if( bc > 0 ) iop = bc
       if( bc == -1 .and. allocated(compact_ops%amrcfz(2)%ar) ) iop = 2
     endif
-    iv = compact_ops%amrcfz(iop)%evalz(v,vb1,vb2)
+    CALL compact_ops%amrcfz(iop)%evalz(iv,v,vb1,vb2)
     call nvtxEndRange()
   end subroutine amrcfz
 
@@ -822,7 +822,7 @@ contains
       if( bc > 0 ) iop = bc
       if( bc == -1 .and. allocated(compact_ops%amrfcz(2)%ar) ) iop = 2
     endif
-    iv = compact_ops%amrfcz(iop)%evalz(v,vb1,vb2)
+    CALL compact_ops%amrfcz(iop)%evalz(iv,v,vb1,vb2)
     call nvtxEndRange()
   end subroutine amrfcz
 

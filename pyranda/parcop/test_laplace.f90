@@ -7,6 +7,8 @@ PROGRAM test_laplace
   USE LES_mesh, ONLY : mesh_type
   USE LES_objects 
   USE parcop, ONLY : setup,plaplacian
+  USE nvtx
+  !USE cudafor
   IMPLICIT NONE
   INCLUDE "mpif.h"
 
@@ -58,7 +60,7 @@ PROGRAM test_laplace
   pz = 1
   
   ! Iterations
-  iterations = 100
+  iterations = 4
 
   ! Parse the simple input
   ii=1
@@ -103,6 +105,8 @@ PROGRAM test_laplace
   ! Setup matrices/solvers
   CALL setup(0,0,MPI_COMM_WORLD,nx,ny,nz,px,py,pz,x1,xn,y1,yn,z1,zn,bx1,bxn,by1,byn,bz1,bzn)
 
+  !i = cudaMemAdvise(rho,nx/px*ny/py*nz/pz, cudaMemAdviseSetPreferredLocation, 0)
+  !i = cudaMemAdvise(drho,nx/px*ny/py*nz/pz, cudaMemAdviseSetPreferredLocation, 0)
   ! Allocated some arrays
   ALLOCATE( rho(nx/px,ny/py,nz/pz) )
   ALLOCATE(drho(nx/px,ny/py,nz/pz) )
@@ -112,14 +116,20 @@ PROGRAM test_laplace
 
   ! Time the derivatives
   CALL SYSTEM_CLOCK( t1, clock_rate, clock_max)
+  !$acc data copy(rho) copyout(drho)
   DO i=1,iterations
      PRINT *, "iter ", i, " of ", iterations
+     CALL nvtxStartRange("plaplacian")
      CALL plaplacian(rho,drho,nx/px,ny/py,nz/pz)    
+     CALL nvtxEndRange()
      IF (.true.) THEN
+        !$acc kernels
         rho(:,:,:) = rho(:,:,:)-0.0001*drho(:,:,:)
+        !$acc end kernels
         PRINT *, "rho(31, 31, 21) = ", rho(31,31,21)
      ENDIF
   END DO
+  !$acc end data
   CALL SYSTEM_CLOCK( t2, clock_rate, clock_max)
 
 

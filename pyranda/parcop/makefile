@@ -90,12 +90,12 @@ gnu.fflags   = -fPIC -ffree-form -ffree-line-length-0 -fbackslash
 intel.fflags = -fPIC
 # TODO: what are clang's fflags here
 clang.fflags = -fPIC
-xl.fflags    = -fPIC -qsuppress=cmpmsg -qsuppress=1500-036 -qxlf2003=polymorphic -qnosave -qfree=f90 -qsuffix=cpp=f:f=f -qmaxmem=-1 -qextname
+xl.fflags    = -fPIC -qsuppress=cmpmsg -qsuppress=1500-036 -qxlf2003=polymorphic -qnosave -qfree=f90 -qsuffix=cpp=f:f=f -qmaxmem=-1 -qextname 
 xl.lopts     = -qmkshrobj
 pgi.fflags   = -fPIC
 ifdef gpu
-pgi.fflags += CUDAROOT=/gpfs/sw/software/CUDA/9.1.85/ -ta=tesla:cc70,managed -Minfo=accel -Mcuda
-pgi.ldflags += CUDAROOT=/gpfs/sw/software/CUDA/9.1.85/ -ta=tesla:cc70,managed -Minfo=accel -Mcuda
+pgi.fflags += CUDAROOT=/gpfs/sw/software/CUDA/9.1.85/ -ta=tesla:cc70,managed -Minfo=accel -Mcuda=cuda9.0
+pgi.ldflags += CUDAROOT=/gpfs/sw/software/CUDA/9.1.85/ -ta=tesla:cc70,managed -Minfo=accel -Mcuda=cuda9.0
 pgi.libs += -L/gpfs/sw/software/CUDa/9.1.85/lib64 -lnvToolsExt
 endif
 
@@ -197,7 +197,7 @@ all: parcop.so test_pent test_laplace
 #		parcop.f90
 
 libparcop.a: $(source)
-	@ar -ur $@ $(source)
+	ar -ur $@ $(source)
 
 # TODO: is the '2' in of the f2pywrappers2.f90 the major python version?
 #                                        ^

@@ -302,13 +302,13 @@ contains
     continue
   end subroutine remove_compact_op1
 
-  function eval_compact_cf1x(op,v,vb1,vb2,dv1,dv2) result(dv)  ! generalized, uses 1D op type
+  subroutine eval_compact_cf1x(op,dv,v,vb1,vb2,dv1,dv2)  ! generalized, uses 1D op type
     implicit none
     class(compact_cf1), intent(in) :: op
     real(kind=c_double), dimension(:,:,:), intent(in) :: v
     real(kind=c_double), dimension(:,:,:), intent(in), optional :: vb1,vb2 ! ghost values
     real(kind=c_double), dimension(:,:), intent(in), optional :: dv1,dv2 ! boundary values
-    real(kind=c_double), dimension(size(v,1)+1,size(v,2),size(v,3)) :: dv
+    real(kind=c_double), dimension(:,:,:), intent(out) :: dv
     real(kind=8), dimension(:,:), allocatable :: vbr,vbs
     real(kind=c_double), dimension(:,:,:), allocatable :: vbr1,vbr2,vbs1,vbs2
     real(kind=c_double), dimension(:,:,:), allocatable :: dvop
@@ -447,15 +447,15 @@ contains
                         op%hash, mpistatus, mpierr )
      if( op%hi /= MPI_PROC_NULL ) dv(mx+1,:,:) = vbr
      deallocate( vbr, vbs )
-  end function eval_compact_cf1x
+  end subroutine eval_compact_cf1x
 
-  function eval_compact_cf1y(op,v,vb1,vb2,dv1,dv2) result(dv)  ! generalized, uses 1D op type
+  subroutine eval_compact_cf1y(op,dv,v,vb1,vb2,dv1,dv2)  ! generalized, uses 1D op type
     implicit none
     class(compact_cf1), intent(in) :: op
     real(kind=c_double), dimension(:,:,:), intent(in) :: v
     real(kind=c_double), dimension(:,:,:), intent(in), optional :: vb1,vb2 ! ghost values
     real(kind=c_double), dimension(:,:), intent(in), optional :: dv1,dv2 ! boundary values
-    real(kind=c_double), dimension(size(v,1),size(v,2)+1,size(v,3)) :: dv
+    real(kind=c_double), dimension(:,:,:), intent(out) :: dv
     real(kind=8), dimension(:,:), allocatable :: vbr,vbs
     real(kind=c_double), dimension(:,:,:), allocatable :: vbr1,vbr2,vbs1,vbs2
     real(kind=c_double), dimension(:,:,:), allocatable :: dvop
@@ -593,15 +593,15 @@ contains
                         op%hash, mpistatus, mpierr )
      if( op%hi /= MPI_PROC_NULL ) dv(:,my+1,:) = vbr
      deallocate( vbr, vbs )
-  end function eval_compact_cf1y
+  end subroutine eval_compact_cf1y
 
-  function eval_compact_cf1z(op,v,vb1,vb2,dv1,dv2) result(dv)  ! generalized, uses 1D op type
+  subroutine eval_compact_cf1z(op,dv,v,vb1,vb2,dv1,dv2)  ! generalized, uses 1D op type
     implicit none
     class(compact_cf1), intent(in) :: op
     real(kind=c_double), dimension(:,:,:), intent(in) :: v
     real(kind=c_double), dimension(:,:,:), intent(in), optional :: vb1,vb2 ! ghost values
     real(kind=c_double), dimension(:,:), intent(in), optional :: dv1,dv2 ! boundary values
-    real(kind=c_double), dimension(size(v,1),size(v,2),size(v,3)+1) :: dv
+    real(kind=c_double), dimension(:,:,:), intent(out) :: dv
    real(kind=8), dimension(:,:), allocatable :: vbr,vbs
     real(kind=c_double), dimension(:,:,:), allocatable :: vbr1,vbr2,vbs1,vbs2
     real(kind=c_double), dimension(:,:,:), allocatable :: dvop
@@ -739,15 +739,15 @@ contains
                         op%hash, mpistatus, mpierr )
      if( op%hi /= MPI_PROC_NULL ) dv(:,:,mz+1) = vbr
      deallocate( vbr, vbs )
-  end function eval_compact_cf1z
+  end subroutine eval_compact_cf1z
 
-  function eval_compact_fc1x(op,v,vb1,vb2,dv1,dv2) result(dv)  ! generalized, uses 1D op type
+  subroutine eval_compact_fc1x(op,dv,v,vb1,vb2,dv1,dv2)  ! generalized, uses 1D op type
     implicit none
     class(compact_fc1), intent(in) :: op
     real(kind=c_double), dimension(:,:,:), intent(in) :: v
     real(kind=c_double), dimension(:,:,:), intent(in), optional :: vb1,vb2 ! ghost values
     real(kind=c_double), dimension(:,:), intent(in), optional :: dv1,dv2 ! boundary values
-    real(kind=c_double), dimension(size(v,1)-1,size(v,2),size(v,3)) :: dv
+    real(kind=c_double), dimension(:,:,:), intent(out) :: dv
     real(kind=c_double), dimension(:,:,:), allocatable :: vbr1,vbr2,vbs1,vbs2
     real(kind=c_double), dimension(:,:,:), allocatable :: dvop
     real(kind=c_double), dimension(:,:,:,:), allocatable :: dvo
@@ -875,15 +875,15 @@ contains
        forall(i=1:mx,j=1:my,k=1:mz) dv(i,j,k) = dv(i,j,k)-sum(op%rc(i,:)*dvop(:,j,k))
      end select
      deallocate( dvop, dvo )
-  end function eval_compact_fc1x
+  end subroutine eval_compact_fc1x
 
-  function eval_compact_fc1y(op,v,vb1,vb2,dv1,dv2) result(dv)  ! generalized, uses 1D op type
+  subroutine eval_compact_fc1y(op,dv,v,vb1,vb2,dv1,dv2)  ! generalized, uses 1D op type
     implicit none
     class(compact_fc1), intent(in) :: op
     real(kind=c_double), dimension(:,:,:), intent(in) :: v
     real(kind=c_double), dimension(:,:,:), intent(in), optional :: vb1,vb2 ! ghost values
     real(kind=c_double), dimension(:,:), intent(in), optional :: dv1,dv2 ! boundary values
-    real(kind=c_double), dimension(size(v,1),size(v,2)-1,size(v,3)) :: dv
+    real(kind=c_double), dimension(:,:,:), intent(out) :: dv
     real(kind=c_double), dimension(:,:,:), allocatable :: vbr1,vbr2,vbs1,vbs2
     real(kind=c_double), dimension(:,:,:), allocatable :: dvop
     real(kind=c_double), dimension(:,:,:,:), allocatable :: dvo
@@ -1010,15 +1010,15 @@ contains
        forall(i=1:mx,j=1:my,k=1:mz) dv(i,j,k) = dv(i,j,k)-sum(op%rc(j,:)*dvop(:,i,k))
      end select
      deallocate( dvop, dvo )
-  end function eval_compact_fc1y
+  end subroutine eval_compact_fc1y
 
-  function eval_compact_fc1z(op,v,vb1,vb2,dv1,dv2) result(dv)  ! generalized, uses 1D op type
+  subroutine eval_compact_fc1z(op,dv,v,vb1,vb2,dv1,dv2)  ! generalized, uses 1D op type
     implicit none
     class(compact_fc1), intent(in) :: op
     real(kind=c_double), dimension(:,:,:), intent(in) :: v
     real(kind=c_double), dimension(:,:,:), intent(in), optional :: vb1,vb2 ! ghost values
     real(kind=c_double), dimension(:,:), intent(in), optional :: dv1,dv2 ! boundary values
-    real(kind=c_double), dimension(size(v,1),size(v,2),size(v,3)-1) :: dv
+    real(kind=c_double), dimension(:,:,:), intent(out) :: dv
     real(kind=c_double), dimension(:,:,:), allocatable :: vbr1,vbr2,vbs1,vbs2
     real(kind=c_double), dimension(:,:,:), allocatable :: dvop
     real(kind=c_double), dimension(:,:,:,:), allocatable :: dvo
@@ -1145,9 +1145,9 @@ contains
        forall(i=1:mx,j=1:my,k=1:mz) dv(i,j,k) = dv(i,j,k)-sum(op%rc(k,:)*dvop(:,i,j))
      end select
      deallocate( dvop, dvo )
-  end function eval_compact_fc1z
+  end subroutine eval_compact_fc1z
 
-  function eval_compact_op1x(op,v,vb1,vb2,dv1,dv2,scalefac_) result(dv)  ! generalized, uses 1D op type
+  subroutine eval_compact_op1x(op,dv,v,vb1,vb2,dv1,dv2,scalefac_) ! generalized, uses 1D op type
     implicit none
     class(compact_op1), intent(in) :: op
     real(kind=c_double), dimension(:,:,:), intent(in) :: v
@@ -1155,7 +1155,7 @@ contains
     real(kind=c_double), dimension(:,:), intent(in), optional :: dv1,dv2 ! boundary values
     real(kind=c_double), optional :: scalefac_
     real(kind=c_double) :: scalefac
-    real(kind=c_double), dimension(size(v,1),size(v,2),size(v,3)) :: dv
+    real(kind=c_double), dimension(:,:,:), intent(out) :: dv
     real(kind=c_double), dimension(:,:,:), allocatable :: vbr1,vbr2,vbs1,vbs2
     real(kind=c_double), dimension(:,:,:), allocatable :: dvop
     real(kind=c_double), dimension(:,:,:,:), allocatable :: dvo
@@ -1294,9 +1294,9 @@ contains
        forall(i=1:mx,j=1:my,k=1:mz) dv(i,j,k) = dv(i,j,k)-sum(op%rc(i,:)*dvop(:,j,k))
      end select
      deallocate( dvop, dvo )
-  end function eval_compact_op1x
+  end subroutine eval_compact_op1x
 
-  function eval_compact_op1y(op,v,vb1,vb2,dv1,dv2,scalefac_) result(dv)  ! generalized, uses 1D op type
+  subroutine eval_compact_op1y(op,dv,v,vb1,vb2,dv1,dv2,scalefac_)  ! generalized, uses 1D op type
     implicit none
     class(compact_op1), intent(in) :: op
     real(kind=c_double), dimension(:,:,:), intent(in) :: v
@@ -1304,7 +1304,7 @@ contains
     real(kind=c_double), dimension(:,:), intent(in), optional :: dv1,dv2 ! boundary values
     real(kind=c_double), optional :: scalefac_
     real(kind=c_double) :: scalefac
-    real(kind=c_double), dimension(size(v,1),size(v,2),size(v,3)) :: dv
+    real(kind=c_double), dimension(:,:,:), intent(out) :: dv
     real(kind=c_double), dimension(:,:,:), allocatable :: vbr1,vbr2,vbs1,vbs2
     real(kind=c_double), dimension(:,:,:), allocatable :: dvop
     real(kind=c_double), dimension(:,:,:,:), allocatable :: dvo
@@ -1437,9 +1437,9 @@ contains
        forall(i=1:mx,j=1:my,k=1:mz) dv(i,j,k) = dv(i,j,k)-sum(op%rc(j,:)*dvop(:,i,k))
      end select
      deallocate( dvop, dvo )
-  end function eval_compact_op1y
+  end subroutine eval_compact_op1y
 
-  function eval_compact_op1z(op,v,vb1,vb2,dv1,dv2,scalefac_) result(dv)  ! generalized, uses 1D op type
+  subroutine eval_compact_op1z(op,dv,v,vb1,vb2,dv1,dv2,scalefac_)  ! generalized, uses 1D op type
     implicit none
     class(compact_op1), intent(in) :: op
     real(kind=c_double), dimension(:,:,:), intent(in) :: v
@@ -1447,7 +1447,7 @@ contains
     real(kind=c_double), dimension(:,:), intent(in), optional :: dv1,dv2 ! boundary values
     real(kind=c_double), optional :: scalefac_
     real(kind=c_double) :: scalefac
-    real(kind=c_double), dimension(size(v,1),size(v,2),size(v,3)) :: dv
+    real(kind=c_double), dimension(:,:,:), intent(out) :: dv
     real(kind=c_double), dimension(:,:,:), allocatable :: vbr1,vbr2,vbs1,vbs2
     real(kind=c_double), dimension(:,:,:), allocatable :: dvop
     real(kind=c_double), dimension(:,:,:,:), allocatable :: dvo
@@ -1582,16 +1582,16 @@ contains
        forall(i=1:mx,j=1:my,k=1:mz) dv(i,j,k) = dv(i,j,k)-sum(op%rc(k,:)*dvop(:,i,j))
      end select
      deallocate( dvop, dvo )
-  end function eval_compact_op1z
+  end subroutine eval_compact_op1z
 
-  function eval_compact_op1bx(op,v,vbr1,vbr2,scalefac_) result(dv)  ! generalized, uses 1D op type, ghost cells 
+  subroutine eval_compact_op1bx(op,dv,v,vbr1,vbr2,scalefac_)  ! generalized, uses 1D op type, ghost cells 
     implicit none
     class(compact_op1), intent(in) :: op
     real(kind=c_double), dimension(:,:,:), intent(in) :: v
     real(kind=c_double), dimension(:,:,:), intent(in) :: vbr1,vbr2
     real(kind=c_double), optional :: scalefac_
     real(kind=c_double) :: scalefac
-    real(kind=c_double), dimension(size(v,1),size(v,2),size(v,3)) :: dv
+    real(kind=c_double), dimension(:,:,:), intent(out) :: dv
     real(kind=c_double), dimension(:,:,:), allocatable :: dvop
     real(kind=c_double), dimension(:,:,:,:), allocatable :: dvo
     integer :: nsr,i,ii,j,k
@@ -1685,7 +1685,7 @@ contains
        forall(i=1:mx,j=1:my,k=1:mz) dv(i,j,k) = dv(i,j,k)-sum(op%rc(i,:)*dvop(:,j,k))
      end select
      deallocate( dvop, dvo )
-  end function eval_compact_op1bx
+  end subroutine eval_compact_op1bx
   
   subroutine ghost_compact_op1x(op,v,vbr1,vbr2)  !,level,patch)
     implicit none
@@ -1718,7 +1718,7 @@ contains
 
 ! "optimized" d1(t) operators for backward compatibility with matrix.f
 
-  function eval_compact_op1x_d1t(op,v,vb1,vb2,dv1,dv2,scalefac_) result(dv) ! nor=3, nol=2, uses 1D op type
+  subroutine eval_compact_op1x_d1t(op,dv,v,vb1,vb2,dv1,dv2,scalefac_) ! nor=3, nol=2, uses 1D op type
     implicit none
     class(compact_op1_d1), intent(in) :: op
     real(kind=c_double), dimension(:,:,:), intent(in) :: v
@@ -1726,7 +1726,7 @@ contains
     real(kind=c_double), dimension(:,:), intent(in), optional :: dv1,dv2 ! boundary values
     real(kind=c_double), optional :: scalefac_
     real(kind=c_double) :: scalefac
-    real(kind=c_double), dimension(size(v,1),size(v,2),size(v,3)) :: dv
+    real(kind=c_double), dimension(:,:,:), intent(out) :: dv
     real(kind=c_double), dimension(:,:,:), allocatable :: vbr1,vbr2,vbs1,vbs2
     real(kind=c_double), dimension(:,:,:), allocatable :: dvop
     real(kind=c_double), dimension(:,:,:,:), allocatable :: dvo
@@ -1970,9 +1970,9 @@ contains
       end select
       deallocate( dvop, dvo )
     endif
-  end function eval_compact_op1x_d1t
+  end subroutine eval_compact_op1x_d1t
 
-  function eval_compact_op1x_d1(op,v,vb1,vb2,dv1,dv2,scalefac_) result(dv) ! nor=3, nol=2, uses 1D op type
+  subroutine eval_compact_op1x_d1(op,dv,v,vb1,vb2,dv1,dv2,scalefac_) ! nor=3, nol=2, uses 1D op type
     implicit none
     class(compact_op1_d1), intent(in) :: op
     real(kind=c_double), dimension(:,:,:), intent(in) :: v
@@ -1980,7 +1980,7 @@ contains
     real(kind=c_double), dimension(:,:), intent(in), optional :: dv1,dv2 ! boundary values
     real(kind=c_double), optional :: scalefac_
     real(kind=c_double) :: scalefac
-    real(kind=c_double), dimension(size(v,1),size(v,2),size(v,3)) :: dv
+    real(kind=c_double), dimension(:,:,:), intent(out) :: dv
     real(kind=c_double), dimension(:,:,:), allocatable :: vbr1,vbr2,vbs1,vbs2
     real(kind=c_double), dimension(:,:,:), allocatable :: dvop
     real(kind=c_double), dimension(:,:,:,:), allocatable :: dvo
@@ -2222,9 +2222,9 @@ contains
       end select
       deallocate( dvop, dvo )
     endif
-  end function eval_compact_op1x_d1
+  end subroutine eval_compact_op1x_d1
 
-  function eval_compact_op1y_d1(op,v,vb1,vb2,dv1,dv2,scalefac_) result(dv) ! nor=3, nol=2, uses 1D op type
+  subroutine eval_compact_op1y_d1(op,dv,v,vb1,vb2,dv1,dv2,scalefac_)  ! nor=3, nol=2, uses 1D op type
     implicit none
     class(compact_op1_d1), intent(in) :: op
     real(kind=c_double), dimension(:,:,:), intent(in) :: v
@@ -2232,7 +2232,7 @@ contains
     real(kind=c_double), dimension(:,:), intent(in), optional :: dv1,dv2 ! boundary values
     real(kind=c_double), optional :: scalefac_
     real(kind=c_double) :: scalefac
-    real(kind=c_double), dimension(size(v,1),size(v,2),size(v,3)) :: dv
+    real(kind=c_double), dimension(:,:,:), intent(out) :: dv
     real(kind=c_double), dimension(:,:,:), allocatable :: vbr1,vbr2,vbs1,vbs2
     real(kind=c_double), dimension(:,:,:), allocatable :: dvop
     real(kind=c_double), dimension(:,:,:,:), allocatable :: dvo
@@ -2466,9 +2466,9 @@ contains
       end select
       deallocate( dvop, dvo )
     endif
-  end function eval_compact_op1y_d1
+  end subroutine eval_compact_op1y_d1
 
-  function eval_compact_op1z_d1(op,v,vb1,vb2,dv1,dv2,scalefac_) result(dv) ! nor=3, nol=2, uses 1D op type
+  subroutine eval_compact_op1z_d1(op,dv,v,vb1,vb2,dv1,dv2,scalefac_) ! nor=3, nol=2, uses 1D op type
     implicit none
     class(compact_op1_d1), intent(in) :: op
     real(kind=c_double), dimension(:,:,:), intent(in) :: v
@@ -2476,7 +2476,7 @@ contains
     real(kind=c_double), dimension(:,:), intent(in), optional :: dv1,dv2 ! boundary values
     real(kind=c_double), optional :: scalefac_
     real(kind=c_double) :: scalefac
-    real(kind=c_double), dimension(size(v,1),size(v,2),size(v,3)) :: dv
+    real(kind=c_double), dimension(:,:,:), intent(out) :: dv
     real(kind=c_double), dimension(:,:,:), allocatable :: vbr1,vbr2,vbs1,vbs2
     real(kind=c_double), dimension(:,:,:), allocatable :: dvop
     real(kind=c_double), dimension(:,:,:,:), allocatable :: dvo
@@ -2709,11 +2709,11 @@ contains
       end select
       deallocate( dvop, dvo )
     endif
-  end function eval_compact_op1z_d1
+  end subroutine eval_compact_op1z_d1
 
 ! "optimized" r3 operators for backward compatibility with matrix.f
 
-  function eval_compact_op1x_r3(op,v,vb1,vb2,dv1,dv2,scalefac_) result(dv) ! nor=3, nol=2, uses 1D op type
+  subroutine eval_compact_op1x_r3(op,dv,v,vb1,vb2,dv1,dv2,scalefac_) ! nor=3, nol=2, uses 1D op type
     implicit none
     class(compact_op1_r3), intent(in) :: op
     real(kind=c_double), dimension(:,:,:), intent(in) :: v
@@ -2721,7 +2721,7 @@ contains
     real(kind=c_double), dimension(:,:), intent(in), optional :: dv1,dv2 ! boundary values
     real(kind=c_double), optional :: scalefac_
     real(kind=c_double) :: scalefac
-    real(kind=c_double), dimension(size(v,1),size(v,2),size(v,3)) :: dv
+    real(kind=c_double), dimension(:,:,:), intent(out) :: dv
     real(kind=c_double), dimension(:,:,:), allocatable :: vbr1,vbr2,vbs1,vbs2
     real(kind=c_double), dimension(:,:,:), allocatable :: dvop
     real(kind=c_double), dimension(:,:,:,:), allocatable :: dvo
@@ -2820,6 +2820,7 @@ contains
     call nvtxStartRange("evalx: dealloc")
     deallocate( vbr1,vbr2 )
     call nvtxEndRange
+    call nvtxStartRange("evalx: pentLUS")
     ! this is only appropriate for explicit bc
     if( (op%lo == MPI_PROC_NULL) .and. abs(op%bc(1)) /= 1 .and. present(dv1)) dv(1,:,:)=dv1   ! supply lower solution
     if( (op%hi == MPI_PROC_NULL) .and. abs(op%bc(2)) /= 1 .and. present(dv2)) dv(ax,:,:)=dv2  ! supply upper solution
@@ -2830,6 +2831,7 @@ contains
     else
       call bpentLUS3x(op%al,dv,op%m,ax,ay,az)  ! locally non-periodic solution
     endif
+    call nvtxEndRange
     if( np == 1 ) return
     ! parallel solver
       call nvtxStartRange("evalx: alloc")
@@ -2844,6 +2846,7 @@ contains
       if( op%hi == MPI_PROC_NULL ) dvop(3:4,:,:) = zero
       nsr = size(dvop)
       call nvtxEndRange
+      call nvtxStartRange("evalx: mpi gather")
       select case( op%directcom )
       case( 1 ) ! mpi_allgather
         call mpi_allgather(dvop,nsr,MPI_DOUBLE_PRECISION,dvo,nsr,MPI_DOUBLE_PRECISION,op%hash,mpierr)
@@ -2879,10 +2882,13 @@ contains
         if( op%hi == MPI_PROC_NULL ) dvop(3:4,:,:) = zero
         forall(i=1:ax,j=1:ay,k=1:az) dv(i,j,k) = dv(i,j,k)-sum(op%rc(i,:)*dvop(:,j,k))
       end select
+      call nvtxEndRange
+      call nvtxStartRange("evalx: dealloc")
       deallocate( dvop, dvo )
-  end function eval_compact_op1x_r3
+      call nvtxEndRange
+  end subroutine eval_compact_op1x_r3
 
-  function eval_compact_op1y_r3(op,v,vb1,vb2,dv1,dv2,scalefac_) result(dv) ! nor=3, nol=2, uses 1D op type
+  subroutine eval_compact_op1y_r3(op,dv,v,vb1,vb2,dv1,dv2,scalefac_) ! nor=3, nol=2, uses 1D op type
     implicit none
     class(compact_op1_r3), intent(in) :: op
     real(kind=c_double), dimension(:,:,:), intent(in) :: v
@@ -2890,7 +2896,7 @@ contains
     real(kind=c_double), dimension(:,:), intent(in), optional :: dv1,dv2 ! boundary values
     real(kind=c_double), optional :: scalefac_
     real(kind=c_double) :: scalefac
-    real(kind=c_double), dimension(size(v,1),size(v,2),size(v,3)) :: dv
+    real(kind=c_double), dimension(:,:,:), intent(out) :: dv
     real(kind=c_double), dimension(:,:,:), allocatable :: vbr1,vbr2,vbs1,vbs2
     real(kind=c_double), dimension(:,:,:), allocatable :: dvop
     real(kind=c_double), dimension(:,:,:,:), allocatable :: dvo
@@ -3032,9 +3038,9 @@ contains
         forall(i=1:ax,j=1:ay,k=1:az) dv(i,j,k) = dv(i,j,k)-sum(op%rc(j,:)*dvop(:,i,k))
       end select
       deallocate( dvop, dvo )
-  end function eval_compact_op1y_r3
+  end subroutine eval_compact_op1y_r3
 
-  function eval_compact_op1z_r3(op,v,vb1,vb2,dv1,dv2,scalefac_) result(dv) ! nor=3, nol=2, uses 1D op type
+  subroutine eval_compact_op1z_r3(op,dv,v,vb1,vb2,dv1,dv2,scalefac_) ! nor=3, nol=2, uses 1D op type
     implicit none
     class(compact_op1_r3), intent(in) :: op
     real(kind=c_double), dimension(:,:,:), intent(in) :: v
@@ -3042,7 +3048,7 @@ contains
     real(kind=c_double), dimension(:,:), intent(in), optional :: dv1,dv2 ! boundary values
     real(kind=c_double), optional :: scalefac_
     real(kind=c_double) :: scalefac
-    real(kind=c_double), dimension(size(v,1),size(v,2),size(v,3)) :: dv
+    real(kind=c_double), dimension(:,:,:), intent(out) :: dv
     real(kind=c_double), dimension(:,:,:), allocatable :: vbr1,vbr2,vbs1,vbs2
     real(kind=c_double), dimension(:,:,:), allocatable :: dvop
     real(kind=c_double), dimension(:,:,:,:), allocatable :: dvo
@@ -3193,11 +3199,11 @@ contains
         forall(i=1:ax,j=1:ay,k=1:az) dv(i,j,k) = dv(i,j,k)-sum(op%rc(k,:)*dvop(:,i,j))
       end select
       deallocate( dvop, dvo )
-  end function eval_compact_op1z_r3
+  end subroutine eval_compact_op1z_r3
 
 ! "optimized" r4 operators for backward compatibility with matrix.f
 
-  function eval_compact_op1x_r4(op,v,vb1,vb2,dv1,dv2,scalefac_) result(dv) ! nor=4, nol=2, uses 1D op type
+  subroutine eval_compact_op1x_r4(op,dv,v,vb1,vb2,dv1,dv2,scalefac_)  ! nor=4, nol=2, uses 1D op type
     implicit none
     class(compact_op1_r4), intent(in) :: op
     real(kind=c_double), dimension(:,:,:), intent(in) :: v
@@ -3205,7 +3211,7 @@ contains
     real(kind=c_double), dimension(:,:), intent(in), optional :: dv1,dv2 ! boundary values
     real(kind=c_double), optional :: scalefac_
     real(kind=c_double) :: scalefac
-    real(kind=c_double), dimension(size(v,1),size(v,2),size(v,3)) :: dv
+    real(kind=c_double), dimension(:,:,:), intent(out) :: dv
     real(kind=c_double), dimension(:,:,:), allocatable :: vbr1,vbr2,vbs1,vbs2
     real(kind=c_double), dimension(:,:,:), allocatable :: dvop
     real(kind=c_double), dimension(:,:,:,:), allocatable :: dvo
@@ -3358,9 +3364,9 @@ contains
         forall(i=1:ax,j=1:ay,k=1:az) dv(i,j,k) = dv(i,j,k)-sum(op%rc(i,:)*dvop(:,j,k))
       end select
       deallocate( dvop, dvo )
-  end function eval_compact_op1x_r4
+  end subroutine eval_compact_op1x_r4
 
-  function eval_compact_op1y_r4(op,v,vb1,vb2,dv1,dv2,scalefac_) result(dv) ! nor=4, nol=2, uses 1D op type
+  subroutine eval_compact_op1y_r4(op,dv,v,vb1,vb2,dv1,dv2,scalefac_) ! nor=4, nol=2, uses 1D op type
     implicit none
     class(compact_op1_r4), intent(in) :: op
     real(kind=c_double), dimension(:,:,:), intent(in) :: v
@@ -3368,7 +3374,7 @@ contains
     real(kind=c_double), dimension(:,:), intent(in), optional :: dv1,dv2 ! boundary values
     real(kind=c_double), optional :: scalefac_
     real(kind=c_double) :: scalefac
-    real(kind=c_double), dimension(size(v,1),size(v,2),size(v,3)) :: dv
+    real(kind=c_double), dimension(:,:,:), intent(out) :: dv
     real(kind=c_double), dimension(:,:,:), allocatable :: vbr1,vbr2,vbs1,vbs2
     real(kind=c_double), dimension(:,:,:), allocatable :: dvop
     real(kind=c_double), dimension(:,:,:,:), allocatable :: dvo
@@ -3522,9 +3528,9 @@ contains
         forall(i=1:ax,j=1:ay,k=1:az) dv(i,j,k) = dv(i,j,k)-sum(op%rc(j,:)*dvop(:,i,k))
       end select
       deallocate( dvop, dvo )
-  end function eval_compact_op1y_r4
+  end subroutine eval_compact_op1y_r4
 
-  function eval_compact_op1z_r4(op,v,vb1,vb2,dv1,dv2,scalefac_) result(dv) ! nor=4, nol=2, uses 1D op type
+  subroutine eval_compact_op1z_r4(op,dv,v,vb1,vb2,dv1,dv2,scalefac_) ! nor=4, nol=2, uses 1D op type
     implicit none
     class(compact_op1_r4), intent(in) :: op
     real(kind=c_double), dimension(:,:,:), intent(in) :: v
@@ -3532,7 +3538,7 @@ contains
     real(kind=c_double), dimension(:,:), intent(in), optional :: dv1,dv2 ! boundary values
     real(kind=c_double), optional :: scalefac_
     real(kind=c_double) :: scalefac
-    real(kind=c_double), dimension(size(v,1),size(v,2),size(v,3)) :: dv
+    real(kind=c_double), dimension(:,:,:), intent(out) :: dv
     real(kind=c_double), dimension(:,:,:), allocatable :: vbr1,vbr2,vbs1,vbs2
     real(kind=c_double), dimension(:,:,:), allocatable :: dvop
     real(kind=c_double), dimension(:,:,:,:), allocatable :: dvo
@@ -3686,7 +3692,7 @@ contains
         forall(i=1:ax,j=1:ay,k=1:az) dv(i,j,k) = dv(i,j,k)-sum(op%rc(k,:)*dvop(:,i,j))
       end select
       deallocate( dvop, dvo )
-  end function eval_compact_op1z_r4
+  end subroutine eval_compact_op1z_r4
 
   subroutine setup_compact_ops(cops,patch,com)
     implicit none
