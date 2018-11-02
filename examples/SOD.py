@@ -65,7 +65,7 @@ time = 0.0
 # Approx a max dt and stopping time
 v = 1.0
 dt_max = v / ss.mesh.nn[0] * 0.75
-tt = L/v * .025 #dt_max
+tt = L/v * .25 #dt_max
 
 # Mesh for viz on master
 x = ss.mesh.coords[0]

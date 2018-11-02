@@ -15,6 +15,7 @@ MODULE parcop
   USE LES_compact_operators, ONLY : d1x, d1y, d1z
   USE LES_operators, ONLY : div,grad,Laplacian
   USE LES_operators, ONLY : curl,cross,filter,ring
+  USE LES_quest
 
   CONTAINS
 
@@ -309,5 +310,25 @@ MODULE parcop
       COMM = comm_ptr%yzcom
     END SUBROUTINE commyz
 
+
+    ! Quest API routines
+    SUBROUTINE init_quest(surfile)
+      IMPLICIT NONE
+      CHARACTER(LEN=*), INTENT(IN) :: surfile
+
+      CALL setup_quest( surfile )
+      
+    END SUBROUTINE init_quest
+
+    REAL(KIND=8) FUNCTION get_quest(x,y,z)
+      IMPLICIT NONE
+      REAL(KIND=8), INTENT(IN) :: x,y,z
+
+      get_quest = distance(x,y,z)
+      
+    END FUNCTION get_quest
+      
+
+    
 
 END MODULE parcop

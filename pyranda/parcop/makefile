@@ -44,7 +44,8 @@ mpicc   ?= $(dir $(mpif90))mpicc
 ccomp   ?= $(call use-if,$(compiler),$(shell ./vendor.sh $(mpicc)))
 # make sure we use this python's f2py unless the user wants something else
 f2py    ?= $(python) -c 'import numpy.f2py; numpy.f2py.main()'
-fflags  ?= $($(fcomp).fflags)
+# fflags  ?= $($(fcomp).fflags) -I../../axom/build-quest-only-debug/lib/fortran
+fflags  ?= $($(fcomp).fflags) -I/usr/workspace/wsrzd/olson45/SAND/pyranda/axom/install-quest-only-debug/lib/fortran
 lopts   ?= $(call use-if,$($(fcomp).lopts),-shared)
 
 #
@@ -55,8 +56,8 @@ python.libdir  = $(shell $(python) -c "from sysconfig import get_config_var; pri
 python.version = $(shell $(python) -c "from sysconfig import get_config_var; print(get_config_var('VERSION'))")
 python.abiflag = $(shell $(python) -c "import sys; print(getattr(sys,'abiflags',''))")
 #python.Lflags  = -L$(python.libdir) -Wl,-R$(python.libdir)
-python.Lflags  = -L$(python.libdir) -Wl,-rpath $(python.libdir)
-python.lflags  = -lpython$(python.version)$(python.abiflag)
+python.Lflags  = -L$(python.libdir) -Wl,-rpath $(python.libdir) -L/usr/workspace/wsrzd/olson45/SAND/pyranda/axom/install-quest-only-debug/lib
+python.lflags  = -lpython$(python.version)$(python.abiflag) -lquest
 
 numpy.dir    = $(shell $(python) -c "import numpy; print(numpy.__path__[0])")
 numpy.Iflags = -I$(numpy.dir)/core/include
@@ -68,7 +69,7 @@ f2py.Iflags  = -I$(f2py.dir)
 #
 source = blockmath.o stencils.o patch.o pentadiagonal.o \
 	     comm.o compact.o mesh.o objects.o compact_operators.o \
-			 operators.o
+			 operators.o quest.o
 
 vpath %.c $(f2py.dir)
 
@@ -96,7 +97,7 @@ parcopmodule.c parcop-f2pywrappers2.f90: libparcop.a parcop.o
 
 parcop.so: parcopmodule.o fortranobject.o parcop-f2pywrappers2.o
 	$(mpif90) $(lopts) $(python.Lflags) \
-		parcopmodule.o fortranobject.o parcop.o parcop-f2pywrappers2.o libparcop.a $(python.lflags) \
+		parcopmodule.o fortranobject.o parcop.o parcop-f2pywrappers2.o libquest.so libparcop.a $(python.lflags) \
 		-o parcop.so
 
 test_pent: libparcop.a parcop.o test_pent.o
