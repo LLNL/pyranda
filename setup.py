@@ -147,6 +147,18 @@ class InstallPyranda(install, PyrandaMakeMixin):
         install.run(self)
         #PyrandaMakeMixin.clean(self)
 
+class CleanPyranda(install, PyrandaMakeMixin):
+    def initialize_options(self):
+        pass
+
+    def finalize_options(self):
+        pass
+
+    def run(self):
+        PyrandaMakeMixin.clean(self)
+
+
+        
 
 setup_args = dict(
     name=distname,
@@ -156,7 +168,8 @@ setup_args = dict(
     install_requires=install_requires,
     cmdclass={
         'build': BuildPyranda,
-        'install': InstallPyranda
+        'install': InstallPyranda,
+        'clean': CleanPyranda
     }
 )
 
