@@ -97,6 +97,7 @@ ddt(:Et:)   =  -div( (:Et: + :p: - :tau:)*:u: - :tx:*:kappa:, (:Et: + :p: - :tau
 # Artificial bulk viscosity (old school way)
 :div:       =  div(:u:,:v:)
 :beta:      =  gbar( ring(:div:) * :rho: ) * 7.0e-3
+:tau:       =  :beta: * :div: 
 [:tx:,:ty:,:tz:] = grad(:T:)
 :kappa:     = gbar( ring(:T:)* :rho:*:cv:/(:T: * :dt: ) ) * 1.0e-3
 # Apply constant BCs
@@ -114,7 +115,7 @@ bc.const(['p'],['x1','y1','yn'],p0)
 :rhov: = :rho:*:v:
 :cs:  = sqrt( :p: / :rho: * :gamma: )
 :dt: = dt.courant(:u:,:v:,:w:,:cs:)
-:dtB: = 0.8* dt.diff(:beta:,:rho:)
+:dtB: = 0.2* dt.diff(:beta:,:rho:)
 :dt: = numpy.minimum(:dt:,:dtB:)
 :umag: = sqrt( :u:*:u: + :v:*:v: )
 """
@@ -182,7 +183,7 @@ pvar = 'umag'
 #import pdb
 #pdb.set_trace()
 CFL = 1.0
-dt = ss.variables['dt'].data * CFL
+dt = ss.variables['dt'].data * CFL*.01
 
 
 
@@ -207,7 +208,7 @@ while tt > time:
     
     # Update the EOM and get next dt
     time = ss.rk4(time,dt)
-    dt = ss.variables['dt'].data * CFL
+    dt = min( ss.variables['dt'].data * CFL, dt*1.1)
     dt = min(dt, (tt - time) )
 
     

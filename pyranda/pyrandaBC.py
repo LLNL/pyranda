@@ -23,6 +23,9 @@ class pyrandaBC(pyrandaPackage):
         pyrandaPackage.__init__(self,PackageName,pysim)
 
         self.bcList = {}
+
+        self.BCdata = {}
+
         
 
     def get_sMap(self):
@@ -30,6 +33,7 @@ class pyrandaBC(pyrandaPackage):
         sMap['bc.extrap('] =  "self.packages['BC'].extrap("
         sMap['bc.const(']  =  "self.packages['BC'].const("
         sMap['bc.exit(']   =  "self.packages['BC'].exitbc("
+        sMap['bc.slip(']   =  "self.packages['BC'].slipbc("
         self.sMap = sMap
         
 
@@ -105,7 +109,77 @@ class pyrandaBC(pyrandaPackage):
         if direction == 'yn':
             if self.pyranda.PyMPI.ynproc:
                 self.pyranda.variables[var].data[:,-1,:] = val
-            
+
+    def slipbc(self,var,direction):
+
+        if type(var) != type([]):
+            var = [var]
+
+        if type(direction) != type([]):
+            direction = [direction]
+
+        for d in direction:
+            for v in var:
+                self.slipvelbc( v , d )
+                
+    def slipvelbc(self,velocity,direction):
+        """
+        Allow tangential velocities
+        """
+
+        ax = self.pyranda.PyMPI.ax
+        ay = self.pyranda.PyMPI.ay
+        az = self.pyranda.PyMPI.az
+        
+        if direction == 'y1':
+
+            if not self.BCdata.has_key('slipbc-y1'):
+                
+                x = self.pyranda.PyMPI.ghost( self.pyranda.mesh.coords[0] )
+                y = self.pyranda.PyMPI.ghost( self.pyranda.mesh.coords[1] )
+                z = self.pyranda.PyMPI.ghost( self.pyranda.mesh.coords[2] )
+                norms = 0.0
+                if self.pyranda.PyMPI.y1proc:
+
+                    xb = x[:,1,:]
+                    yb = y[:,1,:]
+                    zb = z[:,1,:]
+
+                    norms = []
+                    mag = 0.0 * xb
+                    if ax > 1:
+                        xbp = x[:,2,:]
+                        norms.append( xbp - xb )
+                        mag += (xbp - xb)**2
+                    if ay > 1:
+                        ybp = y[:,2,:]
+                        norms.append( ybp - yb )
+                        mag += (ybp - yb)**2
+                    if az > 1:
+                        zbp = z[:,2,:]
+                        norms.append( zbp - zb )
+                        mag += (zbp - zb)**2
+
+                    mag = numpy.sqrt( mag )
+                    for nn in range(len(norms)):
+                        norms[nn] = norms[nn] / mag
+                        
+
+                self.BCdata['slipbc-y1'] = norms
+            else:
+                norms = self.BCdata['slipbc-y1']
+
+            if self.pyranda.PyMPI.y1proc:
+
+                udotn = 0.0
+                for uu in range(len(velocity)):
+                    u = self.pyranda.variables[velocity[uu]].data[:,0,:]
+                    udotn = udotn + u*norms[uu]
+
+                for uu in range(len(velocity)):                    
+                    self.pyranda.variables[velocity[uu]].data[:,0,:] -= udotn*norms[uu]
+                    
+                
     def exitbc(self,var,direction,norm=False):
 
         if type(var) != type([]):
