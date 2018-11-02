@@ -168,13 +168,13 @@ pvar = 'p'
 #import pdb
 #pdb.set_trace()
 CFL = 1.0
-dt = ss.variables['dt'].data * CFL
+dt = ss.variables['dt'].data * CFL * .1
 
 while tt > time:
     
     # Update the EOM and get next dt
     time = ss.rk4(time,dt)
-    dt = ss.variables['dt'].data * CFL
+    dt = min(ss.variables['dt'].data * CFL, 1.1*dt)
     dt = min(dt, (tt - time) )
 
     
