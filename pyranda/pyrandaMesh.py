@@ -103,7 +103,11 @@ class pyrandaMesh:
                 for i in range(ax):
                     for j in range(ay):
                         for k in range(az):
-                            x[i,j,k],y[i,j,k],z[i,j,k] = self.function(i,j,k)
+                            # Get global indices
+                            ii = i + self.PyMPI.chunk_3d_lo[0]
+                            jj = j + self.PyMPI.chunk_3d_lo[1]
+                            kk = k + self.PyMPI.chunk_3d_lo[2]
+                            x[i,j,k],y[i,j,k],z[i,j,k] = self.function(ii,jj,kk)
 
             
             # Define the grid here (send to fortran

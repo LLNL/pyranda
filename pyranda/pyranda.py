@@ -21,6 +21,7 @@ from .pyrandaVar   import pyrandaVar
 from .pyrandaEq    import pyrandaEq
 from .pyrandaMesh  import pyrandaMesh
 from .pyrandaIO    import pyrandaIO
+from .pyrandaPlot  import pyrandaPlot
 from .pyrandaUtils import *
 from .pyrandaTex   import pyrandaTex
 
@@ -72,7 +73,9 @@ class pyrandaSim:
 
         # IO setup
         self.PyIO = pyrandaIO( self.name, self.PyMPI )
-        
+
+        # Plotting setup
+        self.plot = pyrandaPlot( self )
         
         # Grab some scalars off of parcop.mesh
         self.zero = self.PyMPI.emptyScalar()

@@ -261,18 +261,47 @@ class pyrandaMPI():
 
     def xbar(self,data):        
         return self.sum2D( data, self.comm,self.ny,self.nz,0,
-                           [ self.chunk_3d_lo[1] , self.chunk_3d_hi[1] ],
-                           [ self.chunk_3d_lo[2] , self.chunk_3d_hi[2] ]  )
+                           [ self.chunk_3d_lo[1] , self.chunk_3d_hi[1]+1 ],
+                           [ self.chunk_3d_lo[2] , self.chunk_3d_hi[2]+1 ]  )
   
     def ybar(self,data):
         return self.sum2D( data, self.comm,self.nx,self.nz,1,
-                           [self.chunk_3d_lo[0] , self.chunk_3d_hi[0]],
-                           [self.chunk_3d_lo[2] , self.chunk_3d_hi[2]])
+                           [self.chunk_3d_lo[0] , self.chunk_3d_hi[0]+1 ],
+                           [self.chunk_3d_lo[2] , self.chunk_3d_hi[2]+1 ])
     
     def zbar(self,data):
         return self.sum2D( data, self.comm,self.nx,self.ny,2,
                            [self.chunk_3d_lo[0],self.chunk_3d_hi[0]+1 ],
                            [self.chunk_3d_lo[1],self.chunk_3d_hi[1]+1 ])
+
+    def getIJK(self,data,I,J,K):
+        """
+        given [imin,imax, jmin,jmax, kmin,kmax] return the global data
+        """
+        gx = max(1,I[1]-I[0])
+        gy = max(1,J[1]-J[0])
+        gz = max(1,K[1]-K[0])
+        gdata = numpy.zeros((gx,gy,gz))
+
+        nx = data.shape[0]
+        ny = data.shape[1]
+        nz = data.shape[2]
+        for i in range(I[0],I[1]):
+            for j in range(J[0],J[1]):
+                for k in range(K[0],K[1]):
+                    inI = ( i >= self.chunk_3d_lo[0]) and (i <= self.chunk_3d_hi[0] )
+                    inJ = ( j >= self.chunk_3d_lo[1]) and (j <= self.chunk_3d_hi[1] )
+                    inK = ( k >= self.chunk_3d_lo[2]) and (k <= self.chunk_3d_hi[2] )
+                    if (inI and inJ and inK):
+                        gdata[i,j,k] = data[i+self.chunk_3d_lo[0],
+                                            j+self.chunk_3d_lo[1],
+                                            k+self.chunk_3d_lo[2]]
+
+        self.comm.allreduce( gdata, op=MPI.SUM )
+        return gdata
+
+                        
+
     
     def ghost(self,data,np=1):
 

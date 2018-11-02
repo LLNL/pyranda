@@ -36,7 +36,7 @@ problem = 'cylinder_curvilinear2'
 Lp = L * (Npts-1.0) / Npts
 
 Ri = 1.0
-Rf = 5.0
+Rf = 10.0
 
 NX = Npts
 NY = Npts
@@ -70,7 +70,7 @@ ss.addPackage( pyrandaTimestep(ss) )
 rho0 = 1.0
 p0   = 1.0
 gamma = 1.4
-mach = 1.2
+mach = 1.5
 s0 = numpy.sqrt( p0 / rho0 * gamma )
 u0 = s0 * mach
 e0 = p0/(gamma-1.0) + rho0*.5*u0*u0
@@ -82,7 +82,8 @@ eom ="""
 ddt(:rho:)  =  -div(:rho:*:u:,  :rho:*:v:)
 ddt(:rhou:) =  -div(:rhou:*:u: + :p: - :tau:, :rhou:*:v:)
 ddt(:rhov:) =  -div(:rhov:*:u:, :rhov:*:v: + :p: - :tau:)
-ddt(:Et:)   =  -div( (:Et: + :p: - :tau:)*:u: - :tx:*:kappa:, (:Et: + :p: - :tau:)*:v: - :ty:*:kappa: )
+ddt(:Et:)   =  -div( (:Et: + :p: - :tau:)*:u: , (:Et: + :p: - :tau:)*:v:  )
+# kappa terms - :tx:*:kappa:, - :ty:*:kappa:
 # Conservative filter of the EoM
 :rho:       =  fbar( :rho:  )
 :rhou:      =  fbar( :rhou: )
@@ -92,14 +93,16 @@ ddt(:Et:)   =  -div( (:Et: + :p: - :tau:)*:u: - :tx:*:kappa:, (:Et: + :p: - :tau
 :u:         =  :rhou: / :rho:
 :v:         =  :rhov: / :rho:
 :p:         =  ( :Et: - .5*:rho:*(:u:*:u: + :v:*:v:) ) * ( :gamma: - 1.0 )
-:T:         = :p: / (:rho: * :R: )
+#:T:         = :p: / (:rho: * :R: )
 # Artificial bulk viscosity (old school way)
 :div:       =  div(:u:,:v:)
 :beta:      =  gbar( ring(:div:) * :rho: ) * 7.0e-2
 :tau:       = :beta:*:div:
-[:tx:,:ty:,:tz:] = grad(:T:)
-:kappa:     = gbar( ring(:T:)* :rho:*:cv:/(:T: * :dt: ) ) * 1.0e-3
+#[:tx:,:ty:,:tz:] = grad(:T:)
+#:kappa:     = gbar( ring(:T:)* :rho:*:cv:/(:T: * :dt: ) ) * 1.0e-3
 bc.extrap(['u','v','rho','p'],['yn'])
+bc.const(['u'],['yn'],u0)
+bc.const(['v'],['yn'],0.0)
 bc.extrap(['rho','p'],['y1'])
 bc.slip([ ['u','v']  ],['y1'])
 :Et:  = :p: / ( :gamma: - 1.0 )  + .5*:rho:*(:u:*:u: + :v:*:v:)
@@ -107,8 +110,9 @@ bc.slip([ ['u','v']  ],['y1'])
 :rhov: = :rho:*:v:
 :cs:  = sqrt( :p: / :rho: * :gamma: )
 :dt: = dt.courant(:u:,:v:,:w:,:cs:)
-:dtB: = 2.2* dt.diff(:beta:,:rho:)
-:dt: = numpy.minimum(:dt:,:dtB:)
+:dtB: = dt.diff(:beta:,:rho:)
+#:dtK: = dt.diff(:kappa:,:rho:*:R:)
+#:dt: = numpy.minimum(:dt:,:dtB:)
 :umag: = sqrt( :u:*:u: + :v:*:v: )
 """
 eom = eom.replace('u0',str(u0)).replace('p0',str(p0)).replace('rho0',str(rho0))
@@ -126,35 +130,21 @@ ic = """
 :cv: = :cp: - :R:
 #rad = sqrt( (meshx-numpy.pi)**2  +  (meshy-numpy.pi)**2 ) 
 rad = sqrt( meshx**2  +  meshy**2 ) 
-:phi: = rad - numpy.pi/4.0
 :rho: = 1.0 + 3d()
 :p:  =  1.0 + 3d() #exp( -(meshx-1.5)**2/.25**2)*.1
-#:u: = where( :phi:>0.5, mach * sqrt( :p: / :rho: * :gamma:) , 0.0 )
 :u: = mach * sqrt( :p: / :rho: * :gamma:)
-#:u: = gbar( gbar( :u: ) )
 :v: = 0.0 + 3d()
 :Et: = :p:/( :gamma: - 1.0 ) + .5*:rho:*(:u:*:u: + :v:*:v:)
 :rhou: = :rho:*:u:
 :rhov: = :rho:*:v:
 :cs:  = sqrt( :p: / :rho: * :gamma: )
 :dt: = dt.courant(:u:,:v:,:w:,:cs:)
-[:gx:,:gy:,:gz:] = grad( :phi: )
-:gx: = gbar( :gx: )
-:gy: = gbar( :gy: )
 """
 ic = ic.replace('mach',str(mach))
 
+
 # Set the initial conditions
 ss.setIC(ic)
-    
-# Length scale for art. viscosity
-# Initialize variables
-x = ss.mesh.coords[0]
-y = ss.mesh.coords[1]
-z = ss.mesh.coords[2]
-dx = (x[1,0,0] - x[0,0,0])
-#ss.variables['dx2'].data += dx**2
-
 
 # Write a time loop
 time = 0.0
@@ -163,36 +153,24 @@ viz = True
 # Approx a max dt and stopping time
 tt = 3.0 #
 
-# Mesh for viz on master
-xx   =  ss.PyMPI.zbar( x )
-yy   =  ss.PyMPI.zbar( y )
-
 # Start time loop
 cnt = 1
-viz_freq = 10
+viz_freq = 100
 pvar = 'umag'
 
-#import pdb
-#pdb.set_trace()
-CFL = 0.2
-dt = ss.variables['dt'].data * CFL
+CFL = 0.8
+dt = ss.variables['dt'].data * CFL * .1
 
 
 
-
-v = ss.PyMPI.zbar( ss.variables[pvar].data )
-phi = ss.PyMPI.zbar( ss.variables['phi'].data )
-if (ss.PyMPI.master and (not test) ):
-
-
-    plt.figure(2)
-    plt.clf()            
-    plt.contourf( xx,yy,v ,64 , cmap=cm.jet)
-    plt.contour( xx,yy,phi,[0.0])
-    plt.plot(xx, yy, 'k-', lw=0.5, alpha=0.5)
-    plt.plot(xx.T, yy.T, 'k-', lw=0.5, alpha=0.5)
-    plt.title(pvar)
-    plt.pause(.001)
+if (not test):
+    
+    ss.plot.figure(2)
+    ss.plot.clf()            
+    ss.plot.contourf(pvar ,64 , cmap=cm.jet)
+    ss.plot.contour( 'p',8,colors='black')
+    #ss.plot.showGrid()
+    ss.plot.title(pvar)
 
 
 
@@ -200,36 +178,56 @@ while tt > time:
     
     # Update the EOM and get next dt
     time = ss.rk4(time,dt)
+
+    # Time step controls
+    dt_msg = 'cfl'
     dt = ss.variables['dt'].data * CFL
-    dt = min(dt, (tt - time) )
+    dtt = min( dt , 1.1*dt)
+    if ( dtt != dt ):
+        dt_msg = 'ramp'
+    dt = dtt
+    dtt = min( 0.2 * ss.variables['dtB'].data, dt)
+    if ( dtt != dt ):
+        dt_msg = 'bulk'
+    dt = dtt
+    #dtt = min( 0.2 * ss.variables['dtK'].data, dt)
+    #if ( dtt != dt ):
+    #    dt_msg = 'kappa'
+    #dt = dtt    
+    dtt = min(dt, (tt - time) )
+    if ( dtt != dt ):
+        dt_msg = 'vis-dump'
+    dt = dtt
+    
 
     
     # Print some output
-    ss.iprint("%s -- %s --- %f" % (cnt,time,dt)  )
+    ss.iprint("Cycle:%s -- Time:%.4e --- dt:%.4e --- Limit:%s" % (cnt,time,dt,dt_msg)  )
     cnt += 1
     if viz and (not test):
-        v = ss.PyMPI.zbar( ss.variables[pvar].data )
-        phi = ss.PyMPI.zbar( ss.variables['phi'].data )
+
         if (cnt%viz_freq == 1) :
             ss.write(['beta','u','v','rho','umag'])
         
-        if (ss.PyMPI.master) and (cnt%viz_freq == 1) :#or True:
-
-            
-            
-            plt.figure(2)
-            plt.clf()            
-            plt.contourf( xx,yy,v ,64 , cmap=cm.jet)
-            plt.contour( xx,yy,phi,[0.0])
-            plt.plot(xx, yy, 'k-', lw=0.5, alpha=0.5)
-            plt.plot(xx.T, yy.T, 'k-', lw=0.5, alpha=0.5)
-            plt.title(pvar)
-            plt.pause(.001)
+            ss.plot.figure(2)
+            ss.plot.clf()            
+            ss.plot.contourf(pvar ,64 , cmap=cm.jet)
+            ss.plot.contour( 'p', 8 ,colors='black')
+            #ss.plot.showGrid()
+            ss.plot.title(pvar)
 
 
 
 # Curve test.  Write file and print its name at the end
 if test:
+    # Initialize variables
+    x = ss.mesh.coords[0]
+    y = ss.mesh.coords[1]
+    
+    # Mesh for viz on master
+    xx   =  ss.PyMPI.zbar( x )
+    yy   =  ss.PyMPI.zbar( y )
+
     v = ss.PyMPI.zbar( ss.variables[pvar].data )
     ny = ss.PyMPI.ny
     v1d =  v[:,int(ny/2)]
