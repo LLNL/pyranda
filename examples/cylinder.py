@@ -83,6 +83,7 @@ ddt(:Et:)   =  -ddx( (:Et: + :p: - :tau:)*:u: - :tx:*:kappa:) - ddy( (:Et: + :p:
 # Artificial bulk viscosity (old school way)
 :div:       =  ddx(:u:) + ddy(:v:)
 :beta:      =  gbar( ring(:div:) * :rho: ) * 7.0e-2
+:tau:       = :beta:*:div:
 [:tx:,:ty:,:tz:] = grad(:T:)
 :kappa:     = gbar( ring(:T:)* :rho:*:cv:/(:T: * :dt: ) ) * 1.0e-3
 # Apply constant BCs
@@ -100,7 +101,7 @@ bc.const(['p'],['x1','y1','yn'],p0)
 :rhov: = :rho:*:v:
 :cs:  = sqrt( :p: / :rho: * :gamma: )
 :dt: = dt.courant(:u:,:v:,:w:,:cs:)
-:dtB: = 4.0* dt.diff(:beta:,:rho:)
+:dtB: = 0.2* dt.diff(:beta:,:rho:)
 :dt: = numpy.minimum(:dt:,:dtB:)
 :umag: = sqrt( :u:*:u: + :v:*:v: )
 """
