@@ -65,11 +65,7 @@ time = 0.0
 # Approx a max dt and stopping time
 v = 1.0
 dt_max = v / ss.mesh.nn[0] * 0.75
-tt = L/v * .025 #dt_max
-
-# Mesh for viz on master
-x = ss.mesh.coords[0]
-xx =  ss.PyMPI.zbar( x )
+tt = L/v * .25 #dt_max
 
 # Start time loop
 dt = dt_max
@@ -88,14 +84,12 @@ while tt > time:
     ss.iprint("%s -- %s" % (cnt,time)  )
     cnt += 1
     if viz:
-        v = ss.PyMPI.zbar( ss.variables[pvar].data )
-        if (ss.PyMPI.master and (cnt%viz_freq == 0)) and True:
-            plt.figure(1)
+
+        if (cnt%viz_freq == 0):
+            ss.plot.figure(1)
             plt.clf()
-            plt.plot(xx[:,0],v[:,0] ,'k.-')
-            plt.title(pvar)
-            plt.pause(.001)
+            ss.plot.plot(pvar,'b.-')
 
-
+        
 ss.writeGrid()
 ss.write()

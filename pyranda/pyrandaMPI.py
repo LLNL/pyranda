@@ -293,10 +293,10 @@ class pyrandaMPI():
                     inJ = ( j >= self.chunk_3d_lo[1]) and (j <= self.chunk_3d_hi[1] )
                     inK = ( k >= self.chunk_3d_lo[2]) and (k <= self.chunk_3d_hi[2] )
                     if (inI and inJ and inK):
-                        gdata[i,j,k] = data[i+self.chunk_3d_lo[0],
-                                            j+self.chunk_3d_lo[1],
-                                            k+self.chunk_3d_lo[2]]
-
+                        gdata[i-I[0],j-J[0],k-K[0]] = data[i+self.chunk_3d_lo[0],
+                                                           j+self.chunk_3d_lo[1],
+                                                           k+self.chunk_3d_lo[2]]
+                            
         self.comm.allreduce( gdata, op=MPI.SUM )
         return gdata
 

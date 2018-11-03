@@ -54,6 +54,31 @@ class pyrandaPlot:
         if self.pyranda.PyMPI.master:
             plt.pause()
 
+    def plot(self,var,style='k-',slice2d='j=0;k=0',**kwargs):
+        """
+        Plots 1D line plots
+        """
+        nx = self.pyranda.nx
+        ny = self.pyranda.ny
+        nz = self.pyranda.nz
+        
+        # 1D - figure out directions
+        if (ny == nz == 1):
+            slice2d = "j=0;k=0"
+        if (ny == nx == 1):
+            slice2d = "j=0;i=0"
+        if (nx == nz == 1):
+            slice2d = "i=0;k=0"
+
+        vv = self.pyranda.variables[var].data
+        vdata = self.getLine( vv, slice2d )
+        xdata = self.getGrid1d( slice2d )
+
+        if self.pyranda.PyMPI.master:
+            plt.plot(xdata,vdata,style,**kwargs)
+            plt.pause(.01)
+        
+            
     def contour(self,var,levels, slice3d='k=0',**kwargs):
         self.contourf(var , levels, slice3d=slice3d,filled=False,**kwargs)
             
@@ -69,29 +94,20 @@ class pyrandaPlot:
         # 1D - Reject
         if (ny == nz == 1) or (nx == nz == 1) or (ny == nx == 1):
             self.pyranda.iprint("pyranda contourf only works for 2D & 3D problems")
-
-        x = self.pyranda.mesh.coords[0]
-        y = self.pyranda.mesh.coords[1]
-        vv = self.pyranda.variables[var].data
-
         
         # 2D - figure out directions
         if (nz == 1):
-            xdata = self.pyranda.PyMPI.zbar( x )
-            ydata = self.pyranda.PyMPI.zbar( y )
-            vdata = self.pyranda.PyMPI.zbar( vv )
+            slice3d = "k=0"
+        if (ny == 1):
+            slice3d = "j=0"
+        if (nx == 1):
+            slice3d = "i=0"
 
-
-        # 3D - pick slice
-        if not (nx==1 or ny==1 or nz==1):
-
-            # get directions - k slice
-            if 'k' in slice3d:
-                exec(slice3d)
-                xdata = self.pyranda.PyMPI.getIJK(x,[0,nx],[0,ny],[k,k+1])[:,:,0]
-                ydata = self.pyranda.PyMPI.getIJK(y,[0,nx],[0,ny],[k,k+1])[:,:,0]
-                vdata = self.pyranda.PyMPI.getIJK(vv,[0,nx],[0,ny],[k,k+1])[:,:,0]
-                
+        # Get the sliced data
+        vv = self.pyranda.variables[var].data
+        vdata = self.getSlice( vv, slice3d )
+        [xdata,ydata] = self.getGrid2d(slice3d)
+            
         if self.pyranda.PyMPI.master:
             if filled:
                 plt.contourf(xdata,ydata,vdata,levels,**kwargs)
@@ -103,23 +119,111 @@ class pyrandaPlot:
             plt.axis('equal')
             plt.pause(.01)
 
-                
-
-    def showGrid(self):
-
-        nx = self.pyranda.nx
-        ny = self.pyranda.ny
-        nz = self.pyranda.nz
+            
+    def showGrid(self, slice3d='k=0'):
         
-        # 2D - figure out directions
-        if (nz == 1):
-            x  = self.pyranda.mesh.coords[0]
-            y  = self.pyranda.mesh.coords[1]
-            xx = self.pyranda.PyMPI.zbar( x )
-            yy = self.pyranda.PyMPI.zbar( y )
-        
+        [xx,yy] = self.getGrid2d(slice3d)
+            
         if self.pyranda.PyMPI.master:
             plt.plot(xx, yy, 'k-', lw=0.5, alpha=0.5)
             plt.plot(xx.T, yy.T, 'k-', lw=0.5, alpha=0.5)
             plt.axis('equal')
             plt.pause(.01)
+            
+
+    def getGrid2d(self,slice3d):
+
+        nx = self.pyranda.nx
+        ny = self.pyranda.ny
+        nz = self.pyranda.nz
+
+        x  = self.pyranda.mesh.coords[0]
+        y  = self.pyranda.mesh.coords[1]
+        z  = self.pyranda.mesh.coords[2]
+                    
+        # 2D - figure out directions
+        if (nz == 1):
+            slice3d = "k=0"
+        if (ny == 1):
+            slice3d = "j=0"
+        if (nx == 1):
+            slice3d = "i=0"
+
+        # get directions 
+        if 'k' in slice3d:
+            xx = self.getSlice(x,slice3d)
+            yy = self.getSlice(y,slice3d)
+        if 'j' in slice3d:
+            xx = self.getSlice(x,slice3d)
+            yy = self.getSlice(z,slice3d)
+        if 'i' in slice3d:
+            xx = self.getSlice(y,slice3d)
+            yy = self.getSlice(z,slice3d)
+
+            
+        return [xx,yy]
+
+    def getSlice(self,data,slice3d):
+
+        nx = self.pyranda.nx
+        ny = self.pyranda.ny
+        nz = self.pyranda.nz
+        
+        exec(slice3d)
+        # get directions - k slice
+        if 'k' in slice3d:
+            gdata = self.pyranda.PyMPI.getIJK(data,[0,nx],[0,ny],[k,k+1])[:,:,0]
+        if 'j' in slice3d:
+            gdata = self.pyranda.PyMPI.getIJK(data,[0,nx],[j,j+1],[0,nz])[:,0,:]
+        if 'i' in slice3d:
+            gdata = self.pyranda.PyMPI.getIJK(data,[i,i+1],[0,ny],[0,nz])[0,:,:]
+
+        return gdata
+
+
+
+    def getGrid1d(self,slice2d):
+
+        nx = self.pyranda.nx
+        ny = self.pyranda.ny
+        nz = self.pyranda.nz
+
+        x  = self.pyranda.mesh.coords[0]
+        y  = self.pyranda.mesh.coords[1]
+        z  = self.pyranda.mesh.coords[2]
+                    
+        # 1D - figure out directions
+        if (ny == nz == 1):
+            slice2d = "j=0;k=0"
+        if (ny == nx == 1):
+            slice2d = "j=0;i=0"
+        if (nx == nz == 1):
+            slice2d = "i=0;k=0"
+
+        # get directions
+        if ('k' in slice2d) and ('j' in slice2d):
+            xx = self.getSlice(x,slice2d)
+        if ('j' in slice2d) and ('i' in slice2d):
+            xx = self.getSlice(z,slice2d)
+        if ('i' in slice2d) and ('k' in slice2d):
+            xx = self.getSlice(y,slice2d)
+
+        return xx
+    
+    def getLine(self,data,slice2d):
+
+        nx = self.pyranda.nx
+        ny = self.pyranda.ny
+        nz = self.pyranda.nz
+        
+        exec(slice2d)
+
+        # get directions - k slice
+        if ('k' in slice2d) and ('j' in slice2d):
+            gdata = self.pyranda.PyMPI.getIJK(data,[0,nx],[j,j+1],[k,k+1])[:,0,0]
+        if ('j' in slice2d) and ('i' in slice2d):
+            gdata = self.pyranda.PyMPI.getIJK(data,[i,i+1],[j,j+1],[0,nz])[0,0,:]
+        if ('i' in slice2d) and ('k' in slice2d):
+            gdata = self.pyranda.PyMPI.getIJK(data,[i,i+1],[0,ny],[k,k+1])[0,:,0]
+
+        return gdata
