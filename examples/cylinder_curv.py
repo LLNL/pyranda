@@ -232,6 +232,7 @@ while tt > time:
             plt.plot(xx, yy, 'k-', lw=0.5, alpha=0.5)
             plt.plot(xx.T, yy.T, 'k-', lw=0.5, alpha=0.5)
             plt.title(pvar)
+            plt.axis('equal')
             plt.pause(.001)
 
 

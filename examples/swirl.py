@@ -80,8 +80,9 @@ ddt(:phi:)  =  - :gx: * :u1: - :gy: * :v1:  - .01*sign(:phi:)*(:mgp:-1.0)
 #[:uA:,:v:,:w:] = ibmV( [:uA:,:v:,0.0], -:phi:, [-:gx:,-:gy:,-:gz:], [:u1:,0.0,0.0] )
 :rhoA:         = ibmS( :rhoA: , -:phi:, [-:gx:,-:gy:,-:gz:] )
 :uT:        =  where( :phi: > 0.0, :u:, :uA:)
-:rhoB:        =  where( :phi: > 0.0, :rho:, :rhoA:)
-:rhoT:        =  where( abs(:phi:/:dx:*2.0) > 1.0, :rhoB:, .5*(:phi:/:dx:*2.0 + 1.0)*(:rho:-:rhoA:) + (:rhoA:)   )
+#:rhoB:        =  where( :phi: > 0.0, :rho:, :rhoA:)
+#:rhoT:        =  where( abs(:phi:/:dx:*2.0) > 5.0, :rhoB:, .5*(:phi:/:dx:*2.0 + 1.0)*(:rho:-:rhoA:) + (:rhoA:)   )
+:rhoT:       =  0.5 * ( tanh( :phi:/(:dx:*1.0) ) + 1.0 ) * (:rho: - :rhoA:) + :rhoA:
 """
 ss.EOM(eom)
 
