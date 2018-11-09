@@ -574,8 +574,8 @@ class pyrandaSim:
         sMap['tanh('] = 'numpy.tanh('
         sMap['exp('] = 'numpy.exp(' 
         sMap['where('] = 'numpy.where('
-        sMap['max('] = 'numpy.maximum('
-        sMap['min('] = 'numpy.minimum('
+        sMap['max('] = 'self.PyMPI.max3D('
+        sMap['min('] = 'self.PyMPI.min3D('
         sMap['3d()'] = 'self.emptyScalar()'
         sMap[':pi:'] = 'numpy.pi'
         
