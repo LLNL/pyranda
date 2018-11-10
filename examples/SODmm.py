@@ -25,7 +25,7 @@ def move_figure(f, x, y):
 
 
 def plotFix( plots ):
-    px_max = 2000
+    px_max = 1300
     py_max = 1000
     """
     Arrange the plots in reasonable array
@@ -66,7 +66,7 @@ ddt(:rhouA:) =  -ddx(:rhouA:*:uA: + :pA: - :tauA:) - :Fphi:
 ddt(:rhouB:) =  -ddx(:rhouB:*:uB: + :pB: - :tauB:) - :Fphi:
 ddt(:EtA:)   =  -ddx( (:EtA: + :pA: - :tauA:)*:uA: ) - :Fphi:*:uA:
 ddt(:EtB:)   =  -ddx( (:EtB: + :pB: - :tauB:)*:uB: ) - :Fphi:*:uB:
-ddt(:phi:)   = -:gx:*:uphi: - 1.1*sign(:phi:)*(:mgp:-1.0)
+ddt(:phi:)   = -:gx:*:uphi: - .2 * sign(:phi:)*(:mgp:-1.0) * deltaPhi / (deltat+1.0e-10)
 #ddt(:uphi:)  =  -ddx( :uphi:*:uphi: - :tauphi:) - :Fphi:/(:rhoA: + :rhoB:)
 # Conservative filter of the EoM
 :rhoA:       =  fbar( :rhoA:  )
@@ -75,7 +75,7 @@ ddt(:phi:)   = -:gx:*:uphi: - 1.1*sign(:phi:)*(:mgp:-1.0)
 :rhouB:      =  fbar( :rhouB: )
 :EtA:        =  fbar( :EtA:   )
 :EtB:        =  fbar( :EtB:   )
-:phi:        =  .1 * gbar( :phi: ) + :phi: * .9
+#:phi:        =  .1 * gbar( :phi: ) + :phi: * .9
 # Phi gradient
 [:gx:,:gy:,:gz:] = grad( :phi: )
 # Update the primatives and enforce the EOS
@@ -148,7 +148,7 @@ pert    = .0*exp( -abs(meshx-1.0)**2/(.2**2))
 :rhouA: = :rhoA: * :uA:
 :EtA:   = :pA: / ( :gamma: - 1.0 ) + .5*:rhoA:*(:uA:*:uA:) 
 :EtB:   =  1.0/(:gamma:-1.0)
-:rhoB:  = 1.0 + 3d() #.125
+:rhoB:  = 0.125 + 3d() 
 :phi:   = :pi: - meshx
 """
 
@@ -161,7 +161,7 @@ time = 0.0
 
 # Approx a max dt and stopping time
 v = 1.0
-dt_max = v / ss.mesh.nn[0] * 0.5
+dt_max = v / ss.mesh.nn[0] * 0.05
 tt = L/v * 2.025 #dt_max
 
 # Mesh for viz on master
@@ -171,7 +171,7 @@ xx =  ss.PyMPI.zbar( x )
 # Start time loop
 dt = dt_max
 cnt = 1
-viz_freq = 20
+viz_freq = 30
 pvar = 'rhoA'
 viz = True
 
@@ -241,7 +241,7 @@ while tt > time:
     cnt += 1
     if viz:
 
-        if (ss.PyMPI.master and (cnt%viz_freq == 1)) and True:
+        if (ss.PyMPI.master and (cnt%viz_freq == 0)) and True:
             poo = raw_input('fff')
             updatePlots()
 
