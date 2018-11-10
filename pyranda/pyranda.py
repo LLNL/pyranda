@@ -99,6 +99,7 @@ class pyrandaSim:
         self.time = 0.0
         self.cycle = 0
         self.vizDumpHistory = []
+        self.deltat = 0.0
 
         
         # Print startup message
@@ -523,6 +524,7 @@ class pyrandaSim:
         # Get primative flow variables
         #self.updateVars()
         time_i = time
+        self.deltat = dt
         #import pdb
         #pdb.set_trace()
         for ii in range(5):
@@ -561,6 +563,7 @@ class pyrandaSim:
         sMap['gbar('] = 'self.gfilter('
         sMap['grad('] = 'self.grad('
         sMap['simtime'] = 'self.time'
+        sMap['deltat'] = 'self.deltat'
         sMap['lap(' ] = 'self.laplacian('
         sMap['ring(' ] = 'self.ring('
         sMap['sum(' ] = 'self.PyMPI.sum3D('
