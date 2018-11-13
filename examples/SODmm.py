@@ -31,9 +31,11 @@ def plotFix( plots ):
     Arrange the plots in reasonable array
     """
     xw = 640
-    yw = 480
+    yw = 550
     x1 = y1 = 0
     for p in plots:
+        #print(x1)
+        #print(y1)
         move_figure(p,x1,y1)
         x1 += xw
         if x1 > px_max:
@@ -62,11 +64,11 @@ eom ="""
 # Primary Equations of motion here
 ddt(:rhoA:)  =  -ddx(:rhoA:*:uA:)
 ddt(:rhoB:)  =  -ddx(:rhoB:*:uB:)
-ddt(:rhouA:) =  -ddx(:rhouA:*:uA: + :pA: - :tauA:) - :Fphi:
-ddt(:rhouB:) =  -ddx(:rhouB:*:uB: + :pB: - :tauB:) - :Fphi:
-ddt(:EtA:)   =  -ddx( (:EtA: + :pA: - :tauA:)*:uA: ) - :Fphi:*:uA:
-ddt(:EtB:)   =  -ddx( (:EtB: + :pB: - :tauB:)*:uB: ) - :Fphi:*:uB:
-ddt(:phi:)   = -:gx:*:uphi: - .2 * sign(:phi:)*(:mgp:-1.0) * deltaPhi / (deltat+1.0e-10)
+ddt(:rhouA:) =  -ddx(:rhouA:*:uA: + :pA: - :tauA:) - :FA:
+ddt(:rhouB:) =  -ddx(:rhouB:*:uB: + :pB: - :tauB:) - :FB:
+ddt(:EtA:)   =  -ddx( (:EtA: + :pA: - :tauA:)*:uA: ) - :FA:*:uA:
+ddt(:EtB:)   =  -ddx( (:EtB: + :pB: - :tauB:)*:uB: ) - :FB:*:uB:
+ddt(:phi:)   = -:gx:*:uphi: - .1 * sign(:phi:)*(:mgp:-1.0) * deltaPhi / (deltat+1.0e-10)
 #ddt(:uphi:)  =  -ddx( :uphi:*:uphi: - :tauphi:) - :Fphi:/(:rhoA: + :rhoB:)
 # Conservative filter of the EoM
 :rhoA:       =  fbar( :rhoA:  )
@@ -87,10 +89,19 @@ ddt(:phi:)   = -:gx:*:uphi: - .2 * sign(:phi:)*(:mgp:-1.0) * deltaPhi / (deltat+
 :dphi:       = :wgt:*.5/ deltaPhi
 :Fphi:       = 1.0*:dphi:*:gx:*(:pA:-:pB:)
 :mgp:        =  sqrt( :gx:**2 + :gy:**2 )
+:rhophi: = where(:phi: > 0.0, :rhoA:, :rhoB:)
+:rhophi:         = ibmS( :rhophi: , :phi:, [:gx:,:gy:,:gz:] )
+:rhophi:         = ibmS( :rhophi: , -:phi:, [-:gx:,-:gy:,-:gz:] )
+:FA: = :Fphi: * :rhophi: / :rhoA:
+:FB: = :Fphi: * :rhophi: / :rhoB:
 # Close level set velocity
 #:uphi: = (:rhouA: + :rhouB:) / (:rhoA: + :rhoB:)
-:uphi: = where(:phi: > 0.0, :uA:, :uB:)
 #:uphi: = where(abs(:phi:) < deltaPhi, (:rhouA: + :rhouB:) / (:rhoA: + :rhoB:), :uphi: )
+#:rhouphi: = where(:phi: > 0.0, :rhouA:, :rhouB:)
+#:rhouphi:         = ibmS( :rhouphi: , :phi:, [:gx:,:gy:,:gz:] )
+#:rhouphi:         = ibmS( :rhouphi: , -:phi:, [-:gx:,-:gy:,-:gz:] )
+#:uphi: = :rhouphi: / :rhophi:
+:uphi: = where(:phi: > 0.0, :uA:, :uB:)
 :uphi:         = ibmS( :uphi: , :phi:, [:gx:,:gy:,:gz:] )
 :uphi:         = ibmS( :uphi: , -:phi:, [-:gx:,-:gy:,-:gz:] )
 #:uphi:  = gbar( gbar( gbar( :uphi: ) ) )
@@ -142,12 +153,13 @@ ss.EOM(eom)
 ic = """
 :gamma: = 1.4 + 3d()
 pert    = .0*exp( -abs(meshx-1.0)**2/(.2**2))
-:pA:    =  gbar(where(meshx < 1.0, 10.0, 10.0)) * ( 1.0 + pert)
+:pA:    =  gbar(where(meshx < :pi:, 10.0, 1.0)) * ( 1.0 + pert)
 :rhoA:  = (1.0 + 3d()) * ( 1.0 + pert*(:gamma:-1) )
 :uA:    = pert
 :rhouA: = :rhoA: * :uA:
 :EtA:   = :pA: / ( :gamma: - 1.0 ) + .5*:rhoA:*(:uA:*:uA:) 
-:EtB:   =  1.0/(:gamma:-1.0)
+:pB: = gbar(where(meshx < :pi:, 10.0, 1.0)) * ( 1.0 + pert)
+:EtB:   =  :pB:/(:gamma:-1.0)
 :rhoB:  = 0.125 + 3d() 
 :phi:   = :pi: - meshx
 """
@@ -225,7 +237,7 @@ def updatePlots():
     #
     #f, ax = plt.subplots()
     #move_figure(f1, 500, 500)
-    plotFix( [f1,f2,f3,f4] )            
+    plotFix( [f1,f2,f3,f4,f5] )            
     plt.pause(.001)
 
 
