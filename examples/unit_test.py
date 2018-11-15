@@ -4,13 +4,6 @@ import numpy
 import matplotlib.pyplot as plt
 from pyranda import pyrandaSim
 
-# Capture output
-from cStringIO import StringIO
-import sys
-
-old_stdout = sys.stdout
-sys.stdout = mystdout = StringIO()
-
 ERROR = 0.0
 ##############################
 ########  DERIVATIVES ########
@@ -171,10 +164,6 @@ errorX = pysim.eval(expr)
 print('Error X = %s' % errorX)
 ERROR += errorX
 
-# blah blah lots of code ...
-sys.stdout = old_stdout
-
-out = mystdout.getvalue()
 
 #fid = open('unit_test.out','w')
 #fid.write(out)
