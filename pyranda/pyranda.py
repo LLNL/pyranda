@@ -62,6 +62,7 @@ class pyrandaSim:
         self.nx = nx
         self.ny = ny
         self.nz = nz
+        self.npts = nx*ny*nz
         
         self.mesh.options = meshOptions
         self.mesh.dims  = meshOptions['dim']
@@ -131,6 +132,8 @@ class pyrandaSim:
         else:
             raise ValueError('Error: variable name: %s not found in database' % name)
 
+    def eval(self,expression):
+        return eval(fortran3d(expression,self.sMap))
 
     def addVar(self,name,kind=None,rank='scalar'):
         if name not in self.variables:
@@ -561,6 +564,7 @@ class pyrandaSim:
         sMap['lap(' ] = 'self.laplacian('
         sMap['ring(' ] = 'self.ring('
         sMap['sum(' ] = 'self.PyMPI.sum3D('
+        sMap['mean('] = '1.0/float(self.npts) * self.PyMPI.sum3D('
         sMap['sign(' ] = 'numpy.sign('
         sMap['dot(' ] = 'numpy.dot('
         sMap['abs(' ] = 'numpy.abs('
