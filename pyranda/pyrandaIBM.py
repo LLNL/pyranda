@@ -15,7 +15,7 @@ import sys
 import time
 from .pyrandaPackage import pyrandaPackage
 
-immersed_iter = 10
+immersed_iter = 2
 immersed_CFL = 0.5
 immersed_EPS = 0.1
 
