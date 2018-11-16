@@ -40,7 +40,7 @@ class pyrandaMesh:
         self.options['x1'] = [ 0.0 , 0.0  ,  0.0 ]
         self.options['xn'] = [ 1   , 1    ,  1   ]
         self.options['nn'] = [ 1   , 1    ,  1   ]
-        self.options['periodic'] = numpy.array([False, False, False])
+        self.options['periodic'] = [False, False, False]
         self.options['dim'] = 1
         self.options['coordsys'] = 0
         self.options['function'] = None

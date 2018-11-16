@@ -204,8 +204,8 @@ class pyrandaMPI():
     def emptyScalar(self):
         return numpy.zeros( self.chunk_3d_size, dtype=numpy.float64, order='F')*0.0
 
-    def emptyVector(self):
-        blk_size = numpy.append(self.chunk_3d_size,3)
+    def emptyVector(self,rank=3):
+        blk_size = numpy.append(self.chunk_3d_size,rank)
         return numpy.zeros( blk_size, dtype=numpy.float64, order='F')*0.0
 
     

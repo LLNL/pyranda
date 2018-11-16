@@ -14,6 +14,7 @@ import numpy
 import re
 import sys,os
 import time
+import glob
 import matplotlib.pyplot as plt
 
 from .pyrandaMPI   import pyrandaMPI
@@ -91,6 +92,7 @@ class pyrandaSim:
 
         # Package info
         self.packages = {}
+        self.packagesRestart = []
 
         # Compute sMap
         self.get_sMap()
@@ -116,6 +118,7 @@ class pyrandaSim:
     def addPackage(self,package):
         
         self.packages[package.name] = package
+        self.packagesRestart.append( package.__module__ )
         package.get_sMap()
         self.sMap.update( package.sMap )
             
@@ -170,6 +173,8 @@ class pyrandaSim:
         Will add eqautions and variables as needed.
         """
 
+        self.eom = eom
+        
         # Split up the equation lines
         eom_lines = filter(None,eom.split('\n'))
         eom_lines = [el for el in eom_lines if el.strip()[0] != '#']  # Comments work
@@ -230,6 +235,9 @@ class pyrandaSim:
         """
         Evaluate the initial conditions and then update variables
         """
+
+        self.ics = ics
+        
         # Split up the equation lines
         ic_lines = filter(None,ics.split('\n'))
         ic_lines = [el.replace(' ','') for el in ic_lines ]  # Comments work
@@ -358,8 +366,60 @@ class pyrandaSim:
             vid.close()
                     
             
-        
 
+
+    def writeRestart(self,suffix=None):
+        """
+        -writeRestart-
+        Description - Main driver to write the entire pyrandaSim state
+        in parallel for later use at restart.
+        """
+
+        # Use cycle number if no suffix is given
+        if not suffix:
+            suffix = '_' + str(self.cycle).zfill(6)
+
+        # Prep directory
+        dumpDir = os.path.join(self.PyIO.rootname, "restart" + suffix)
+        if self.PyMPI.master == 1:
+            try:
+                os.mkdir( dumpDir )
+            except:
+                pass
+            
+        ## Persistent data ##
+        
+        # Original domain-decomp
+        serial_data = {}
+        serial_data['mesh'] = self.meshOptions
+        serial_data['EOM']  = self.eom
+        serial_data['ICs']  = self.ics
+        serial_data['decomp'] = [ self.PyMPI.px, self.PyMPI.py, self.PyMPI.pz ]
+        serial_data['packages'] = self.packagesRestart
+        # Variable map
+        serial_data['vars'] = {}
+        cnt = 0
+        for ivar in self.variables:
+            serial_data['vars'][ivar] = cnt
+            cnt += 1
+
+            
+        if self.PyMPI.master == 1:
+            fid = open(os.path.join(dumpDir,'serial.dat'),'w')
+            fid.write(str(serial_data))
+            
+        
+        # Parallel
+        # Variables
+        DATA = self.PyMPI.emptyVector(len(self.variables))
+        for ivar in self.variables:
+            DATA[:,:,:,serial_data['vars'][ivar]] = self.variables[ivar].data
+
+        # Write this big thing
+        rank = self.PyMPI.comm.rank
+        procFile = open(os.path.join(dumpDir,'proc-%s.bin' % str(rank).zfill(5)),'w')
+        DATA.tofile(procFile)
+        procFile.close()
         
 
     def writeGrid(self):
@@ -694,4 +754,69 @@ class pyrandaSim:
     def setupLatex(self):
 
         self.latex = pyrandaTex(self)
+        
+
+
+def pyrandaRestart(rootname,suffix=None):
+    
+    """
+    Non-member function; return a valid pyrandaSim object
+    with data from restart
+    """
+    # Use suffix else, use largest file
+    if not suffix:
+        searchDumps = os.path.join(rootname, "restart*" )
+        dumps = sorted(glob.glob( searchDumps ))
+        dump = dumps[-1]
+    else:
+        dump = os.path.join(rootname, "restart_%s" % suffix )
+
+    if not os.path.isdir( dump ):
+        self.iprint("Error: Cant read resart file %s" % dump)
+        return None
+
+    # Get serial data
+    fid = open(os.path.join(dump,'serial.dat'))
+    dstr = fid.readline()
+    serial_data = eval( dstr )
+
+
+    # Make the object - (will do new domain-decomp) 
+    pysim = pyrandaSim(rootname,serial_data['mesh'])
+
+    # Load packages
+    for pack in serial_data['packages']:            
+        ipack = pack.split('.')[1] 
+        exec("import %s" % ipack )
+        pk = eval("%s.%s(pysim)" % (ipack,ipack) )
+        pysim.addPackage( pk )
+
+    # EOM and IC's
+    pysim.EOM( serial_data['EOM'] )
+    pysim.setIC( serial_data['ICs'] )
+
+    # Loop over processor dumps of restart data:
+    # Loop through variables
+    procs = serial_data['decomp']
+    ProcFiles = range(procs[0]*procs[1]*procs[2])
+    nshape = (pysim.PyMPI.ax,pysim.PyMPI.ay,pysim.PyMPI.az,len(pysim.variables))
+    for pp in ProcFiles:
+        onproc = True # Parallel needed
+        if onproc:
+            fid = open(os.path.join(dump,"proc-%s.bin" % str(pp).zfill(5)))
+            DATA = numpy.reshape(numpy.fromfile( fid ),nshape,order='C')
+            for var in pysim.variables:
+                pysim.variables[var].data = DATA[:,:,:,serial_data['vars'][var]]
+                # Parallel needed
+                #pysim.variables[var].data[g1x:gnx,
+                #                          g1y:gny,
+                #                          g1z:gnz] = DATA[r1x:rnx,
+                #                                          r1y:rny,
+                #                                          r1z:rnz,serial_data[var]]
+
+
+
+    return pysim
+
+        
         
