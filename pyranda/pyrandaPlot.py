@@ -50,9 +50,9 @@ class pyrandaPlot:
         if self.pyranda.PyMPI.master:
             plt.title(name)
 
-    def pause(self):
+    def pause(self,val=.01):
         if self.pyranda.PyMPI.master:
-            plt.pause()
+            plt.pause(val)
 
     def plot(self,var,style='k-',slice2d='j=0;k=0',**kwargs):
         """
