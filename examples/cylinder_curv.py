@@ -177,7 +177,7 @@ yy   =  ss.PyMPI.zbar( y )
 
 # Start time loop
 cnt = 1
-viz_freq = 10
+viz_freq = 100
 pvar = 'umag'
 
 #import pdb
@@ -229,8 +229,8 @@ while tt > time:
             plt.clf()            
             plt.contourf( xx,yy,v ,64 , cmap=cm.jet)
             plt.contour( xx,yy,phi,[0.0])
-            plt.plot(xx, yy, 'k-', lw=0.5, alpha=0.5)
-            plt.plot(xx.T, yy.T, 'k-', lw=0.5, alpha=0.5)
+            #plt.plot(xx, yy, 'k-', lw=0.5, alpha=0.5)
+            #plt.plot(xx.T, yy.T, 'k-', lw=0.5, alpha=0.5)
             plt.title(pvar)
             plt.axis('equal')
             plt.pause(.001)

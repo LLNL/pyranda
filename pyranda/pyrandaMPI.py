@@ -286,21 +286,95 @@ class pyrandaMPI():
         nx = data.shape[0]
         ny = data.shape[1]
         nz = data.shape[2]
+        ax = max(1,self.chunk_3d_hi[0] - self.chunk_3d_lo[0] + 1)
+        ay = max(1,self.chunk_3d_hi[1] - self.chunk_3d_lo[1] + 1)
+        az = max(1,self.chunk_3d_hi[2] - self.chunk_3d_lo[2] + 1)
         for i in range(I[0],I[1]):
             for j in range(J[0],J[1]):
                 for k in range(K[0],K[1]):
-                    inI = ( i >= self.chunk_3d_lo[0]) and (i <= self.chunk_3d_hi[0] )
-                    inJ = ( j >= self.chunk_3d_lo[1]) and (j <= self.chunk_3d_hi[1] )
-                    inK = ( k >= self.chunk_3d_lo[2]) and (k <= self.chunk_3d_hi[2] )
+                    gi = i-I[0]
+                    gj = j-J[0]
+                    gk = k-K[0]
+                    inI = ( gi >= self.chunk_3d_lo[0]) and (gi <= self.chunk_3d_hi[0] )
+                    inJ = ( gj >= self.chunk_3d_lo[1]) and (gj <= self.chunk_3d_hi[1] )
+                    inK = ( gk >= self.chunk_3d_lo[2]) and (gk <= self.chunk_3d_hi[2] )
                     if (inI and inJ and inK):
-                        gdata[i-I[0],j-J[0],k-K[0]] = data[i+self.chunk_3d_lo[0],
-                                                           j+self.chunk_3d_lo[1],
-                                                           k+self.chunk_3d_lo[2]]
-                            
+                        gdata[gi,gj,gk] = data[gi%ax, gj%ay, gk%az ]
+                        
         self.comm.allreduce( gdata, op=MPI.SUM )
         return gdata
 
-                        
+    def getIJKpoo(self,data,I,J,K): #irange):
+        """
+        Same as readData but only reads in global range of data given by
+        irange.
+        """
+        Rx = [0]*2
+        Ry = [0]*2
+        Rz = [0]*2
+        
+        Rx[0] = I[0]
+        Rx[1] = I[1]
+        Ry[0] = J[0]
+        Ry[1] = J[1]
+        Rz[0] = K[0]
+        Rz[1] = K[1]
+
+        gx = max(1,I[1]-I[0])
+        gy = max(1,J[1]-J[0])
+        gz = max(1,K[1]-K[0])
+        gdata = numpy.zeros((gx,gy,gz))
+
+
+        g1 = self.chunk_3d_lo
+        gn = self.chunk_3d_hi
+
+        # Shift left point if node data
+        iff = 0;jff = 0;kff = 0;
+
+        try:
+            c1 = (Rx[1] in range(g1[0],gn[0]) )
+            c2 = (Rx[0] in range(g1[0],gn[0]) )
+            c3 = ( (g1[0] and gn[0]) in range(Rx[0],Rx[1]+1) )
+            CX = c1 or c2 or c3
+        except:
+            import pdb
+            pdb.set_trace()
+
+        import pdb
+        pdb.set_trace()
+
+        c1 = (Ry[1] in range(g1[1],gn[1]) )
+        c2 = (Ry[0] in range(g1[1],gn[1]) )
+        c3 = ( (g1[1] and gn[1]) in range(Ry[0],Ry[1]+1) )
+        CY = c1 or c2 or c3
+
+        c1 = (Rz[1] in range(g1[2],gn[2]) )
+        c2 = (Rz[0] in range(g1[2],gn[2]) )
+        c3 = ( (g1[2] and gn[2]) in range(Rz[0],Rz[1]+1) )
+        CZ = c1 or c2 or c3
+
+        if ( CX and CY and CZ ):
+
+            Li1 = numpy.max( (0 , Rx[0] - g1[0] ) ) + iff
+            Lif = numpy.min( (Rx[1] , gn[0] ) ) - g1[0] + iff
+            Ki1 = numpy.max( (Rx[0] , g1[0]) ) - Rx[0]
+            Kif = Ki1 + (Lif-Li1)
+
+            Lj1 = numpy.max( (0 , Ry[0] - g1[1] ) ) + jff
+            Ljf = numpy.min( (Ry[1] , gn[1] ) ) - g1[1] + jff
+            Kj1 = numpy.max( (Ry[0] , g1[1]) ) - Ry[0]
+            Kjf = Kj1 + (Ljf-Lj1)
+
+            Lk1 = numpy.max( (0 , Rz[0] - g1[2] ) ) + kff
+            Lkf = numpy.min( (Rz[1] , gn[2] ) ) - g1[2] + kff
+            Kk1 = numpy.max( (Rz[0] , g1[2]) ) - Rz[0]
+            Kkf = Kk1 + (Lkf-Lk1)            
+
+            gdata[Ki1:Kif,Kj1:Kjf,Kk1:Kkf] = data[Li1:Lif,Lj1:Ljf,Lk1:Lkf]
+
+        self.comm.allreduce( gdata, op=MPI.SUM )
+        return gdata
 
     
     def ghost(self,data,np=1):
