@@ -31,7 +31,7 @@ L = numpy.pi * 2.0
 dim = 2
 gamma = 1.4
 
-problem = 'cyl_ISSWfine'
+problem = 'cyl_ISSWtest'
 
 Lp = L * (Npts-1.0) / Npts
 
@@ -194,16 +194,16 @@ dt = ss.variables['dt'].data * CFL*.01
 outVars = ['p','u','v','phi','rho','T']
 
 
-ss.plot.figure(2)
-ss.plot.clf()            
-ss.plot.contourf('p',64)
-ss.plot.contour('phi',[0.0])
-ss.plot.title(pvar)
-ss.plot.pause()
+#ss.plot.figure(2)
+#ss.plot.clf()            
+#ss.plot.contourf('p',64)
+#ss.plot.contour('phi',[0.0])
+#ss.plot.title(pvar)
+#ss.plot.pause()
 
 ss.write(outVars)
 
-while tt > time:
+while .1 > time:
     
     # Update the EOM and get next dt
     time = ss.rk4(time,dt)
@@ -220,14 +220,16 @@ while tt > time:
         if (cnt%viz_freq == 1) :
             ss.write(outVars)
         
-            ss.plot.figure(2)
-            ss.plot.clf()            
-            ss.plot.contourf('p',64,cmap=cm.jet)
-            ss.plot.contour('phi',[0.0])
-            ss.plot.title(pvar)
-            ss.plot.pause()
+            #ss.plot.figure(2)
+            #ss.plot.clf()            
+            #ss.plot.contourf('p',64,cmap=cm.jet)
+            #ss.plot.contour('phi',[0.0])
+            #ss.plot.title(pvar)
+            #ss.plot.pause()
 
 
+            
+ss.plot.contourf('p',64,cmap=cm.jet)
 
 # Curve test.  Write file and print its name at the end
 if test:
