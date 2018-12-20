@@ -149,7 +149,7 @@ class pyrandaSim:
             self.nPDE += 1
             self.conserved.append( peq.LHS[0] )
             if len( peq.LHS ) > 1:
-                print('Warning... only single return values for PDEs allowed')
+                self.iprint('Warning... only single return values for PDEs allowed')
                 exit()
         elif peq.kind == 'ALG':
             self.nALG += 1
@@ -213,7 +213,7 @@ class pyrandaSim:
                     nans = True
                     svars += ivar + ' '
             except:
-                print("%s is not a variable" % ivar)
+                self.iprint("%s is not a variable" % ivar)
                 #import pdb
                 #pdb.set_trace()
         return svars

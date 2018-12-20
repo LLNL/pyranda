@@ -8,6 +8,8 @@
 #
 # Written by: Britton J. Olson, olson45@llnl.gov
 ################################################################################
+import numpy
+
 class pyrandaVar:
 
     def __init__(self,name,kind,rank):
@@ -44,3 +46,38 @@ class pyrandaVar:
             return  [ self.PyMPI.sum3D( self.data[:,:,:,0] ) , 
                       self.PyMPI.sum3D( self.data[:,:,:,1] ) ,
                       self.PyMPI.sum3D( self.data[:,:,:,2] ) ]
+
+    # Allow global access via indices
+    def __getitem__(self, given):
+
+        # Check length of indices
+        slen = len( given )
+
+        # Only 3D arguments
+        if ( slen != 3 ):
+            self.PyMPI.iprint("Error: 3 index ranges must be given")
+            return None
+
+        indices = [None]*3
+
+        NX = [self.PyMPI.nx,self.PyMPI.ny,self.PyMPI.nz]
+        for i in range(slen):
+            
+            if isinstance( given[i], slice):
+                start = given[i].start
+                stop = given[i].stop
+                if start == None:
+                    start = 0
+                if stop == None:
+                    stop = NX[i]
+            else:
+                start = given[i]
+                stop = start + 1
+            indices[i] = [ start, stop ]
+
+        gdata = self.PyMPI.getIJK( self.data, indices[0],indices[1],indices[2] ) 
+        return numpy.squeeze( gdata )
+
+        
+
+            
