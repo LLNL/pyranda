@@ -29,7 +29,7 @@ while time < .1:
 
 
 # Plot the initial/final solution
-x   = pysim.mesh.coords[0]
+x   = pysim.mesh.coords[0].data
 phi = pysim.variables['phi'].data
 phi0 = pysim.variables['phi0'].data
 plt.plot(x[:,0,0],phi[:,0,0] ,'k.-')

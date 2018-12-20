@@ -177,7 +177,7 @@ dt_max = v / ss.mesh.nn[0] * 0.05
 tt = L/v * 2.025 #dt_max
 
 # Mesh for viz on master
-x = ss.mesh.coords[0]
+x = ss.mesh.coords[0].data
 xx =  ss.PyMPI.zbar( x )
 
 # Start time loop

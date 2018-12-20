@@ -77,7 +77,7 @@ eps = 2.0e-1
     dt = ss.variables['dt'].data * CFL * .01
 
     # Mesh for viz on master
-    x = ss.mesh.coords[0]
+    x = ss.mesh.coords[0].data
     xx =  ss.PyMPI.zbar( x )
 
     # Start time loop

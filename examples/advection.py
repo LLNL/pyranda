@@ -46,7 +46,7 @@ ss.setIC(ic)
 
 #ss.variables["u"].data += 1.0
 
-x  = ss.mesh.coords[0]
+x  = ss.mesh.coords[0].data
 xx =  ss.PyMPI.zbar( x )
 
 # Time step size

@@ -53,8 +53,8 @@ ss.setIC(ic)
 
 
 # Mesh for viz on master
-x = ss.mesh.coords[0]
-y = ss.mesh.coords[1]
+x = ss.mesh.coords[0].data
+y = ss.mesh.coords[1].data
 xx   =  ss.PyMPI.zbar( x )
 yy   =  ss.PyMPI.zbar( y )
 

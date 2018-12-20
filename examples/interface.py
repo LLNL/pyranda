@@ -78,9 +78,9 @@ ss.EOM(eom)
 #:umag:      =  numpy.sqrt(:u:*:u: + :v:*:v:)
 
 # Initialize variables
-x = ss.mesh.coords[0]
-y = ss.mesh.coords[1]
-z = ss.mesh.coords[2]
+x = ss.mesh.coords[0].data
+y = ss.mesh.coords[1].data
+z = ss.mesh.coords[2].data
 
 dx = (x[1,0,0] - x[0,0,0])
 
