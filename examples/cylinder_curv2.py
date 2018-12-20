@@ -221,8 +221,8 @@ while tt > time:
 # Curve test.  Write file and print its name at the end
 if test:
     # Initialize variables
-    x = ss.mesh.coords[0]
-    y = ss.mesh.coords[1]
+    x = ss.mesh.coords[0].data
+    y = ss.mesh.coords[1].data
     
     # Mesh for viz on master
     xx   =  ss.PyMPI.zbar( x )

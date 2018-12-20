@@ -12,6 +12,7 @@ import numpy
 from .pyrandaUtils import *
 
 from . import parcop
+from .pyrandaVar   import pyrandaVar
 
 class pyrandaMesh:
 
@@ -117,11 +118,16 @@ class pyrandaMesh:
                 x,y,z)
 
         # Read in from the fortran
-        self.coords = [0]*3
-        self.coords[0] = parcop.parcop.xgrid(ax,ay,az)
-        self.coords[1] = parcop.parcop.ygrid(ax,ay,az)
-        self.coords[2] = parcop.parcop.zgrid(ax,ay,az)
-        self.shape = list(self.coords[0].shape)
+        self.coords = [ pyrandaVar('x','mesh','scalar'),
+                        pyrandaVar('y','mesh','scalar'),
+                        pyrandaVar('z','mesh','scalar') ]
+        for cor in self.coords:
+            cor.__allocate__(self.PyMPI)
+            
+        self.coords[0].data = parcop.parcop.xgrid(ax,ay,az)
+        self.coords[1].data = parcop.parcop.ygrid(ax,ay,az)
+        self.coords[2].data = parcop.parcop.zgrid(ax,ay,az)
+        self.shape = list(self.coords[0].data.shape)
 
         self.d1 = parcop.parcop.dxgrid(ax,ay,az)
         self.d2 = parcop.parcop.dygrid(ax,ay,az)

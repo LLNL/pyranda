@@ -194,9 +194,9 @@ ss.setIC(ic)
     
 # Length scale for art. viscosity
 # Initialize variables
-x = ss.mesh.coords[0]
-y = ss.mesh.coords[1]
-z = ss.mesh.coords[2]
+x = ss.mesh.coords[0].data
+y = ss.mesh.coords[1].data
+z = ss.mesh.coords[2].data
 
 # Set the value for dx
 dx = x[1,0,0] - x[0,0,0]

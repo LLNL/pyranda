@@ -41,9 +41,9 @@ ss.addEqu( eq )
 ss.allocate()
 
 
-x = ss.mesh.coords[0]
-y = ss.mesh.coords[1]
-z = ss.mesh.coords[2]
+x = ss.mesh.coords[0].data
+y = ss.mesh.coords[1].data
+z = ss.mesh.coords[2].data
 rad = numpy.sqrt( (x-numpy.pi)**2 + (y-numpy.pi)**2 ) #+ (z-numpy.pi)**2  )
 
 ss.variables['phi'].data = numpy.exp( -(rad)**2/(.8**2) )

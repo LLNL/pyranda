@@ -133,6 +133,14 @@ class pyrandaSim:
         else:
             raise ValueError('Error: variable name: %s not found in database' % name)
 
+    def grid(self,name):
+        gridD = {'x':0,'y':1,'z':2}
+        if name in gridD.keys():
+            return self.mesh.coords[ gridD[name] ]
+        else:
+            raise ValueError('Error: grid arguments must be "x","y",or "z"')
+
+        
     def eval(self,expression):
         return eval(fortran3d(expression,self.sMap))
 
@@ -363,7 +371,7 @@ class pyrandaSim:
         shape.append( wlen )
         iodata = numpy.zeros( shape )
         for i in range( 3 ):
-            iodata[:,:,:,i] = self.mesh.coords[i]
+            iodata[:,:,:,i] = self.mesh.coords[i].data
 
         dumpName = 'grid' 
         self.PyIO.makeDump(iodata,dumpName)
@@ -582,9 +590,9 @@ class pyrandaSim:
         sMap['3d()'] = 'self.emptyScalar()'
         sMap[':pi:'] = 'numpy.pi'
         
-        sMap['meshx']   = 'self.mesh.coords[0]'
-        sMap['meshy']   = 'self.mesh.coords[1]'
-        sMap['meshz']   = 'self.mesh.coords[2]'
+        sMap['meshx']   = 'self.mesh.coords[0].data'
+        sMap['meshy']   = 'self.mesh.coords[1].data'
+        sMap['meshz']   = 'self.mesh.coords[2].data'
         self.sMap = sMap
         
     def euler(self,time,dt):

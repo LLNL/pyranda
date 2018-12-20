@@ -39,9 +39,9 @@ ddt(:veta:) = - ddx(:veta:*:u:) - ddy(:veta:*:v: + .5*:g:*:eta:**2)
 ss.EOM(eom)
 
 # Initialize variables
-x = ss.mesh.coords[0]
-y = ss.mesh.coords[1]
-z = ss.mesh.coords[2]
+x = ss.mesh.coords[0].data
+y = ss.mesh.coords[1].data
+z = ss.mesh.coords[2].data
 
 # Set some initial comnditions
 ic = """

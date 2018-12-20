@@ -55,7 +55,7 @@ xnn = meshx[-1,0,0]
 """
 ss.setIC(ic)
 
-x  = ss.mesh.coords[0]
+x  = ss.mesh.coords[0].data
 xx =  ss.PyMPI.zbar( x )
 
 # Time step size

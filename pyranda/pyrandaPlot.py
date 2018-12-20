@@ -137,9 +137,9 @@ class pyrandaPlot:
         ny = self.pyranda.ny
         nz = self.pyranda.nz
 
-        x  = self.pyranda.mesh.coords[0]
-        y  = self.pyranda.mesh.coords[1]
-        z  = self.pyranda.mesh.coords[2]
+        x  = self.pyranda.mesh.coords[0].data
+        y  = self.pyranda.mesh.coords[1].data
+        z  = self.pyranda.mesh.coords[2].data
                     
         # 2D - figure out directions
         if (nz == 1):
@@ -188,9 +188,9 @@ class pyrandaPlot:
         ny = self.pyranda.ny
         nz = self.pyranda.nz
 
-        x  = self.pyranda.mesh.coords[0]
-        y  = self.pyranda.mesh.coords[1]
-        z  = self.pyranda.mesh.coords[2]
+        x  = self.pyranda.mesh.coords[0].data
+        y  = self.pyranda.mesh.coords[1].data
+        z  = self.pyranda.mesh.coords[2].data
                     
         # 1D - figure out directions
         if (ny == nz == 1):
