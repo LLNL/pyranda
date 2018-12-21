@@ -124,7 +124,7 @@ class pyrandaMPI():
         self.chunk_3d_size = numpy.zeros(3, dtype=numpy.int32, order='F')
         self.chunk_3d_lo   = numpy.zeros(3, dtype=numpy.int32, order='F')
         self.chunk_3d_hi   = numpy.zeros(3, dtype=numpy.int32, order='F')
-
+        
         self.setPatch()
         self.xcom  = MPI.Comm.f2py( parcop.parcop.commx()  )
         self.ycom  = MPI.Comm.f2py( parcop.parcop.commy()  )
@@ -158,7 +158,16 @@ class pyrandaMPI():
         self.chunk_3d_lo = self.chunk_3d_lo - 1 # Convert to 0 based indexing
         self.chunk_3d_hi = self.chunk_3d_hi - 1 # Convert to 0 based indexing
 
+        procMap = {}
+        rank = self.comm.rank
+        procMap['%s-g1' % rank] = self.chunk_3d_lo
+        procMap['%s-gn' % rank] = self.chunk_3d_hi
 
+        counterSumOp = MPI.Op.Create(addCounter, commute=True)
+        self.procMap = self.comm.allreduce(procMap, op=counterSumOp)
+
+        
+        
         self.der  = parcop_der()
         self.fil  = parcop_sfil()
         self.gfil = parcop_gfil()
@@ -658,3 +667,13 @@ def decomp(nprocs,nx,ny,nz):
                 
     decomps.sort(key=lambda x: x.score, reverse=True)    
     return [decomps[0].xp,decomps[0].yp,decomps[0].zp]
+
+
+def addCounter(counter1, counter2, datatype):
+    for item in counter2:
+        if item in counter1:
+            counter1[item] += counter2[item]
+        else:
+            counter1[item] = counter2[item]
+
+    return counter1

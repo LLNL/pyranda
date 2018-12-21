@@ -5,9 +5,9 @@ import numpy
 import matplotlib.pyplot as plt
 from matplotlib import cm
 
-from pyranda import pyrandaSim, pyrandaBC, pyrandaTimestep, pyrandaIBM
-
-
+from pyranda import pyrandaSim, pyrandaBC, pyrandaTimestep, pyrandaIBM 
+from pyranda.pyranda import pyrandaRestart
+#ss = pyrandaRestart('cylinder_curvilinear','000435')
 # Try to get args for testing
 try:
     Npts = int(sys.argv[1])

@@ -64,7 +64,7 @@ class pyrandaMesh:
         sMap['zdom=('] = "self.set_options(2,"
         self.sMap = sMap
 
-    def makeMesh(self):
+    def makeMesh(self,xr=None,yr=None,zr=None):
 
 
         options = self.options
@@ -97,19 +97,27 @@ class pyrandaMesh:
             y = numpy.asfortranarray( y )
             z = numpy.asfortranarray( z )
 
-            # Evaluate an ijk function for the mesh
-            if 'function' in self.options:
-                self.function = self.options['function']
+            # if restart coords are given, use them
+            if ( isinstance(xr,numpy.ndarray) and
+                 isinstance(yr,numpy.ndarray) and
+                 isinstance(zr,numpy.ndarray)  ):
+            
+                x = xr
+                y = yr
+                z = zr
+            else:
+                # Evaluate an ijk function for the mesh
+                if 'function' in self.options:
+                    self.function = self.options['function']
 
-                for i in range(ax):
-                    for j in range(ay):
-                        for k in range(az):
-                            # Get global indices
-                            ii = i + self.PyMPI.chunk_3d_lo[0]
-                            jj = j + self.PyMPI.chunk_3d_lo[1]
-                            kk = k + self.PyMPI.chunk_3d_lo[2]
-                            x[i,j,k],y[i,j,k],z[i,j,k] = self.function(ii,jj,kk)
-
+                    for i in range(ax):
+                        for j in range(ay):
+                            for k in range(az):
+                                # Get global indices
+                                ii = i + self.PyMPI.chunk_3d_lo[0]
+                                jj = j + self.PyMPI.chunk_3d_lo[1]
+                                kk = k + self.PyMPI.chunk_3d_lo[2]
+                                x[i,j,k],y[i,j,k],z[i,j,k] = self.function(ii,jj,kk)
             
             # Define the grid here (send to fortran
             parcop.parcop.setup_mesh_x3(
@@ -117,7 +125,7 @@ class pyrandaMesh:
                 self.PyMPI.level,
                 x,y,z)
 
-        # Read in from the fortran
+        # Read in from the fortran and set to numpy arrays
         self.coords = [ pyrandaVar('x','mesh','scalar'),
                         pyrandaVar('y','mesh','scalar'),
                         pyrandaVar('z','mesh','scalar') ]
@@ -133,7 +141,8 @@ class pyrandaMesh:
         self.d2 = parcop.parcop.dygrid(ax,ay,az)
         self.d3 = parcop.parcop.dzgrid(ax,ay,az)
         
-        
+        #import pdb
+        #pdb.set_trace()
         #self.PyMPI.setPatch()
             
         # Mesh data

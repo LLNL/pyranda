@@ -79,6 +79,8 @@
     REAL(c_double) :: dA,dB,dC
     LOGICAL :: tmpPx,tmpPy,tmpPz
     INTEGER(c_int) :: i,j,k,flag,filnum,xasym,yasym,zasym
+
+     IF ( .NOT. ALLOCATED(mesh_data%zone_index) ) THEN 
      mesh_data%num_zones = patch_data%ax*patch_data%ay*patch_data%az 
      ALLOCATE(mesh_data%zone_index(mesh_data%num_zones)); FORALL(i=1:mesh_data%num_zones) mesh_data%zone_index(i) = i-1
      ALLOCATE(mesh_data%refine(patch_data%ax,patch_data%ay,patch_data%az))  
@@ -116,7 +118,8 @@
        ALLOCATE(dzdA(patch_data%ax,patch_data%ay,patch_data%az))
        ALLOCATE(dzdB(patch_data%ax,patch_data%ay,patch_data%az))
        ALLOCATE(dzdC(patch_data%ax,patch_data%ay,patch_data%az))
-     END SELECT       
+     END SELECT
+     ENDIF
      ASSOCIATE(coordsys  => patch_data%coordsys,  simtime   => patch_data%simtime,                                      &
                nx        => patch_data%nx,        ny        => patch_data%ny,        nz        => patch_data%nz,        &
                px        => patch_data%px,        py        => patch_data%py,        pz        => patch_data%pz,        &
