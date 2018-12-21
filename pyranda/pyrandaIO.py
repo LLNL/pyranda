@@ -56,13 +56,13 @@ class pyrandaIO:
         ghost = True
 
         if ghost:
-            fx = self.PyMPI.ghost(mesh.coords[0].data)
-            fy = self.PyMPI.ghost(mesh.coords[1].data)
-            fz = self.PyMPI.ghost(mesh.coords[2].data)
+            fx = self.PyMPI.ghost(mesh.coords[0].data[:,:,:] )
+            fy = self.PyMPI.ghost(mesh.coords[1].data[:,:,:] )
+            fz = self.PyMPI.ghost(mesh.coords[2].data[:,:,:] )
         else:
-            fx = mesh.coords[0].data
-            fy = mesh.coords[1].data
-            fz = mesh.coords[2].data
+            fx = mesh.coords[0].data[:,:,:]
+            fy = mesh.coords[1].data[:,:,:]
+            fz = mesh.coords[2].data[:,:,:]
             
         ax = fx.shape[0]
         ay = fx.shape[1]
@@ -101,9 +101,9 @@ class pyrandaIO:
 
     def makeDumpTec(self,mesh,variables,varList,dumpFile):
         
-        fx = mesh.coords[0].data.flatten()
-        fy = mesh.coords[1].data.flatten()
-        fz = mesh.coords[2].data.flatten()
+        fx = mesh.coords[0].data[:,:,:].flatten()
+        fy = mesh.coords[1].data[:,:,:].flatten()
+        fz = mesh.coords[2].data[:,:,:].flatten()
         
         fid = open(dumpFile + '.tec','w')
         

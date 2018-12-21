@@ -16,6 +16,7 @@ import sys,os
 import time
 import glob
 import matplotlib.pyplot as plt
+import inspect
 
 from .pyrandaMPI   import pyrandaMPI
 from .pyrandaVar   import pyrandaVar
@@ -64,15 +65,25 @@ class pyrandaSim:
         self.ny = ny
         self.nz = nz
         self.npts = nx*ny*nz
+
+        # Initialze some lists/dictionaries
+        self.equations = []
+        self.conserved = []
+        self.variables = {}
+        self.initial_conditions = []
+        self.nPDE = 0
+        self.nALG = 0
         
         self.mesh.options = meshOptions
         self.mesh.dims  = meshOptions['dim']
 
+        # Setup mpi (and parcop)
         self.PyMPI = pyrandaMPI( self.mesh )
         self.mesh.PyMPI = self.PyMPI
 
+        # Create the mesh
         self.mesh.makeMesh()
-
+        
         # IO setup
         self.PyIO = pyrandaIO( self.name, self.PyMPI )
 
@@ -81,14 +92,6 @@ class pyrandaSim:
         
         # Grab some scalars off of parcop.mesh
         self.zero = self.PyMPI.emptyScalar()
-        
-        
-        self.equations = []
-        self.conserved = []
-        self.variables = {}
-        self.initial_conditions = []
-        self.nPDE = 0
-        self.nALG = 0
 
         # Package info
         self.packages = {}
@@ -136,13 +139,14 @@ class pyrandaSim:
         else:
             raise ValueError('Error: variable name: %s not found in database' % name)
 
-    def grid(self,name):
-        gridD = {'x':0,'y':1,'z':2}
-        if name in gridD.keys():
-            return self.mesh.coords[ gridD[name] ]
-        else:
-            raise ValueError('Error: grid arguments must be "x","y",or "z"')
+    def x(self):
+        return self.variables['meshx']
 
+    def y(self):
+        return self.variables['meshy']
+
+    def z(self):
+        return self.variables['meshz']
         
     def eval(self,expression):
         return eval(fortran3d(expression,self.sMap))
@@ -212,6 +216,13 @@ class pyrandaSim:
 
         # Set up the variables in memory
         self.allocate()
+
+        # Mesh vars point to mesh.coords
+        self.variables['meshx'] = self.mesh.coords[0]
+        self.variables['meshy'] = self.mesh.coords[1]
+        self.variables['meshz'] = self.mesh.coords[2]
+
+        
             
     def checkForNan(self,names=[]):
 
@@ -386,19 +397,32 @@ class pyrandaSim:
                 os.mkdir( dumpDir )
             except:
                 pass
+
+        self.PyMPI.comm.Barrier()
             
         ## Persistent data ##
         
         # Original domain-decomp
         serial_data = {}
-        serial_data['mesh'] = self.meshOptions
+        serial_data['mesh'] = self.meshOptions.copy()
         serial_data['EOM']  = self.eom
         serial_data['ICs']  = self.ics
         serial_data['decomp'] = [ self.PyMPI.px, self.PyMPI.py, self.PyMPI.pz ]
+        serial_data['procMap'] = self.PyMPI.procMap
         serial_data['packages'] = self.packagesRestart
+        serial_data['time'] = self.time
+        serial_data['deltat'] = self.deltat
+        
+        # Serialize the mesh function
+        if 'function' in serial_data['mesh']:
+            serial_data['mesh']['function'] = inspect.getsource(
+                self.meshOptions['function'] )
+            serial_data['mesh']['function-name'] = self.meshOptions['function'].__name__
+            
         # Variable map
         serial_data['vars'] = {}
         cnt = 0
+        #IOvariables = list(self.variables).append('meshx').append('meshy').append('meshz')
         for ivar in self.variables:
             serial_data['vars'][ivar] = cnt
             cnt += 1
@@ -414,7 +438,12 @@ class pyrandaSim:
         DATA = self.PyMPI.emptyVector(len(self.variables))
         for ivar in self.variables:
             DATA[:,:,:,serial_data['vars'][ivar]] = self.variables[ivar].data
+        # Grid
+        #DATA[:,:,:,serial_data['vars']['meshx']] = self.mesh.coords[0].data
+        #DATA[:,:,:,serial_data['vars']['meshy']] = self.mesh.coords[1].data
+        #DATA[:,:,:,serial_data['vars']['meshz']] = self.mesh.coords[2].data
 
+            
         # Write this big thing
         rank = self.PyMPI.comm.rank
         procFile = open(os.path.join(dumpDir,'proc-%s.bin' % str(rank).zfill(5)),'w')
@@ -553,6 +582,10 @@ class pyrandaSim:
             f1 = f2
         return f1
 
+    def step(self,nsteps=1):
+        for tt in range(nsteps):
+            self.rk4(self.time,self.deltat)
+    
     
     def rk4(self,time,dt):
 
@@ -758,6 +791,7 @@ class pyrandaSim:
 
 
 def pyrandaRestart(rootname,suffix=None):
+    from numpy import array,int32
     
     """
     Non-member function; return a valid pyrandaSim object
@@ -780,8 +814,15 @@ def pyrandaRestart(rootname,suffix=None):
     dstr = fid.readline()
     serial_data = eval( dstr )
 
-
-    # Make the object - (will do new domain-decomp) 
+    # Unpack the mesh function
+    #if ( 'function' in serial_data['mesh'] ):
+    #    fname = serial_data['mesh']['function-name']
+    #    exec( serial_data['mesh']['function'] )
+    #    serial_data['mesh']['function'] = eval(fname)
+    
+    # Make the object - (will do new domain-decomp)
+    # clip functions
+    serial_data['mesh'].pop('function',None)
     pysim = pyrandaSim(rootname,serial_data['mesh'])
 
     # Load packages
@@ -794,29 +835,113 @@ def pyrandaRestart(rootname,suffix=None):
     # EOM and IC's
     pysim.EOM( serial_data['EOM'] )
     pysim.setIC( serial_data['ICs'] )
-
+    pysim.time = serial_data['time']
+    pysim.deltat = serial_data['deltat']
+    
     # Loop over processor dumps of restart data:
     # Loop through variables
     procs = serial_data['decomp']
+    procMap = serial_data['procMap']
     ProcFiles = range(procs[0]*procs[1]*procs[2])
     nshape = (pysim.PyMPI.ax,pysim.PyMPI.ay,pysim.PyMPI.az,len(pysim.variables))
-    for pp in ProcFiles:
-        onproc = True # Parallel needed
-        if onproc:
-            fid = open(os.path.join(dump,"proc-%s.bin" % str(pp).zfill(5)))
-            DATA = numpy.reshape(numpy.fromfile( fid ),nshape,order='C')
-            for var in pysim.variables:
-                pysim.variables[var].data = DATA[:,:,:,serial_data['vars'][var]]
-                # Parallel needed
-                #pysim.variables[var].data[g1x:gnx,
-                #                          g1y:gny,
-                #                          g1z:gnz] = DATA[r1x:rnx,
-                #                                          r1y:rny,
-                #                                          r1z:rnz,serial_data[var]]
 
 
+    readChunk(pysim,procs,procMap,dump,serial_data)
+
+    # Recompute the mesh metrics
+    pysim.mesh.makeMesh(xr=pysim.x().data,
+                        yr=pysim.y().data,
+                        zr=pysim.z().data)
+    
+    #for pp in ProcFiles:
+    #    fid = open(os.path.join(dump,"proc-%s.bin" % str(pp).zfill(5)))
+    #    DATA = numpy.reshape(numpy.fromfile( fid ),nshape,order='C')
+    #    for var in pysim.variables:                                                
+    #        pysim.variables[var].data = DATA[:,:,:,serial_data['vars'][var]]
 
     return pysim
 
         
         
+def readChunk(pysim,procs,procMap,dump,serial_data):
+    """
+    Same as readData but only reads in global range of data given by
+    irange.
+    """
+
+    Rx = [0]*2
+    Ry = [0]*2
+    Rz = [0]*2
+
+    # This procs extents
+    Rx[0] = pysim.PyMPI.chunk_3d_lo[0]    #irange[0]
+    Rx[1] = pysim.PyMPI.chunk_3d_hi[0]+1  #irange[1]
+    Ry[0] = pysim.PyMPI.chunk_3d_lo[1]    #irange[2]
+    Ry[1] = pysim.PyMPI.chunk_3d_hi[1]+1  #irange[3]
+    Rz[0] = pysim.PyMPI.chunk_3d_lo[2]    #irange[4]
+    Rz[1] = pysim.PyMPI.chunk_3d_hi[2]+1  #irange[5]
+
+    # Restart deomain info
+    nprocs = procs[0]*procs[1]*procs[2]
+    ax = pysim.nx / procs[0]
+    ay = pysim.ny / procs[1]
+    az = pysim.nz / procs[2]
+    nshape = (ax,ay,az,len(pysim.variables))
+    
+    for iproc in range(nprocs):
+
+        g1 = procMap['%s-g1' % iproc] 
+        gn = procMap['%s-gn' % iproc] + 1
+
+        # Shift left point if node data
+        iff = 0;jff = 0;kff = 0;
+
+        c1 = (Rx[1] in range(g1[0],gn[0]) )
+        c2 = (Rx[0] in range(g1[0],gn[0]) )
+        c3 = ( (g1[0] and gn[0]) in range(Rx[0],Rx[1]+1) )
+        CX = c1 or c2 or c3
+
+        c1 = (Ry[1] in range(g1[1],gn[1]) )
+        c2 = (Ry[0] in range(g1[1],gn[1]) )
+        c3 = ( (g1[1] and gn[1]) in range(Ry[0],Ry[1]+1) )
+        CY = c1 or c2 or c3
+
+        c1 = (Rz[1] in range(g1[2],gn[2]) )
+        c2 = (Rz[0] in range(g1[2],gn[2]) )
+        c3 = ( (g1[2] and gn[2]) in range(Rz[0],Rz[1]+1) )
+        CZ = c1 or c2 or c3
+
+        if ( CX and CY and CZ ):
+
+            Li1 = numpy.max( (0 , Rx[0] - g1[0] ) ) + iff
+            Lif = numpy.min( (Rx[1] , gn[0] ) ) - g1[0] + iff
+            Ki1 = numpy.max( (Rx[0] , g1[0]) ) - Rx[0]
+            Kif = Ki1 + (Lif-Li1)
+
+            Lj1 = numpy.max( (0 , Ry[0] - g1[1] ) ) + jff
+            Ljf = numpy.min( (Ry[1] , gn[1] ) ) - g1[1] + jff
+            Kj1 = numpy.max( (Ry[0] , g1[1]) ) - Ry[0]
+            Kjf = Kj1 + (Ljf-Lj1)
+
+            Lk1 = numpy.max( (0 , Rz[0] - g1[2] ) ) + kff
+            Lkf = numpy.min( (Rz[1] , gn[2] ) ) - g1[2] + kff
+            Kk1 = numpy.max( (Rz[0] , g1[2]) ) - Rz[0]
+            Kkf = Kk1 + (Lkf-Lk1)
+
+            #pdata = self.readDataProc(time,iproc,variable)
+            fid = open(os.path.join(dump,"proc-%s.bin" % str(iproc).zfill(5)))
+            DATA = numpy.reshape(numpy.fromfile( fid ),nshape,order='C')
+                       
+            #for ii in range(len(variable)):
+            for var in pysim.variables:
+                #vdata[ii][Ki1:Kif,Kj1:Kjf,Kk1:Kkf] = pdata[ii][Li1:Lif,Lj1:Ljf,Lk1:Lkf]
+                if isinstance(pysim.variables[var].data,numpy.ndarray):
+                    pysim.variables[var].data[Ki1:Kif,
+                                              Kj1:Kjf,
+                                              Kk1:Kkf] = DATA[Li1:Lif,
+                                                              Lj1:Ljf,
+                                                              Lk1:Lkf,
+                                                              serial_data['vars'][var]]
+                else:
+                    pysim.variables[var].data = DATA[0,0,0,
+                                                     serial_data['vars'][var]]

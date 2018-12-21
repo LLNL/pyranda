@@ -135,9 +135,9 @@ class pyrandaBC(pyrandaPackage):
 
             if not self.BCdata.has_key('slipbc-y1'):
                 
-                x = self.pyranda.mesh.coords[0] 
-                y = self.pyranda.mesh.coords[1] 
-                z = self.pyranda.mesh.coords[2] 
+                x = self.pyranda.mesh.coords[0].data[:,:,:]
+                y = self.pyranda.mesh.coords[1].data[:,:,:]
+                z = self.pyranda.mesh.coords[2].data[:,:,:]
                 norms = 0.0
                 if self.pyranda.PyMPI.y1proc:
 

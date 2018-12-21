@@ -236,6 +236,8 @@ while tt > time:
             plt.pause(.001)
 
 
+ss.writeRestart()
+            
 
 # Curve test.  Write file and print its name at the end
 if test:
