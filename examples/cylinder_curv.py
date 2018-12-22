@@ -5,7 +5,7 @@ import numpy
 import matplotlib.pyplot as plt
 from matplotlib import cm
 
-from pyranda import pyrandaSim, pyrandaBC, pyrandaTimestep, pyrandaIBM
+from pyranda import pyrandaSim, pyrandaBC, pyrandaTimestep, pyrandaIBM, pyrandaProbes
 
 
 # Try to get args for testing
@@ -203,6 +203,13 @@ if (ss.PyMPI.master and (not test) ):
     plt.pause(.001)
 
 
+# Make a probe set for diagnostics
+x = [5.]*20
+y = numpy.linspace(-10,10,20)
+probes = pyrandaProbes(ss,x=x,y=y,z=None)
+
+
+    
 
 while tt > time:
     
@@ -223,7 +230,12 @@ while tt > time:
         
         if (ss.PyMPI.master) and (cnt%viz_freq == 1) :#or True:
 
-            
+
+
+
+            plt.figure(1)
+            plt.clf()
+            plt.plot( probes.get('p') )
             
             plt.figure(2)
             plt.clf()            
