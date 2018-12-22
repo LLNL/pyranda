@@ -219,7 +219,7 @@ while tt > time:
         v = ss.PyMPI.zbar( ss.variables[pvar].data )
         phi = ss.PyMPI.zbar( ss.variables['phi'].data )
         if (cnt%viz_freq == 1) :
-            ss.write()
+            ss.write(['rho','u','v','phi'])
         
         if (ss.PyMPI.master) and (cnt%viz_freq == 1) :#or True:
 

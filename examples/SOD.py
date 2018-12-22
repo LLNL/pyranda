@@ -90,6 +90,7 @@ while tt > time:
             ss.plot.figure(1)
             plt.clf()
             ss.plot.plot(pvar,'b.-')
+            ss.plot.plot('p','k.-')
 
         
 ss.writeGrid()

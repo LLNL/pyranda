@@ -64,12 +64,13 @@ eom ="""
 # Primary Equations of motion here
 ddt(:rhoA:)  =  -ddx(:rhoA:*:uA:)
 ddt(:rhoB:)  =  -ddx(:rhoB:*:uB:)
-ddt(:rhouA:) =  -ddx(:rhouA:*:uA: + :pA: - :tauA:) - :FA:
-ddt(:rhouB:) =  -ddx(:rhouB:*:uB: + :pB: - :tauB:) - :FB:
-ddt(:EtA:)   =  -ddx( (:EtA: + :pA: - :tauA:)*:uA: ) - :FA:*:uA:
-ddt(:EtB:)   =  -ddx( (:EtB: + :pB: - :tauB:)*:uB: ) - :FB:*:uB:
+ddt(:rhouA:) =  -ddx(:rhouA:*:uA: + :pA: - :tauA:) #- :FA:
+ddt(:rhouB:) =  -ddx(:rhouB:*:uB: + :pB: - :tauB:) #- :FB:
+ddt(:EtA:)   =  -ddx( (:EtA: + :pA: - :tauA:)*:uA: ) #- :FA:*:uA:
+ddt(:EtB:)   =  -ddx( (:EtB: + :pB: - :tauB:)*:uB: ) #- :FB:*:uB:
 ddt(:phi:)   = -:gx:*:uphi: - .1 * sign(:phi:)*(:mgp:-1.0) * deltaPhi / (deltat+1.0e-10)
 #ddt(:uphi:)  =  -ddx( :uphi:*:uphi: - :tauphi:) - :Fphi:/(:rhoA: + :rhoB:)
+#ddt(:uphi:)  =   - :Fphi:/:rhophi: * 1.0
 # Conservative filter of the EoM
 :rhoA:       =  fbar( :rhoA:  )
 :rhoB:       =  fbar( :rhoB:  )
@@ -85,33 +86,36 @@ ddt(:phi:)   = -:gx:*:uphi: - .1 * sign(:phi:)*(:mgp:-1.0) * deltaPhi / (deltat+
 :uB:         =  :rhouB: / :rhoB:
 :pA:         =  ( :EtA: - .5*:rhoA:*(:uA:*:uA:) ) * ( :gamma: - 1.0 )
 :pB:         =  ( :EtB: - .5*:rhoB:*(:uB:*:uB:) ) * ( :gamma: - 1.0 )
-:wgt:        = (1.0-tanh(:phi:/deltaPhi)**2)
-:dphi:       = :wgt:*.5/ deltaPhi
+:wgt:        = (1.0-tanh(:phi:/deltaPhi*3.0)**2)
+:dphi:       = :wgt:*.5/ deltaPhi 
 :Fphi:       = 1.0*:dphi:*:gx:*(:pA:-:pB:)
 :mgp:        =  sqrt( :gx:**2 + :gy:**2 )
-:rhophi: = where(:phi: > 0.0, :rhoA:, :rhoB:)
+#:rhophi:     = where(:phi: >  0.0, :rhoA:, :rhoB:)
+:wgt2: = .5*(1.0 - tanh( :phi:/deltaPhi ))
+:rhophi:     = :rhoA: + :wgt2:*(:rhoB:-:rhoA:)
 :rhophi:         = ibmS( :rhophi: , :phi:, [:gx:,:gy:,:gz:] )
 :rhophi:         = ibmS( :rhophi: , -:phi:, [-:gx:,-:gy:,-:gz:] )
 :FA: = :Fphi: * :rhophi: / :rhoA:
 :FB: = :Fphi: * :rhophi: / :rhoB:
 # Close level set velocity
+:cA: = sqrt( :gamma:*:pA:/:rhoA: )
+:cB: = sqrt( :gamma:*:pB:/:rhoB: )
+:ubar: = (:uA: + :uB:)/2.0
+:cbar: = (:cA: + :cB:)/2.0
+:SA: = numpy.minimum( :ubar:-:cbar:, :uA:-:cA:)
+:SB: = numpy.maximum( :ubar:+:cbar:, :uB:+:cB:)
+:uphi: = ( :pB: - :pA: + :rhouA:*(:SA:-:uA:) - :rhouB:*(:SB:-:uB:) ) / ( :rhoA:*(:SA:-:uA:) - :rhoB:*(:SB:-:uB:) ) 
 #:uphi: = (:rhouA: + :rhouB:) / (:rhoA: + :rhoB:)
 #:uphi: = where(abs(:phi:) < deltaPhi, (:rhouA: + :rhouB:) / (:rhoA: + :rhoB:), :uphi: )
 #:rhouphi: = where(:phi: > 0.0, :rhouA:, :rhouB:)
 #:rhouphi:         = ibmS( :rhouphi: , :phi:, [:gx:,:gy:,:gz:] )
 #:rhouphi:         = ibmS( :rhouphi: , -:phi:, [-:gx:,-:gy:,-:gz:] )
 #:uphi: = :rhouphi: / :rhophi:
-:uphi: = where(:phi: > 0.0, :uA:, :uB:)
+#:uphi: = where(:phi: > 0.0, :uA:, :uB:)
 :uphi:         = ibmS( :uphi: , :phi:, [:gx:,:gy:,:gz:] )
 :uphi:         = ibmS( :uphi: , -:phi:, [-:gx:,-:gy:,-:gz:] )
-#:uphi:  = gbar( gbar( gbar( :uphi: ) ) )
-#:uphi:  = gbar( gbar( gbar( :uphi: ) ) )
-#:uphi:  = gbar( gbar( gbar( :uphi: ) ) )
-#:uphi:  = gbar( gbar( gbar( :uphi: ) ) )
 #:uphi: = :wgt:*:uphi: #+ gbar(:uphi:)*(1.0-:wgt:**2)
 #:uphi: = max(:uphi:) + :uphi:*0.0
-#:uphi: = where( abs(:phi:) < deltaPhi, :uphi:, gbar(:uphi:) )
-#:uphi: = where( abs(:phi:) < deltaPhi, :uphi:, gbar(:uphi:) )
 #:uphi: = where( abs(:phi:) < deltaPhi, :uphi:, gbar(:uphi:) )
 #:wgt: = .5*(1.0 - tanh( (:phi: - 8.0*deltaPhi)/(deltaPhi) ))
 #:wgt2: = .5*(1.0 - tanh( (-:phi: - 8.0*deltaPhi)/(deltaPhi) ))
@@ -137,13 +141,15 @@ bc.const(['uB'],['xn'],0.0)
 # Artificial bulk viscosity (old school way)
 :divA:       =  ddx(:uA:) 
 :divB:       =  ddx(:uB:) 
-#:divphi:     =  ddx(:uphi:)
+#:divphi:    =  ddx(:uphi:)
 :betaA:      =  gbar( ring(:divA:) * :rhoA:) * 7.0e-2
 :betaB:      =  gbar( ring(:divB:) * :rhoB:) * 7.0e-2
-#:betaphi:      =  gbar( ring(:divphi:)) * 7.0e-2
+#:betaphi:   =  gbar( ring(:divphi:)) * 7.0e-2
 :tauA:       =  :betaA:*:divA:
 :tauB:       =  :betaB:*:divB:
-#:tauphi:       =  :betaphi:*:divphi:
+:wgt1: = .5*(1.0 - tanh( :phi:/deltaPhi/.2 ))
+:p:          =  :wgt1:*:pB:   + (1.0-:wgt1:)*:pA:
+:rho:        =  :wgt1:*:rhoB: + (1.0-:wgt1:)*:rhoA:
 """.replace('deltaPhi',str(deltaPhi))
 
 # Add the EOM to the solver
@@ -153,14 +159,27 @@ ss.EOM(eom)
 ic = """
 :gamma: = 1.4 + 3d()
 pert    = .0*exp( -abs(meshx-1.0)**2/(.2**2))
-:pA:    =  gbar(where(meshx < :pi:, 10.0, 1.0)) * ( 1.0 + pert)
+:pA:    =  gbar(where(meshx < :pi:/2., 10.0, 1.0)) * ( 1.0 + pert)
 :rhoA:  = (1.0 + 3d()) * ( 1.0 + pert*(:gamma:-1) )
+:A:    =  gbar(where(meshx < :pi:/2., 10.0, 1.0))
 :uA:    = pert
 :rhouA: = :rhoA: * :uA:
 :EtA:   = :pA: / ( :gamma: - 1.0 ) + .5*:rhoA:*(:uA:*:uA:) 
-:pB: = gbar(where(meshx < :pi:, 10.0, 1.0)) * ( 1.0 + pert)
+:pB: = gbar(where(meshx < :pi:, 1.0, 1.0)) * ( 1.0 + pert)
 :EtB:   =  :pB:/(:gamma:-1.0)
-:rhoB:  = 0.125 + 3d() 
+:rhoB:  = 1.0 + 3d() 
+:phi:   = :pi: - meshx
+"""
+
+# Initial conditions SOD shock tube in 1d
+ic = """
+:gamma: = 1.4 + 3d()
+:pA:    +=  1.0
+:rhoA:  +=  1.0
+:EtA:   = :pA: / ( :gamma: - 1.0 ) 
+:pB:    += 0.1
+:rhoB:  += 0.125 
+:EtB:   =  :pB:/(:gamma:-1.0)
 :phi:   = :pi: - meshx
 """
 
@@ -173,8 +192,8 @@ time = 0.0
 
 # Approx a max dt and stopping time
 v = 1.0
-dt_max = v / ss.mesh.nn[0] * 0.05
-tt = L/v * 2.025 #dt_max
+dt_max = v / ss.mesh.nn[0] * 0.009
+tt = L/v * .25 #dt_max
 
 # Mesh for viz on master
 x = ss.mesh.coords[0].data
@@ -254,10 +273,13 @@ while tt > time:
     if viz:
 
         if (ss.PyMPI.master and (cnt%viz_freq == 0)) and True:
-            poo = raw_input('fff')
-            updatePlots()
+            #poo = raw_input('fff')
+            #updatePlots()
+            ss.plot.figure(1)
+            ss.plot.clf()
+            ss.plot.plot('rho','b.-')
+            ss.plot.plot('p','k.-')
 
-
-
+            
 ss.writeGrid()
 ss.write()
