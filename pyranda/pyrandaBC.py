@@ -34,10 +34,27 @@ class pyrandaBC(pyrandaPackage):
         sMap['bc.const(']  =  "self.packages['BC'].const("
         sMap['bc.exit(']   =  "self.packages['BC'].exitbc("
         sMap['bc.slip(']   =  "self.packages['BC'].slipbc("
+        sMap['bc.field(']  =  "self.packages['BC'].applyBC('field',"
         self.sMap = sMap
         
 
-    
+    def applyBC(self,func,var,direction,val=None):
+
+        pFunc = eval('self.' + func)
+        
+        if type(var) != type([]):
+            var = [var]
+        
+        if type(direction) != type([]):
+            direction = [direction]
+
+        for d in direction:
+            for v in var:
+                if (type(val) != type(None)):
+                    pFunc( v, d , val )
+                else:
+                    pFunc( v, d  )
+        
         
     def extrap(self,var,direction):
 
@@ -109,6 +126,34 @@ class pyrandaBC(pyrandaPackage):
         if direction == 'yn':
             if self.pyranda.PyMPI.ynproc:
                 self.pyranda.variables[var].data[:,-1,:] = val
+
+    def field(self,var,direction,field):
+
+        val = field
+        
+        # Direction switch
+        if direction == 'x1':
+            if self.pyranda.PyMPI.x1proc:
+                self.pyranda.variables[var].data[0,:,:] = val[0,:,:]
+                
+            
+        if direction == 'xn':
+            if self.pyranda.PyMPI.xnproc:
+                self.pyranda.variables[var].data[-1,:,:] = val[-1,:,:]
+            
+
+        if direction == 'y1':
+            if self.pyranda.PyMPI.y1proc:
+                self.pyranda.variables[var].data[:,0,:] = val[:,0,:]
+                
+            
+        if direction == 'yn':
+            if self.pyranda.PyMPI.ynproc:
+                self.pyranda.variables[var].data[:,-1,:] = val[:,-1,:]
+
+        
+
+                 
 
     def slipbc(self,var,direction):
 
