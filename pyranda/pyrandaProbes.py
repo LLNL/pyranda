@@ -38,7 +38,7 @@ class pyrandaProbes(pyrandaPackage):
         for ix,iy in zip(self.xpts,self.ypts):
             self.points.append( ipoint(ix,iy,xmesh,ymesh) )
         
-    def get(self,var ):
+    def get(self,var,method='linear' ):
 
         # Get the pysim data
         values = []
@@ -46,7 +46,7 @@ class pyrandaProbes(pyrandaPackage):
 
         # Get interpolated values
         for pt in self.points:
-            values.append( pt.interp( vals ) )
+            values.append( pt.interp( vals,method ) )
 
         # Communicate 
         Lvalues = numpy.array( values )
@@ -55,3 +55,19 @@ class pyrandaProbes(pyrandaPackage):
         self.values = Gvalues
         return self.values
         
+    def get1(self,var,method='linear' ):
+
+        # Get the pysim data
+        values = []
+        vals = self.pysim.variables[var].data[:,:,0]
+
+        # Get interpolated values
+        for pt in self.points:
+            values.append( pt.interp1( vals,method ) )
+
+        # Communicate 
+        Lvalues = numpy.array( values )
+        Gvalues = self.pysim.PyMPI.comm.allreduce( Lvalues, op=MPI.SUM )
+        
+        self.values = Gvalues
+        return self.values

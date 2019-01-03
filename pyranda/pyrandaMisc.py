@@ -71,6 +71,42 @@ class ipoint:
                                     [ygrid[ii-1,jj  ],ygrid[ii,jj  ],ygrid[ii+1,jj  ]],
                                     [ygrid[ii-1,jj+1],ygrid[ii,jj+1],ygrid[ii+1,jj+1]] ])
 
+        #self.xlocal = self.xlocal[1:,1:]
+        #self.ylocal = self.ylocal[1:,1:]
+        #self.xlocal = self.xlocal[:-1,:-1]
+        #self.ylocal = self.ylocal[:-1,:-1]
+        
+
+
+        # Fast binlinear version
+        indices = [ [ii,jj] ]
+        indices.append( [ii-1,jj] )
+        indices.append( [ii,jj-1] )
+        indices.append( [ii-1,jj-1] )
+
+        indices = [ [ii-1,jj-1],[ii,jj-1],[ii+1,jj-1],
+                    [ii-1,jj  ],[ii,jj  ],[ii+1,jj  ],
+                    [ii-1,jj+1],[ii,jj+1],[ii+1,jj+1] ]
+        
+        xD = [ ]
+        yD = [ ]
+        for ind in indices:
+            xD.append( xgrid[ind[0],ind[1]] )
+            yD.append( ygrid[ind[0],ind[1]] )
+
+
+        D = numpy.sqrt( (numpy.array(xD)-self.x)**2 + (numpy.array(yD)-self.y)**2 )
+        #D = D**2.0
+        D = 1.0 / (D+1.0e-12)
+        DT = numpy.sum( D )
+
+        self.weights = []
+        for Di in D:
+            self.weights.append( Di / DT )
+
+        self.indices = indices
+            
+            
         
 
     def interp(self,vals,imethod='linear'):
@@ -84,13 +120,28 @@ class ipoint:
         vlocal = numpy.array([ [vals[ii-1,jj-1],vals[ii,jj-1],vals[ii+1,jj-1]],
                              [vals[ii-1,jj  ],vals[ii,jj  ],vals[ii+1,jj  ]],
                              [vals[ii-1,jj+1],vals[ii,jj+1],vals[ii+1,jj+1]] ])
+
+        #vlocal = vlocal[1:,1:]
+        #vlocal = vlocal[:-1,:-1]
         
         pts = [ numpy.array([self.x]), numpy.array([self.y]) ]
         dc = getPoints(self.xlocal,self.ylocal,vlocal,pts,imethod)
 
         return dc
 
+    def interp1(self,vals,imethod='linear'):
 
+
+        if (not self.onProc):
+            return 0.0
+
+        dc = 0.0
+        for ind,wi in zip(self.indices,self.weights):
+            dc += wi[0]*vals[ind[0],ind[1]]
+            
+        return dc
+
+    
 def getPoints(x,y,f,pts,imethod):
 
     xx = x.ravel()
