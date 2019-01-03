@@ -5,6 +5,8 @@ import numpy
 import matplotlib.pyplot as plt
 from matplotlib import cm
 
+from scipy import fftpack
+
 from pyranda import pyrandaSim, pyrandaBC, pyrandaTimestep, pyrandaIBM, pyrandaProbes
 
 
@@ -45,6 +47,19 @@ def zoomMesh(i,j,k):
     y = xS[j]
     z = 0.0
     return x,y,z
+
+
+def spec_1d(y,han=True):
+    if han:
+        ave = numpy.mean(y)
+        hw = numpy.hanning(y.shape[0])
+        y = (y - ave)*hw + ave
+    f1 = fftpack.fft(y)
+    f2 = f1 / (numpy.prod(f1.shape)/2.0)
+    #psd = npy.abs(f2) #*npy.conjugate(f2))
+    psd = (f2)*numpy.conjugate(f2)
+    psd = numpy.abs(psd)
+    return psd[0:y.shape[0]/2]
 
 
 mesh_options = {}
@@ -180,7 +195,7 @@ yy   =  ss.PyMPI.zbar( y )
 
 # Start time loop
 cnt = 1
-viz_freq = 10
+viz_freq = 100
 pvar = 'p'
 
 #import pdb
@@ -192,15 +207,29 @@ dt = ss.variables['dt'].data * CFL*.01
 
 
 # Make a probe set for diagnostics
-theta = numpy.linspace(0,2.0*numpy.pi,100)
+nProbes = 200
+theta = numpy.linspace(0,2.0*numpy.pi,nProbes+1)[:-1]
 R0 = 5.0
 x = R0 * numpy.cos( theta )
 y = R0 * numpy.sin( theta )
 probes = pyrandaProbes(ss,x=x,y=y,z=None)
 
+#theta2 = numpy.linspace(0,2.0*numpy.pi,200)[:-1]
+#R0 = 5.0
+#x = R0 * numpy.cos( theta2 )
+#y = R0 * numpy.sin( theta2 )
+#probes2 = pyrandaProbes(ss,x=x,y=y,z=None)
 
-pMax = probes.get('p')
 
+
+pressure = []
+#pMax = probes.get(pvar)
+
+
+
+
+
+dtSample = 1.0e5
 while tt > time:
     
     # Update the EOM and get next dt
@@ -209,8 +238,18 @@ while tt > time:
     dt = min(dt, (tt - time) )
 
 
+    if (time > 18.0) and (time < 20.0):
+        dtSample = min( dt, dtSample)
+        
 
-    pMax = numpy.maximum( pMax, probes.get('p') )
+    if time > 20.0:
+        dt = dtSample
+        prb = probes.get(pvar)
+        pressure.append( prb )
+
+
+    #pMax = numpy.maximum( pMax, prb )
+    #pMin = numpy.minimum( pMin, prb )
     
     # Print some output
     ss.iprint("%s -- %s --- %f" % (cnt,time,dt)  )
@@ -225,14 +264,7 @@ while tt > time:
 
 
 
-            #pMax = numpy.maximum( pMax, probes.get('p') )
-            
-            plt.figure(1)
-            plt.clf()
-            #plt.plot( pMax )
-            ax = plt.subplot(111, projection='polar')
-            ax.plot(theta, pMax-p0)
-
+            #pMax = numpy.maximum( pMax, probes.get('p') )        
             
             ss.plot.figure(2)
             ss.plot.clf()            
@@ -248,9 +280,29 @@ while tt > time:
 
 ss.writeRestart()
 
+
+
+nTimes = len(pressure)
+pdata = numpy.array( pressure )
+
+amp = numpy.zeros(nProbes)
+for d in range(pdata.shape[1]):
+    data = pdata[:,d]
+    p1d = spec_1d( data-numpy.mean(data) ,han=True)
+    amp[d] = numpy.sqrt( numpy.max(p1d) )
+
+
 plt.figure(3)
 ax = plt.subplot(111, projection='polar')
-ax.plot(theta, pMax)
+ax.plot(theta, amp)
+plt.show()
+
+#plt.figure(1)
+#plt.clf()
+#plt.plot( pMax )
+#ax = plt.subplot(111, projection='polar')
+#ax.plot(theta, pMax-pMin)
+
 
 
 # Curve test.  Write file and print its name at the end
