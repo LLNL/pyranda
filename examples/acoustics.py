@@ -88,6 +88,8 @@ mach = 2.0
 s0 = numpy.sqrt( p0 / rho0 * gamma )
 u0 = s0 * mach
 e0 = p0/(gamma-1.0) + rho0*.5*u0*u0
+k0 = 1.0     # Wave number of sinewave
+
 
 
 # Define the equations of motion
@@ -119,7 +121,7 @@ ddt(:Et:)   =  -div( (:Et: + :p: - :tau:)*:u: - :tx:*:kappa:, (:Et: + :p: - :tau
 [:u:,:v:,:w:] = ibmV( [:u:,:v:,0.0], :phi:, [:gx:,:gy:,:gz:], [:u1:,:u2:,0.0] )
 :rho: = ibmS( :rho: , :phi:, [:gx:,:gy:,:gz:] )
 :p:   = ibmS( :p:   , :phi:, [:gx:,:gy:,:gz:] )
-:inlet: = where( s0*simtime > (meshx+4.*:pi:) , p0*.01*sin( (simtime-(meshx+4.*:pi:)/s0) / 3.0 * 2.0*:pi: ), 0.0 )
+:inlet: = where( s0*simtime > (meshx+4.*:pi:) , p0*.01*sin( (simtime-(meshx+4.*:pi:)/s0) / 3.0 * 2.0*:pi:*k0 ), 0.0 )
 bc.extrap(['rho','p','u'],['xn'])
 #bc.const(['u'],['y1','yn'],u0)
 bc.const(['v'],['x1','xn','y1','yn'],0.0)
@@ -137,7 +139,7 @@ bc.field(['u'],  ['x1','xn','y1','yn'],:inlet:/(s0*rho0))
 :dt: = numpy.minimum(:dt:,:dtB:)
 :umag: = sqrt( :u:*:u: + :v:*:v: )
 """
-eom = eom.replace('u0',str(u0)).replace('p0',str(p0)).replace('rho0',str(rho0)).replace('s0',str(s0))
+eom = eom.replace('u0',str(u0)).replace('p0',str(p0)).replace('rho0',str(rho0)).replace('s0',str(s0)).replace('k0',str(k0))
 
 
 # Add the EOM to the solver
