@@ -228,10 +228,6 @@ pressure = []
 #pMax = probes.get(pvar)
 
 
-#plt.plot(probes.getOld('p'))
-plt.plot(probes.get('p'))
-plt.show()
-
 
 ss.plot.figure(2)
 ss.plot.clf()            
