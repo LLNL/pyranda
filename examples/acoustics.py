@@ -39,8 +39,8 @@ Lp = L * (Npts-1.0) / Npts
 
 from meshTest import zoomMesh_solve
 
-dxf = 4*Lp / float(Npts) * .3
-xS = zoomMesh_solve(Npts,-2.*Lp,2.*Lp,-2.,2.,1.0,dxf)
+dxf = 4*Lp / float(Npts) * .5
+xS = zoomMesh_solve(Npts,-2.*Lp,2.*Lp,-5.,5.,3.0,dxf)
 
 def zoomMesh(i,j,k):
     x = xS[i]
@@ -207,7 +207,7 @@ dt = ss.variables['dt'].data * CFL*.01
 
 
 # Make a probe set for diagnostics
-nProbes = 200
+nProbes = Npts
 theta = numpy.linspace(0,2.0*numpy.pi,nProbes+1)[:-1]
 R0 = 5.0
 x = R0 * numpy.cos( theta )
@@ -226,7 +226,16 @@ pressure = []
 #pMax = probes.get(pvar)
 
 
+#plt.plot(probes.getOld('p'))
+plt.plot(probes.get('p'))
+plt.show()
 
+
+ss.plot.figure(2)
+ss.plot.clf()            
+ss.plot.contourf(pvar,64 , cmap=cm.jet)
+ss.plot.contour('phi',[0.0])
+ss.plot.showGrid()
 
 
 dtSample = 1.0e5
@@ -296,7 +305,7 @@ if (ss.PyMPI.master):
     plt.figure(3)
     ax = plt.subplot(111, projection='polar')
     ax.plot(theta, amp)
-    plt.show()
+    #plt.show()
     #plt.figure(3)
     #plt.plot( theta, prb )
 

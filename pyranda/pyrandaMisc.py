@@ -9,8 +9,10 @@
 ################################################################################
 import numpy
 import scipy.interpolate as SI
-import scipy     
-            
+import scipy.interpolate as spint
+import scipy.spatial.qhull as qhull
+import scipy
+
         
 class ipoint:
     """
@@ -89,40 +91,32 @@ class ipoint:
                                     [ygrid[ii-1,jj  ],ygrid[ii,jj  ],ygrid[ii+1,jj  ]],
                                     [ygrid[ii-1,jj+1],ygrid[ii,jj+1],ygrid[ii+1,jj+1]] ])
 
+
+        myWeights = []
+        myIndices = []
+        for io in range( self.xlocal.shape[0] ):
+            for jo in range( self.xlocal.shape[1] ):
+                test = numpy.zeros( [3,3] )
+                test[io,jo] = 1.0
+
+                pts = [ numpy.array([self.x]), numpy.array([self.y]) ]
+                dc = getPoints(self.xlocal,self.ylocal,test,pts,'linear')
+                if ( dc != 0.0 ):
+                    myWeights.append( dc )
+                    myIndices.append( [ ii-1+io  , jj-1+jo ] )
+                
+
+        self.indices = myIndices
+        self.weights = myWeights
         #self.xlocal = self.xlocal[1:,1:]
         #self.ylocal = self.ylocal[1:,1:]
         #self.xlocal = self.xlocal[:-1,:-1]
         #self.ylocal = self.ylocal[:-1,:-1]
         
 
-
-        # Fast binlinear version
-        indices = [ [ii,jj] ]
-        indices.append( [ii-1,jj] )
-        indices.append( [ii,jj-1] )
-        indices.append( [ii-1,jj-1] )
-
-        indices = [ [ii-1,jj-1],[ii,jj-1],[ii+1,jj-1],
-                    [ii-1,jj  ],[ii,jj  ],[ii+1,jj  ],
-                    [ii-1,jj+1],[ii,jj+1],[ii+1,jj+1] ]
+        self.getWeights()
         
-        xD = [ ]
-        yD = [ ]
-        for ind in indices:
-            xD.append( xgrid[ind[0],ind[1]] )
-            yD.append( ygrid[ind[0],ind[1]] )
 
-
-        D = numpy.sqrt( (numpy.array(xD)-self.x)**2 + (numpy.array(yD)-self.y)**2 )
-        #D = D**2.0
-        D = 1.0 / (D+1.0e-12)
-        DT = numpy.sum( D )
-
-        self.weights = []
-        for Di in D:
-            self.weights.append( Di / DT )
-
-        self.indices = indices
             
             
         
@@ -147,18 +141,47 @@ class ipoint:
 
         return dc
 
-    def interp1(self,vals,imethod='linear'):
+
+
+
+    def interpFast(self,vals):
 
 
         if (not self.onProc):
             return 0.0
+        
+        ii = self.ii0
+        jj = self.jj0
+        vlocal = numpy.array([ [vals[ii-1,jj-1],vals[ii,jj-1],vals[ii+1,jj-1]],
+                             [vals[ii-1,jj  ],vals[ii,jj  ],vals[ii+1,jj  ]],
+                             [vals[ii-1,jj+1],vals[ii,jj+1],vals[ii+1,jj+1]] ])
 
-        dc = 0.0
-        for ind,wi in zip(self.indices,self.weights):
-            dc += wi[0]*vals[ind[0],ind[1]]
-            
-        return dc
+        #vali = interpolateFast( vlocal.flatten(), self.vtx,self.SIweight)
+        #def interpolateFast(values, vtx, wts):
+        
+        vals =  numpy.einsum('nj,nj->n', numpy.take(vlocal.flatten(), self.vtx), self.SIweight)
+        
+        return vals[0]
+    
+    def getWeights(self):
+        
+        X = self.xlocal
+        Y = self.ylocal
+        
+        pts = [ numpy.array([self.x]), numpy.array([self.y]) ]
+        
+        xy=numpy.zeros([X.shape[0]*X.shape[1],2])
+        xy[:,0]=X.flatten()
+        xy[:,1]=Y.flatten()
+        
+        uv=numpy.zeros([1,2])
+        uv[0,0]=pts[0].flatten()
+        uv[0,1]=pts[1].flatten()
+        
+        vtx, wts = interp_weights(xy, uv)
 
+        self.SIweight = wts
+        self.vtx = vtx
     
 def getPoints(x,y,f,pts,imethod):
 
@@ -171,3 +194,15 @@ def getPoints(x,y,f,pts,imethod):
     dc = SI.griddata(numpy.array([xx,yy]).T,ff,numpy.array([xpts,ypts]).T,method=imethod)
         
     return dc[0]
+
+
+def interp_weights(xy, uv,d=2):
+    tri = qhull.Delaunay(xy)
+    simplex = tri.find_simplex(uv)
+    vertices = numpy.take(tri.simplices, simplex, axis=0)
+    temp = numpy.take(tri.transform, simplex, axis=0)
+    delta = uv - temp[:, d]
+    bary = numpy.einsum('njk,nk->nj', temp[:, :d, :], delta)
+    return vertices, numpy.hstack((bary, 1 - bary.sum(axis=1, keepdims=True)))
+
+
