@@ -17,7 +17,7 @@ class ipoint:
     Interpolated object to rapidly get values
       Note: grids should be ghosted in the +i,j+ directions
     """
-    def __init__(self,xpt,ypt,xgrid,ygrid):
+    def __init__(self,xpt,ypt,xgrid,ygrid,xrng=None,yrng=None):
         
 
         self.value = 0.0
@@ -27,12 +27,21 @@ class ipoint:
         self.y = ypt
 
         # Bounding box for determining proc location
-        onX = ( (self.x > xgrid.min() ) and  (self.x < xgrid.max() ) )
-        onY = ( (self.y > ygrid.min() ) and  (self.y < ygrid.max() ) )        
-        if onX and onY:
-            self.onProc = True
-        else:
-            return
+        #if not xrng:
+        #    onX = ( (self.x > xgrid.min() ) and  (self.x <= xgrid.max() ) )
+        #else:
+        #    onX = ( (self.x > xrng[0] ) and  (self.x <= xrng[1] ) )
+
+        #if not yrng:
+        #    onY = ( (self.y > ygrid.min() ) and  (self.y <= ygrid.max() ) )
+        #else:
+        #    onY = ( (self.y > yrng[0] ) and  (self.y <= yrng[1] ) )
+        
+        
+        #if onX and onY:
+        #    self.onProc = True
+        #else:
+        #    return
             
         self.ii1 = -1
         self.iin = -1
@@ -40,7 +49,7 @@ class ipoint:
         self.jj1 = -1
         self.jjn = -1
 
-        [self.nx,self.ny,self.nz] = xgrid.shape
+        [self.nx,self.ny] = xgrid.shape
                
         self.weight  = []
 
@@ -57,6 +66,15 @@ class ipoint:
         ii = int(indexes[0]/self.ny)
         jj = indexes[0]%self.ny
 
+        # 
+        nonX = ( ((ii-1) < 0) or ( (ii+1) > (self.nx-1) ) )
+        nonY = ( ((jj-1) < 0) or ( (jj+1) > (self.ny-1) ) )
+
+        self.onProc = True
+        if nonX or nonY:
+            self.onProc = False
+            return
+        
         x0 = numpy.abs(xgrid[ii,jj] - self.x)
         y0 = numpy.abs(ygrid[ii,jj] - self.y)
 

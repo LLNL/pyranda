@@ -260,7 +260,7 @@ while tt > time:
         if (cnt%viz_freq == 1) :
             ss.write()
         
-        if (ss.PyMPI.master) and (cnt%viz_freq == 1) :#or True:
+        if (cnt%viz_freq == 1) :#or True:
 
 
 
@@ -292,11 +292,21 @@ for d in range(pdata.shape[1]):
     amp[d] = numpy.sqrt( numpy.max(p1d) )
 
 
-plt.figure(3)
-ax = plt.subplot(111, projection='polar')
-ax.plot(theta, amp)
+if (ss.PyMPI.master):
+    plt.figure(3)
+    ax = plt.subplot(111, projection='polar')
+    ax.plot(theta, amp)
+    plt.show()
+    #plt.figure(3)
+    #plt.plot( theta, prb )
+
+ss.plot.figure(2)
+probes.plot()
+
+
 plt.show()
 
+    
 #plt.figure(1)
 #plt.clf()
 #plt.plot( pMax )
