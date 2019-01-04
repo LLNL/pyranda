@@ -12,6 +12,7 @@ import numpy
 import re
 import sys
 import time
+import matplotlib.pyplot as plt
 from .pyrandaPackage import pyrandaPackage
 from .pyrandaMisc import ipoint
 
@@ -32,9 +33,11 @@ class pyrandaProbes(pyrandaPackage):
         self.values = None
 
         self.points = []
-
-        xmesh = pysim.x().data
-        ymesh = pysim.y().data
+        
+        xmesh = pysim.PyMPI.ghost( pysim.x().data, 1)[:,:,0]
+        ymesh = pysim.PyMPI.ghost( pysim.y().data, 1)[:,:,0]
+        #xrng = [ pysim.x().data.min(), pysim.x().data.max() ]
+        #yrng = [ pysim.y().data.min(), pysim.y().data.max() ]
         for ix,iy in zip(self.xpts,self.ypts):
             self.points.append( ipoint(ix,iy,xmesh,ymesh) )
         
@@ -42,7 +45,8 @@ class pyrandaProbes(pyrandaPackage):
 
         # Get the pysim data
         values = []
-        vals = self.pysim.variables[var].data[:,:,0]
+        vdata = self.pysim.PyMPI.ghost( self.pysim.variables[var].data, 1 )
+        vals = vdata[:,:,0]
 
         # Get interpolated values
         for pt in self.points:
@@ -71,3 +75,22 @@ class pyrandaProbes(pyrandaPackage):
         
         self.values = Gvalues
         return self.values
+
+
+
+    def plot(self,var=None,style=None):
+
+
+        # Plot the probes on the current figure
+        #if not var:
+        #    self.get(var)
+            
+        #vals = self.values
+        x = self.xpts
+        y = self.ypts
+
+        if self.pysim.PyMPI.master:
+            if style:
+                plt.plot( x , y, style)
+            else:
+                plt.plot( x , y ,'ko')
