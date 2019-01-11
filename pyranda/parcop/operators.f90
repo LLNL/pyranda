@@ -786,7 +786,115 @@
      forall(i=1:ax,j=1:ay,k=1:az,l=-cx:cx,m=-cy:cy,n=-cz:cz) ff(3*i+l-1,3*j+m-1,3*k+n-1) = f3(i,j,k,l,m,n)
      deallocate(f3)
    END SUBROUTINE interp_Rubik_compact
-   
+
+
+   SUBROUTINE filtRands(Nspan,Ni,No,Nbuff, &
+        bmnI,bmnO,rands,vfilt, &
+        ny, nz, ay, az, iy1, iz1,y_r )        
+     !USE inputs, ONLY: ny,nz
+     !USE globals, ONLY: iy,iz,ay,az
+     !USE nozfull_data, ONLY: y_r
+     IMPLICIT NONE
+
+     INTEGER, INTENT(IN) :: Nspan,Ni,No,Nbuff
+     INTEGER, INTENT(IN) :: ny,nz,iy1,iz1,ay,az
+     DOUBLE PRECISION, INTENT(IN) :: y_r(ay)
+     DOUBLE PRECISION, INTENT(IN) ::  rands(ny+Nbuff,nz+Nbuff)
+     DOUBLE PRECISION, INTENT(IN) ::  bmnI(2*Ni+1,2*Nspan+1), bmnO(2*No+1,2*Nspan+1)
+     DOUBLE PRECISION, DIMENSION(:,:), ALLOCATABLE :: filt
+     DOUBLE PRECISION :: vfilt(ay,az)
+     INTEGER :: N1,N2
+     INTEGER :: j,k,m,n,mm,nn
+     INTEGER :: mF,mG,nF,nG
+     
+     N2 = Nspan
+     DO j=1,ay
+
+        ! Inner Layer
+        IF( y_r(j) < 1.0D0 ) THEN
+           N1 = Ni
+           IF(.NOT. ALLOCATED(filt)) ALLOCATE(filt(SIZE(bmnI,1),SIZE(bmnI,2) )  )
+           filt = bmnI
+           ! Outer Layer
+        ELSE
+           N1 = No
+           IF(.NOT. ALLOCATED(filt)) ALLOCATE(filt(SIZE(bmnO,1),SIZE(bmnO,2) ) )
+           filt = bmnO
+        END IF
+        
+        DO k=1,az
+           vfilt(j,k) = 0.0D0
+           
+           DO m=-N1,N1,1
+              mG = (iy1-1) + j + (m + N1)
+              mF = m + N1 + 1
+              
+              DO n=-N2,N2,1
+                 nG = (iz1-1) + k + (n + N2)
+                 nF = n + N2 + 1
+                 vfilt(j,k) = vfilt(j,k) + filt(mF,nF)*rands(mG,nG)
+                 
+              END DO
+           END DO
+        END DO
+        
+        DEALLOCATE(filt)  ! Every new y, compute a new filter
+     END DO
+     
+   END SUBROUTINE filtRands
+
+   SUBROUTINE get_rands(ny,nz,Nbuff,rands,time_seed)
+     IMPLICIT NONE
+     INTEGER, INTENT(IN) :: ny,nz,Nbuff
+     DOUBLE PRECISION, DIMENSION(4,ny+Nbuff,nz+Nbuff),INTENT(OUT) :: rands
+     INTEGER, INTENT(IN) :: time_seed 
+     
+     integer, allocatable :: seed(:)
+     integer :: n
+
+     call random_seed(size = n)
+     allocate(seed(n))
+     seed(:) = time_seed
+     call random_seed(put=seed)
+
+
+     ! Get the RNs... same for all procs     
+     CALL random_number(rands)
+     
+   END SUBROUTINE get_rands
+
+
+   SUBROUTINE DFuvw(
+     vU,vV,vW)
+     DOUBLE PRECISION, INTENT(OUT), DIMENSION(ay,az) :: vU,vV,vW
+
+     
+     
+     ! Get random numbers, need 2 sets, of size (ny+buff,nz+buff)... buff is for the filter width
+     CALL get_rands(ny,nz,Nbuff,rands,time_seed)
+
+     ! Make them have normal distribution (Box-Mueller theorem)
+     rtmp(1:2,:,:) = sqrt( -two*LOG(rands((/1,3/),:,:))) * cos(two*pi*rands((/2,4/),:,:))
+     rtmp(3:4,:,:) = sqrt( -two*LOG(rands((/1,3/),:,:))) * sin(two*pi*rands((/2,4/),:,:))
+     rands = rtmp
+
+     ! Filter them here
+     CALL filtRands(UIz,UIy(1),UIy(2),Nbuff, & 
+          buI,buO,rands(1,:,:),vU, &
+          ny,nz,ay,az,iy1,iz1,y_r)
+     CALL filtRands(VIz,VIy(1),VIy(2),Nbuff, &
+          bvI,bvO,rands(2,:,:),vV, &
+          ny,nz,ay,az,iy1,iz1,y_r)
+     CALL filtRands(WIz,WIy(1),WIy(2),Nbuff, &
+          bwI,bwO,rands(3,:,:),vW, &
+          ny,nz,ay,az,iy1,iz1,y_r)
+     
+     
+   END SUBROUTINE DFuvw
+
+
+
+
 !===================================================================================================
  END MODULE LES_operators
 !=================================================================================================== 
