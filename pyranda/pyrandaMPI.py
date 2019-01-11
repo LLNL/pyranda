@@ -232,6 +232,15 @@ class pyrandaMPI():
         return numpy.reshape(fldataT, (n1,n2), order = 'C' )
 
 
+    def subsum3xz(self,data):
+        icom = self.xzcom
+        lsum = numpy.sum( data, (0,2) )
+        gsum = self.xzcom.allreduce( lsum, op=MPI.SUM )
+        Gsum = self.ycom.allgather( gsum )
+        return numpy.concatenate(Gsum)
+        
+
+    
     def sum2D(self,data,com,n2,n3,index,g2,g3):
 
         a2 = g2[1] - g2[0]
