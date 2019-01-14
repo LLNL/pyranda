@@ -510,7 +510,8 @@ class pyrandaSim:
             return self.PyMPI.der.div(f1,f2,f3)
     
     def grad(self,val):
-        return [self.ddx(val),self.ddy(val),self.ddz(val)]
+        #return [self.ddx(val),self.ddy(val),self.ddz(val)]
+        return self.PyMPI.der.grad( val )    
 
     def laplacian(self,val):
         return self.PyMPI.der.laplacian( val )

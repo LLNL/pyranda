@@ -59,18 +59,26 @@ NACA = '2412'
 #[xnaca,ynaca] = naca_omesh(NACA,nx,ny,PLOT=False)
 
 nx = 300
-ny = 60
+ny = 100
 [xnaca,ynaca] = naca_omesh(NACA,nx,ny,
-                           PLOT=True,
-                           dr0=.002,fact=1.07,iS=5,
-                           te=.1,teSig=12,dratio=10)
+                           PLOT=False,
+                           dr0=.0025,fact=1.05,iS=5,
+                           te=.08,teSig=12,dratio=10)
+
+Ri = 1.0
+Rf = 10.0
 
 def nacaMesh(i,j,k):
     x = xnaca[i,j]
     y = ynaca[i,j]
     z = 0.0
     return x,y,z
-
+    #theta =  float(i) / float(nx) * 2.0 * numpy.pi
+    #r = float(j) / float(ny-1) * (Rf-Ri) + Ri
+    #x = r * numpy.cos( theta )
+    #y = r * numpy.sin( theta )
+    #z = 0.0
+    #return x,y,z
 
 mesh_options = {}
 mesh_options['coordsys'] = 3
@@ -105,7 +113,7 @@ eom ="""
 ddt(:rho:)  =  -div(:rho:*:u:,  :rho:*:v:)
 ddt(:rhou:) =  -div(:rhou:*:u: - :tauxx:, :rhou:*:v: - :tauxy:)
 ddt(:rhov:) =  -div(:rhov:*:u: - :tauxy:, :rhov:*:v: - :tauyy:)
-ddt(:Et:)   =  -div( (:Et: - :tauxx:)*:u: -:tauxy:*:v:- :tx:*:kappa:, (:Et: - :tau:)*:v: - :tauxy:*:u: - :ty:*:kappa:)
+ddt(:Et:)   =  -div( (:Et: - :tauxx:)*:u: -:tauxy:*:v:- :tx:*:kappa:, (:Et: - :tauyy:)*:v: - :tauxy:*:u: - :ty:*:kappa:)
 # Conservative filter of the EoM
 :rho:       =  fbar( :rho:  )
 :rhou:      =  fbar( :rhou: )
@@ -118,15 +126,14 @@ ddt(:Et:)   =  -div( (:Et: - :tauxx:)*:u: -:tauxy:*:v:- :tx:*:kappa:, (:Et: - :t
 :T:         = :p: / (:rho: * :R: )
 # Artificial bulk viscosity (old school way)
 :div:       =  div(:u:,:v:)
-:beta:      =  gbar( ring(:div:) * :rho: ) * 7.0e-3
-:tau:       =  :beta:*:div:
+:beta:      =  gbar( ring(:div:) * :rho: ) * 7.0e-2
 # Artificial thermal conductivity
 [:tx:,:ty:,:tz:] = grad(:T:)
 :kappa:     = gbar( ring(:T:)* :rho:*:cv:/(:T: * :dt: ) ) * 1.0e-3
 # Artificial shear
 :S:    = sqrt( :ux:*:ux: + :vy:*:vy: + .5*((:uy:+:vx:)**2 ) )
-#:mu:   =  gbar( ringV(:u:,:v:,:w:) * :rho: ) * 1.0e-2
-:mu:   =  gbar( ring(:S:  ) * :rho: ) * 1.0e-3
+:mu:   =  gbar( ringV(:u:,:v:,:w:) * :rho: ) * 1.0e-1 #+ .0005
+#:mu:   =  gbar( ring(:S:  ) * :rho: ) * 1.0e-4
 # Tau
 [:ux:,:uy:,:tz:] = grad(:u:)
 [:vx:,:vy:,:tz:] = grad(:v:)
@@ -138,15 +145,19 @@ ddt(:Et:)   =  -div( (:Et: - :tauxx:)*:u: -:tauxy:*:v:- :tx:*:kappa:, (:Et: - :t
 bc.extrap(['u','v','rho','p'],['yn'])
 bc.const(['u'],['yn'],u0)
 bc.extrap(['rho','p'],['y1'])
-bc.slip([ ['u','v']  ],['y1'])
-#bc.const( ['u','v']  ,['y1'],0.0)
 :Et:  = :p: / ( :gamma: - 1.0 )  + .5*:rho:*(:u:*:u: + :v:*:v:)
+bc.extrap(['u','v'],['y1'])
+bc.slip([ ['u','v']  ],['y1'])
+#:p:  = ( :Et: - .5*:rho:*(:u:*:u: + :v:*:v:) ) * ( :gamma: - 1.0 )
+#bc.const( ['u','v']  ,['y1'],0.0)
 :rhou: = :rho:*:u:
 :rhov: = :rho:*:v:
 :cs:  = sqrt( :p: / :rho: * :gamma: )
-:dt: = dt.courant(:u:,:v:,:w:,:cs:)
+:dt: = dt.courant(:u:,:v:,:w:,:cs:)*1.0
 :dtB: = 0.2* dt.diff(:beta:,:rho:)
 :dt: = numpy.minimum(:dt:,:dtB:)
+:dtM: = 0.2* dt.diff(:mu:,:rho:)
+:dt: = numpy.minimum(:dt:,:dtM:)
 :umag: = sqrt( :u:*:u: + :v:*:v: )
 """
 eom = eom.replace('u0',str(u0)).replace('p0',str(p0)).replace('rho0',str(rho0))
@@ -165,9 +176,10 @@ ic = """
 :rho: = 1.0 + 3d()
 :p:  =  1.0 + 3d() 
 :u: = mach * sqrt( :p: / :rho: * :gamma:)
-bc.const(['u'],['y1'],0.0)
+#bc.const(['u'],['y1'],0.0)
+bc.slip([ ['u','v']  ],['y1'])
 :u: = gbar(gbar(gbar(gbar(gbar(gbar( gbar( :u: ) ) )))))
-:v: = 0.0 + 3d()
+:v: = gbar(gbar(gbar(gbar(gbar(gbar( gbar( :v: ) ) )))))
 :Et: = :p:/( :gamma: - 1.0 ) + .5*:rho:*(:u:*:u: + :v:*:v:)
 :rhou: = :rho:*:u:
 :rhov: = :rho:*:v:
@@ -193,7 +205,7 @@ time = 0.0
 viz = True
 
 # Approx a max dt and stopping time
-tt = 3.0 #
+tt = 6.0 #
 
 # Mesh for viz on master
 xx   =  ss.PyMPI.zbar( x )
@@ -201,7 +213,7 @@ yy   =  ss.PyMPI.zbar( y )
 
 # Start time loop
 cnt = 1
-viz_freq = 10
+viz_freq = 50
 pvar = 'umag'
 
 
@@ -232,25 +244,46 @@ if (ss.PyMPI.master and (not test) ):
     plt.pause(.001)
     
     
-import pdb
-pdb.set_trace()
 
-    
+wvars = ['p','rho','u','v','beta','mu','umag']
 
+ss.write(wvars)
+
+#import pdb
+#pdb.set_trace()
+
+ramp = .1
 while tt > time:
     
     # Update the EOM and get next dt
+
+    dt = dt*ramp
+    ramp = min( 1.01*ramp, 1.0)
+    
+    
     time = ss.rk4(time,dt)
     dt = ss.variables['dt'].data * CFL
     dt = min(dt, (tt - time) )
 
     # airfoil extrap
-    if time < .1:
+    tramp1 = 0.0 #.03
+    tramp2 = 0.0 #.35
+    if time < tramp1:
         ss.parse(':u: = gbar(:u:)')
         ss.parse(':v: = gbar(:v:)')
         ss.parse(':rho: = gbar(:rho:)')
         ss.parse(':rhou: = :rho:*:u:')
         ss.parse(':rhov: = :rho:*:v:')
+
+
+    if time > tramp1 and time < tramp2:
+        wgt = 1.0 - (time - tramp1) / (tramp2-tramp1)  # Linear ramp
+        ss.parse(':u:   = :u:*(1.0-%s)   + %s*gbar(:u:)'   % (wgt,wgt) )
+        ss.parse(':v:   = :v:*(1.0-%s)   + %s*gbar(:v:)'   % (wgt,wgt))
+        ss.parse(':rho: = :rho:*(1.0-%s) + %s*gbar(:rho:)' % (wgt,wgt))
+        ss.parse(':rhou: = :rho:*:u:')
+        ss.parse(':rhov: = :rho:*:v:')
+
     
     
     # Print some output
@@ -278,7 +311,7 @@ while tt > time:
             plt.axis('equal')
             plt.pause(.001)
 
-            ss.write(['p','rho','u','v','beta'])
+            ss.write(wvars)
 
 
 # Curve test.  Write file and print its name at the end

@@ -548,6 +548,9 @@ class parcop_der:
     def div(self,fx,fy,fz):
         return parcop.parcop.divergence(fx,fy,fz)
 
+    def grad(self,val):
+        return parcop.parcop.grads( val )
+
     def laplacian(self,val):        
         return parcop.parcop.plaplacian(  val )
 

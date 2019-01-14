@@ -183,6 +183,28 @@ class pyrandaBC(pyrandaPackage):
                 x = self.pyranda.mesh.coords[0].data[:,:,:]
                 y = self.pyranda.mesh.coords[1].data[:,:,:]
                 z = self.pyranda.mesh.coords[2].data[:,:,:]
+
+                #CASE(1) ! A direction
+                dAdx = self.pyranda.getVar("dAx")
+                dAdy = self.pyranda.getVar("dAy")
+                xTan = dAdx/numpy.sqrt(dAdx**2+dAdy**2 )
+                yTan = dAdy/numpy.sqrt(dAdx**2+dAdy**2 )
+
+                # Trivial rotate 90 in 2D
+                xN = -yTan
+                yN =  xTan
+
+                # Cross tangent vector
+                
+                #CASE(2) ! B direction
+                #xnormal = dBdx/numpy.sqrt(dBdx**2+dBdy**2 )#*sign
+                #ynormal = dBdy/numpy.sqrt(dBdx**2+dBdy**2 )#*sign
+                #znormal = dBdz/numpy.sqrt(dBdx**2+dBdy**2 )#*sign
+                #CASE(3) ! C direction
+                #xnormal = dCdx/numpy.sqrt(dCdx**2+dCdy**2+dCdz**2)*sign
+                #ynormal = dCdy/numpy.sqrt(dCdx**2+dCdy**2+dCdz**2)*sign
+                #znormal = dCdz/numpy.sqrt(dCdx**2+dCdy**2+dCdz**2)*sign
+                
                 norms = 0.0
                 if self.pyranda.PyMPI.y1proc:
 
@@ -192,23 +214,27 @@ class pyrandaBC(pyrandaPackage):
 
                     # Norms are assummed to be built into mesh!
                     norms = []
-                    mag = 0.0 * xb
-                    if ax > 1:
-                        xbp = x[:,2,:]
-                        norms.append( xbp - xb )
-                        mag += (xbp - xb)**2
-                    if ay > 1:
-                        ybp = y[:,2,:]
-                        norms.append( ybp - yb )
-                        mag += (ybp - yb)**2
-                    if az > 1:
-                        zbp = z[:,2,:]
-                        norms.append( zbp - zb )
-                        mag += (zbp - zb)**2
+                    #mag = 0.0 * xb
+                    #if ax > 1:
+                    #    xbp = x[:,2,:]
+                    #    norms.append( xbp - xb )
+                    #    mag += (xbp - xb)**2
+                    #if ay > 1:
+                    #    ybp = y[:,2,:]
+                    #    norms.append( ybp - yb )
+                    #    mag += (ybp - yb)**2
+                    #if az > 1:
+                    #    zbp = z[:,2,:]
+                    #    norms.append( zbp - zb )
+                    #    mag += (zbp - zb)**2
 
-                    mag = numpy.sqrt( mag )
-                    for nn in range(len(norms)):
-                        norms[nn] = norms[nn] / mag
+                    #mag = numpy.sqrt( mag )
+                    #for nn in range(len(norms)):
+                    #    norms[nn] = norms[nn] / mag
+
+                    norms.append( xN[:,0,:] )
+                    norms.append( yN[:,0,:] )
+                    
                         
 
                 self.BCdata['slipbc-y1'] = norms
@@ -222,10 +248,32 @@ class pyrandaBC(pyrandaPackage):
                     u = self.pyranda.variables[velocity[uu]].data[:,0,:]
                     udotn = udotn + u*norms[uu]
 
+                # magnitude before
+                mag0 = 0.0
+                for uu in range(len(velocity)):
+                    mag0 += self.pyranda.variables[velocity[uu]].data[:,0,:]**2
+                mag0 = numpy.sqrt( mag0 ) #+ 1.0e-12
+                    
                 for uu in range(len(velocity)):                    
                     self.pyranda.variables[velocity[uu]].data[:,0,:] -= udotn*norms[uu]
-                    
+
+                # magnitude after
+                magF = 0.0
+                for uu in range(len(velocity)):
+                    magF += self.pyranda.variables[velocity[uu]].data[:,0,:]**2
+                magF = numpy.sqrt( magF ) #+ 1.0e-12
+
+                # Make sure magnitude is NOT larger
+                for uu in range(len(velocity)):                    
+                    self.pyranda.variables[velocity[uu]].data[:,0,:] = numpy.where(
+                        magF > mag0,
+                        self.pyranda.variables[velocity[uu]].data[:,0,:]*mag0/magF,
+                        self.pyranda.variables[velocity[uu]].data[:,0,:] )
+
                 
+                
+
+                    
     def exitbc(self,var,direction,norm=False):
 
         if type(var) != type([]):
