@@ -54,9 +54,16 @@ Lp = L * (Npts-1.0) / Npts
 from omesh import naca_omesh
 
 NACA = '2412'
-nx = 400
-ny = 100
-[xnaca,ynaca] = naca_omesh(NACA,nx,ny,PLOT=False)
+#nx = 400
+#ny = 100
+#[xnaca,ynaca] = naca_omesh(NACA,nx,ny,PLOT=False)
+
+nx = 300
+ny = 60
+[xnaca,ynaca] = naca_omesh(NACA,nx,ny,
+                           PLOT=True,
+                           dr0=.002,fact=1.07,iS=5,
+                           te=.1,teSig=12,dratio=10)
 
 def nacaMesh(i,j,k):
     x = xnaca[i,j]
@@ -69,6 +76,7 @@ mesh_options = {}
 mesh_options['coordsys'] = 3
 mesh_options['function'] = nacaMesh
 mesh_options['periodic'] = numpy.array([True, False, True])
+mesh_options['gridPeriodic'] = [True,False,False]
 mesh_options['dim'] = 2
 mesh_options['x1'] = [ -2*Lp , -2*Lp  ,  0.0 ]
 mesh_options['xn'] = [ 2*Lp   , 2*Lp    ,  Lp ]
@@ -85,7 +93,7 @@ ss.addPackage( pyrandaTimestep(ss) )
 rho0 = 1.0
 p0   = 1.0
 gamma = 1.4
-mach = 0.0
+mach = 0.7
 s0 = numpy.sqrt( p0 / rho0 * gamma )
 u0 = s0 * mach
 e0 = p0/(gamma-1.0) + rho0*.5*u0*u0
@@ -95,9 +103,9 @@ e0 = p0/(gamma-1.0) + rho0*.5*u0*u0
 eom ="""
 # Primary Equations of motion here
 ddt(:rho:)  =  -div(:rho:*:u:,  :rho:*:v:)
-ddt(:rhou:) =  -div(:rhou:*:u: + :p: - :tau:, :rhou:*:v:)
-ddt(:rhov:) =  -div(:rhov:*:u:, :rhov:*:v: + :p: - :tau:)
-ddt(:Et:)   =  -div( (:Et: + :p: - :tau:)*:u: - :tx:*:kappa:, (:Et: + :p: - :tau:)*:v: - :ty:*:kappa: )
+ddt(:rhou:) =  -div(:rhou:*:u: - :tauxx:, :rhou:*:v: - :tauxy:)
+ddt(:rhov:) =  -div(:rhov:*:u: - :tauxy:, :rhov:*:v: - :tauyy:)
+ddt(:Et:)   =  -div( (:Et: - :tauxx:)*:u: -:tauxy:*:v:- :tx:*:kappa:, (:Et: - :tau:)*:v: - :tauxy:*:u: - :ty:*:kappa:)
 # Conservative filter of the EoM
 :rho:       =  fbar( :rho:  )
 :rhou:      =  fbar( :rhou: )
@@ -112,13 +120,26 @@ ddt(:Et:)   =  -div( (:Et: + :p: - :tau:)*:u: - :tx:*:kappa:, (:Et: + :p: - :tau
 :div:       =  div(:u:,:v:)
 :beta:      =  gbar( ring(:div:) * :rho: ) * 7.0e-3
 :tau:       =  :beta:*:div:
+# Artificial thermal conductivity
 [:tx:,:ty:,:tz:] = grad(:T:)
 :kappa:     = gbar( ring(:T:)* :rho:*:cv:/(:T: * :dt: ) ) * 1.0e-3
+# Artificial shear
+:S:    = sqrt( :ux:*:ux: + :vy:*:vy: + .5*((:uy:+:vx:)**2 ) )
+#:mu:   =  gbar( ringV(:u:,:v:,:w:) * :rho: ) * 1.0e-2
+:mu:   =  gbar( ring(:S:  ) * :rho: ) * 1.0e-3
+# Tau
+[:ux:,:uy:,:tz:] = grad(:u:)
+[:vx:,:vy:,:tz:] = grad(:v:)
+:taudia:    =  (:beta:-2./3.*:mu:) *:div: - :p:
+:tauxx:     =  2.0*:mu:*:ux:   + :taudia:
+:tauyy:     =  2.0*:mu:*:vy:   + :taudia:
+:tauxy:     = :mu:*(:uy:+:vx:)
 # Apply constant BCs
 bc.extrap(['u','v','rho','p'],['yn'])
-bc.const(['u'],['yn'],0.0)
+bc.const(['u'],['yn'],u0)
 bc.extrap(['rho','p'],['y1'])
 bc.slip([ ['u','v']  ],['y1'])
+#bc.const( ['u','v']  ,['y1'],0.0)
 :Et:  = :p: / ( :gamma: - 1.0 )  + .5*:rho:*(:u:*:u: + :v:*:v:)
 :rhou: = :rho:*:u:
 :rhov: = :rho:*:v:
@@ -143,8 +164,9 @@ ic = """
 :cv: = :cp: - :R:
 :rho: = 1.0 + 3d()
 :p:  =  1.0 + 3d() 
-:u: = 0.0 * mach * sqrt( :p: / :rho: * :gamma:)
-#:u: = gbar(gbar(gbar(gbar(gbar(gbar( gbar( :u: ) ) )))))
+:u: = mach * sqrt( :p: / :rho: * :gamma:)
+bc.const(['u'],['y1'],0.0)
+:u: = gbar(gbar(gbar(gbar(gbar(gbar( gbar( :u: ) ) )))))
 :v: = 0.0 + 3d()
 :Et: = :p:/( :gamma: - 1.0 ) + .5*:rho:*(:u:*:u: + :v:*:v:)
 :rhou: = :rho:*:u:
@@ -223,6 +245,12 @@ while tt > time:
     dt = min(dt, (tt - time) )
 
     # airfoil extrap
+    if time < .1:
+        ss.parse(':u: = gbar(:u:)')
+        ss.parse(':v: = gbar(:v:)')
+        ss.parse(':rho: = gbar(:rho:)')
+        ss.parse(':rhou: = :rho:*:u:')
+        ss.parse(':rhov: = :rho:*:v:')
     
     
     # Print some output
