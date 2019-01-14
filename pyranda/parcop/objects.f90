@@ -54,13 +54,18 @@ CONTAINS
          compact_data(patch,level))
   END SUBROUTINE setup_mesh_data
 
-  SUBROUTINE setup_mesh_data_x3(patch,level,x1,x2,x3)
+  SUBROUTINE setup_mesh_data_x3(patch,level,x1,x2,x3,mesh_perX,mesh_perY,mesh_perZ)
     IMPLICIT NONE 
     INTEGER(c_int), INTENT(IN) :: patch,level
     REAL(kind=8), DIMENSION(:,:,:), INTENT(IN) :: x1,x2,x3
+    LOGICAL, INTENT(IN) :: mesh_perX,mesh_perY,mesh_perZ
     CALL mesh_data(patch,level)%setup(patch_data(patch,level),&
          comm_data(patch,level),&
-         compact_data(patch,level),xpy=x1,ypy=x2,zpy=x3)
+         compact_data(patch,level),&
+         xpy=x1,ypy=x2,zpy=x3,&
+         custom_periodicX=mesh_perX,&
+         custom_periodicY=mesh_perY,&
+         custom_periodicZ=mesh_perZ)
   END SUBROUTINE setup_mesh_data_x3
   
   

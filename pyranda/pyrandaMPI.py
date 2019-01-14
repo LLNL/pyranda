@@ -554,6 +554,9 @@ class parcop_der:
     def ring(self,val):
         return parcop.parcop.pring(  val )
 
+    def ringV(self,vx,vy,vz):
+        return parcop.parcop.pringv(  vx,vy,vz )
+
 class parcop_mesh:
 
     def __init__(self):

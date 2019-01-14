@@ -14,7 +14,7 @@ MODULE parcop
   USE LES_comm, ONLY : LES_comm_world
   USE LES_compact_operators, ONLY : d1x, d1y, d1z
   USE LES_operators, ONLY : div,grad,Laplacian
-  USE LES_operators, ONLY : curl,cross,filter,ring
+  USE LES_operators, ONLY : curl,cross,filter,ring,ringV
 
   CONTAINS
 
@@ -69,16 +69,48 @@ MODULE parcop
     END SUBROUTINE setup_mesh
 
 
-    SUBROUTINE setup_mesh_x3(patch,level,x1,x2,x3)
+    SUBROUTINE setup_mesh_x3(patch,level,x1,x2,x3,mesh_perX,mesh_perY,mesh_perZ)
       IMPLICIT NONE
       INTEGER,               INTENT(IN) :: patch,level
       REAL(kind=8), DIMENSION(:,:,:), INTENT(IN) :: x1,x2,x3
+      LOGICAL, INTENT(IN) :: mesh_perX,mesh_perY,mesh_perZ
       
-      CALL setup_mesh_data_x3(patch,level,x1,x2,x3)
+      CALL setup_mesh_data_x3(patch,level,x1,x2,x3,mesh_perX,mesh_perY,mesh_perZ)
       
     END SUBROUTINE setup_mesh_x3
 
-     
+
+    SUBROUTINE getVar(dxg,vname,nx,ny,nz)
+      IMPLICIT NONE
+      INTEGER,               INTENT(IN) :: nx,ny,nz
+      CHARACTER(LEN=3), INTENT(IN) :: vname
+      real(kind=8), dimension(nx,ny,nz),intent(out) :: dxg
+
+      SELECT CASE(TRIM(vname))
+      CASE('x')
+         dxg = mesh_ptr%xgrid
+      CASE('y')
+         dxg = mesh_ptr%ygrid
+      CASE('z')
+         dxg = mesh_ptr%zgrid
+      CASE('d1')
+         dxg = mesh_ptr%d1
+      CASE('d2')
+         dxg = mesh_ptr%d2
+      CASE('d3')
+         dxg = mesh_ptr%d3
+      CASE('dAx')
+         dxg = mesh_ptr%dAdx
+      CASE('dAy')
+         dxg = mesh_ptr%dAdy
+      CASE('dBx')
+         dxg = mesh_ptr%dBdx
+      CASE('dBy')
+         dxg = mesh_ptr%dBdy
+      END SELECT
+                          
+    END SUBROUTINE getVar
+    
     SUBROUTINE xGrid(dxg,nx,ny,nz)
       IMPLICIT NONE
       INTEGER,               INTENT(IN) :: nx,ny,nz
@@ -212,6 +244,16 @@ MODULE parcop
       dval = ring( val )
 
     END SUBROUTINE pRing
+
+    SUBROUTINE pRingV(vx,vy,vz,dval,nx,ny,nz)
+      IMPLICIT NONE
+      INTEGER,               INTENT(IN) :: nx,ny,nz
+      real(kind=8), dimension(nx,ny,nz), intent(in) :: vx,vy,vz
+      real(kind=8), dimension(nx,ny,nz),intent(out) :: dval
+      
+      dval = ringV( vx, vy, vz )
+
+    END SUBROUTINE pRingV
  
     
 

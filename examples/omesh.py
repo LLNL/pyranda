@@ -144,23 +144,21 @@ def roundTrailingEdge(xnaca,ynaca,teRad):
 
 def naca_omesh(NACA,nx,ny,
                te=.05,dratio=10,teSig=40,
-               dr0=.001,fact=1.05,iS=20,PLOT=False):
+               dr0=.001,fact=1.05,iS=20,PLOT=True):
     
     #NACA = '2412' # NACA airfoil code
-    te = .05      # Radius of Trailing Edge
-    dratio = 10   # TE grid spacing ratio (Coord:TE)
-    teSig = 40    # Denom in guassian (thickness) [Pts/teSig]
+    #te = .05      # Radius of Trailing Edge
+    #dratio = 10   # TE grid spacing ratio (Coord:TE)
+    #teSig = 40    # Denom in guassian (thickness) [Pts/teSig]
 
     Fpts = nx #400    # nx
     Mpts = ny #100    # ny
-    dr0 = .001    # dr at airfoil
-    fact = 1.05   # Zoom ratio
+    #dr0 = .001    # dr at airfoil
+    #fact = 1.05   # Zoom ratio
 
-    iS = 20       # Laplacian smooth iterations
+    #iS = 20       # Laplacian smooth iterations
 
-    PLOT= True
-
-    npts = int( 100 )
+    npts = int( nx*dratio )
     X,Y = naca.naca(NACA, npts)
 
     # Reverse order
@@ -200,9 +198,10 @@ def naca_omesh(NACA,nx,ny,
     X = out[0]
     Y = out[1]
 
-    plt.figure(1)
-    plt.plot(X,Y,'b-')
-    plt.axis('equal')
+    if PLOT:
+        plt.figure(1)
+        plt.plot(X,Y,'b-')
+        plt.axis('equal')
 
 
     xgrid = npy.zeros( (Fpts, Mpts ) )

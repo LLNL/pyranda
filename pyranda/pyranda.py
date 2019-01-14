@@ -26,7 +26,7 @@ from .pyrandaIO    import pyrandaIO
 from .pyrandaPlot  import pyrandaPlot
 from .pyrandaUtils import *
 from .pyrandaTex   import pyrandaTex
-
+from . import parcop
                                               
 class pyrandaSim:
 
@@ -151,6 +151,9 @@ class pyrandaSim:
     def eval(self,expression):
         return eval(fortran3d(expression,self.sMap))
 
+    def parse(self,expression):
+        exec(fortran3d(expression,self.sMap))
+    
     def addVar(self,name,kind=None,rank='scalar'):
         if name not in self.variables:
             var = pyrandaVar(name,kind,rank)
@@ -515,6 +518,9 @@ class pyrandaSim:
     def ring(self,val):
         return self.PyMPI.der.ring( val )
 
+    def ringV(self,vx,vy,vz):
+        return self.PyMPI.der.ringV( vx,vy,vz )
+
     def filterx(self,val):
         f_tilde = self.emptyScalar()
         self.PyMPI.fil.filter_x(val, f_tilde)
@@ -549,6 +555,12 @@ class pyrandaSim:
             f1 = f2
         return f1
 
+    def getVar(self,vname):
+        return parcop.parcop.getvar(vname,
+                                    self.PyMPI.ax,
+                                    self.PyMPI.ay,
+                                    self.PyMPI.az)
+    
     def gfilterx(self,val):
         f_tilde = self.emptyScalar()
         self.PyMPI.gfil.filter_x(val, f_tilde)
@@ -667,6 +679,7 @@ class pyrandaSim:
         sMap['deltat'] = 'self.deltat'
         sMap['lap(' ] = 'self.laplacian('
         sMap['ring(' ] = 'self.ring('
+        sMap['ringV(' ] = 'self.ringV('
         sMap['sum(' ] = 'self.PyMPI.sum3D('
         sMap['mean('] = '1.0/float(self.npts) * self.PyMPI.sum3D('
         sMap['sign(' ] = 'numpy.sign('
