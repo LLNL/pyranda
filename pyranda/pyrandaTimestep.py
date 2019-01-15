@@ -35,19 +35,17 @@ class pyrandaTimestep(pyrandaPackage):
 
         # Compute the dt for the courant limit
         if self.pysim.mesh.coordsys == 3:
-            #dAdx = self.pysim.getVar("dAx")
-            #dAdy = self.pysim.getVar("dAy")
-            #dBdx = self.pysim.getVar("dBx")
-            #dBdy = self.pysim.getVar("dBy")
-            #vrate = ( numpy.abs(u*dAdx/self.pysim.dx + v*dAdy/self.pysim.dx) +
-            #          numpy.abs(u*dBdx/self.pysim.dy + v*dBdy/self.pysim.dy) )
-            umag = numpy.sqrt( u*u + v*v )
-            vrate = umag / numpy.minimum( self.pysim.getVar('d1'),
-                                          self.pysim.getVar('d2') )
-                                      
-            #vrate = ( numpy.abs(u) / self.dx + 
-            #          numpy.abs(v) / self.dy + 
-            #          numpy.abs(w) / self.dz )
+            dAdx = self.pysim.getVar("dAx")
+            dAdy = self.pysim.getVar("dAy")
+            dBdx = self.pysim.getVar("dBx")
+            dBdy = self.pysim.getVar("dBy")
+            magA = numpy.sqrt( dAdx*dAdx + dAdy*dAdy )
+            magB = numpy.sqrt( dBdx*dBdx + dBdy*dBdy )
+            uA = ( u*dAdx + v*dAdy ) / magA
+            uB = ( u*dBdx + v*dBdy ) / magB
+            vrate = ( numpy.abs(uA) / self.pysim.getVar('d1') +
+                      numpy.abs(uA) / self.pysim.getVar('d2') )
+
         else:
             vrate = ( numpy.abs(u) / self.dx +
                       numpy.abs(v) / self.dy +

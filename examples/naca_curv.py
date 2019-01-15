@@ -31,33 +31,14 @@ L = numpy.pi * 2.0
 dim = 2
 gamma = 1.4
 
-problem = 'naca_test'
+problem = 'naca_test2'
 
 Lp = L * (Npts-1.0) / Npts
 
-#from meshTest import zoomMesh_solve
 
-#dxf = 4*Lp / float(Npts) * .3
-
-#naca_mesh = numpy.loadtxt('../gridgen/cyl_test/pyranda.grid')
-
-
-#xnaca = numpy.zeros( (Npts,Npts) )
-#ynaca = numpy.zeros( (Npts,Npts) )
-
-#cnt = 0
-#for j in range(Npts):
-#    for i in range(Npts):
-#        xnaca[i,j] = naca_mesh[cnt,0]
-#        ynaca[i,j] = naca_mesh[cnt,1]
-#        cnt += 1
+# Make and load an NACA mesh
 from omesh import naca_omesh
-
 NACA = '2412'
-#nx = 400
-#ny = 100
-#[xnaca,ynaca] = naca_omesh(NACA,nx,ny,PLOT=False)
-
 nx = 300
 ny = 100
 [xnaca,ynaca] = naca_omesh(NACA,nx,ny,
@@ -65,26 +46,16 @@ ny = 100
                            dr0=.0025,fact=1.05,iS=5,
                            te=.08,teSig=12,dratio=10)
 
-Ri = 1.0
-Rf = 10.0
-
 def nacaMesh(i,j,k):
     x = xnaca[i,j]
     y = ynaca[i,j]
     z = 0.0
     return x,y,z
-    #theta =  float(i) / float(nx) * 2.0 * numpy.pi
-    #r = float(j) / float(ny-1) * (Rf-Ri) + Ri
-    #x = r * numpy.cos( theta )
-    #y = r * numpy.sin( theta )
-    #z = 0.0
-    #return x,y,z
 
 mesh_options = {}
 mesh_options['coordsys'] = 3
 mesh_options['function'] = nacaMesh
 mesh_options['periodic'] = numpy.array([True, False, True])
-mesh_options['gridPeriodic'] = [True,False,False]
 mesh_options['dim'] = 2
 mesh_options['x1'] = [ -2*Lp , -2*Lp  ,  0.0 ]
 mesh_options['xn'] = [ 2*Lp   , 2*Lp    ,  Lp ]
@@ -145,16 +116,14 @@ ddt(:Et:)   =  -div( (:Et: - :tauxx:)*:u: -:tauxy:*:v:- :tx:*:kappa:, (:Et: - :t
 bc.extrap(['u','v','rho','p'],['yn'])
 bc.const(['u'],['yn'],u0)
 bc.extrap(['rho','p'],['y1'])
-:Et:  = :p: / ( :gamma: - 1.0 )  + .5*:rho:*(:u:*:u: + :v:*:v:)
-bc.extrap(['u','v'],['y1'])
 bc.slip([ ['u','v']  ],['y1'])
-#:p:  = ( :Et: - .5*:rho:*(:u:*:u: + :v:*:v:) ) * ( :gamma: - 1.0 )
-#bc.const( ['u','v']  ,['y1'],0.0)
+# Update the conserved quantities
+:Et:  = :p: / ( :gamma: - 1.0 )  + .5*:rho:*(:u:*:u: + :v:*:v:)
 :rhou: = :rho:*:u:
 :rhov: = :rho:*:v:
 :cs:  = sqrt( :p: / :rho: * :gamma: )
-:dtC: = dt.courant(:u:,:v:,:w:,:cs:) * 8.0
-:dtB: = 0.5* dt.diff(:beta:,:rho:)
+:dtC: = dt.courant(:u:,:v:,:w:,:cs:)
+:dtB: = 2.5* dt.diff(:beta:,:rho:)
 :dt: = numpy.minimum(:dtC:,:dtB:)
 :dtM: = 0.2* dt.diff(:mu:,:rho:)
 :dt: = numpy.minimum(:dt:,:dtM:)
@@ -176,7 +145,6 @@ ic = """
 :rho: = 1.0 + 3d()
 :p:  =  1.0 + 3d() 
 :u: = mach * sqrt( :p: / :rho: * :gamma:)
-#bc.const(['u'],['y1'],0.0)
 bc.slip([ ['u','v']  ],['y1'])
 :u: = gbar(gbar(gbar(gbar(gbar(gbar( gbar( :u: ) ) )))))
 :v: = gbar(gbar(gbar(gbar(gbar(gbar( gbar( :v: ) ) )))))

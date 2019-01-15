@@ -55,7 +55,7 @@
   CONTAINS
 !===================================================================================================
 
-   SUBROUTINE setup_mesh(mesh_data,patch_data,comm_data,compact_data,xpy,ypy,zpy,custom_periodicX,custom_periodicY,custom_periodicZ)
+   SUBROUTINE setup_mesh(mesh_data,patch_data,comm_data,compact_data,xpy,ypy,zpy) !custom_periodicX,custom_periodicY,custom_periodicZ)
     IMPLICIT NONE
     CLASS(mesh_type),  INTENT(OUT) :: mesh_data ! Auto deallocation of all components on entry
     CLASS(patch_type), INTENT(IN)  :: patch_data
@@ -65,9 +65,9 @@
     REAL(c_double), DIMENSION(:,:,:), INTENT(IN), OPTIONAL :: xpy
     REAL(c_double), DIMENSION(:,:,:), INTENT(IN), OPTIONAL :: ypy
     REAL(c_double), DIMENSION(:,:,:), INTENT(IN), OPTIONAL :: zpy
-    logical,INTENT(IN),OPTIONAL  :: custom_periodicX
-    logical,INTENT(IN),OPTIONAL  :: custom_periodicY
-    logical,INTENT(IN),OPTIONAL  :: custom_periodicZ
+    !logical,INTENT(IN),OPTIONAL  :: custom_periodicX
+    !logical,INTENT(IN),OPTIONAL  :: custom_periodicY
+    !logical,INTENT(IN),OPTIONAL  :: custom_periodicZ
     TYPE(compact_op1) :: custom_op
     TYPE(mesh1_type) :: custom_mesh
     TYPE(comm1_type) :: custom_comm
@@ -231,7 +231,7 @@
        custom_lo = comm_data%xcom_lo ; custom_hi = comm_data%xcom_hi
        if( comm_data%xcom_id == 0 ) custom_lo = MPI_PROC_NULL
        if( comm_data%xcom_id == comm_data%xcom_np-1 ) custom_hi = MPI_PROC_NULL
-       custom_comm = comm1_type(custom_periodicX,comm_data%xcom,comm_data%xcom_np,comm_data%xcom_id, &
+       custom_comm = comm1_type(custom_periodic,comm_data%xcom,comm_data%xcom_np,comm_data%xcom_id, &
          custom_lo,custom_hi,comm_data%xrange)
 !       custom_mesh = mesh1_type(coordsys,ax,nx,dx,x1,xn,'NONE','NONE')
        custom_mesh = mesh1_type(ax,nx,dx,x1,xn,'NONE','NONE')
@@ -243,7 +243,7 @@
        custom_lo = comm_data%ycom_lo ; custom_hi = comm_data%ycom_hi
        if( comm_data%ycom_id == 0 ) custom_lo = MPI_PROC_NULL
        if( comm_data%ycom_id == comm_data%ycom_np-1 ) custom_hi = MPI_PROC_NULL
-       custom_comm = comm1_type(custom_periodicY,comm_data%ycom,comm_data%ycom_np,comm_data%ycom_id, &
+       custom_comm = comm1_type(custom_periodic,comm_data%ycom,comm_data%ycom_np,comm_data%ycom_id, &
          custom_lo,custom_hi,comm_data%yrange)
 !       custom_mesh = mesh1_type(coordsys,ay,ny,dy,y1,yn,'NONE','NONE')
        custom_mesh = mesh1_type(ay,ny,dy,y1,yn,'NONE','NONE')
@@ -255,7 +255,7 @@
        custom_lo = comm_data%zcom_lo ; custom_hi = comm_data%zcom_hi
        if( comm_data%zcom_id == 0 ) custom_lo = MPI_PROC_NULL
        if( comm_data%zcom_id == comm_data%zcom_np-1 ) custom_hi = MPI_PROC_NULL
-       custom_comm = comm1_type(custom_periodicZ,comm_data%zcom,comm_data%zcom_np,comm_data%zcom_id, &
+       custom_comm = comm1_type(custom_periodic,comm_data%zcom,comm_data%zcom_np,comm_data%zcom_id, &
          custom_lo,custom_hi,comm_data%zrange)
 !       custom_mesh = mesh1_type(coordsys,az,nz,dz,z1,zn,'NONE','NONE')
        custom_mesh = mesh1_type(az,nz,dz,z1,zn,'NONE','NONE')
