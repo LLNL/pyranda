@@ -44,7 +44,7 @@ class pyrandaMesh:
         self.options['dim'] = 1
         self.options['coordsys'] = 0
         self.options['function'] = None
-        self.options['gridPeriodic'] = [False,False,False]
+        #self.options['gridPeriodic'] = [False,False,False]
         self.get_sMap()
 
         for msl in meshStrLines:
@@ -121,13 +121,13 @@ class pyrandaMesh:
                                 x[i,j,k],y[i,j,k],z[i,j,k] = self.function(ii,jj,kk)
             
             # Define the grid here (send to fortran
-            mesh_perX = options['gridPeriodic'][0]
-            mesh_perY = options['gridPeriodic'][1]
-            mesh_perZ = options['gridPeriodic'][2]
+            #mesh_perX = options['gridPeriodic'][0]
+            #mesh_perY = options['gridPeriodic'][1]
+            #mesh_perZ = options['gridPeriodic'][2]
             parcop.parcop.setup_mesh_x3(
                 self.PyMPI.patch,
                 self.PyMPI.level,
-                x,y,z,mesh_perX,mesh_perY,mesh_perZ)
+                x,y,z) #mesh_perX,mesh_perY,mesh_perZ)
 
         # Read in from the fortran and set to numpy arrays
         self.coords = [ pyrandaVar('x','mesh','scalar'),

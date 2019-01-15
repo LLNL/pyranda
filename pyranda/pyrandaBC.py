@@ -56,7 +56,7 @@ class pyrandaBC(pyrandaPackage):
                     pFunc( v, d  )
         
         
-    def extrap(self,var,direction,order=1):
+    def extrap(self,var,direction,order=2):
 
         if type(var) != type([]):
             var = [var]
@@ -204,8 +204,6 @@ class pyrandaBC(pyrandaPackage):
                 xN = -yTan
                 yN =  xTan
 
-                # Cross tangent vector
-                
                 #CASE(2) ! B direction
                 #xnormal = dBdx/numpy.sqrt(dBdx**2+dBdy**2 )#*sign
                 #ynormal = dBdy/numpy.sqrt(dBdx**2+dBdy**2 )#*sign

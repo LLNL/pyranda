@@ -69,13 +69,13 @@ MODULE parcop
     END SUBROUTINE setup_mesh
 
 
-    SUBROUTINE setup_mesh_x3(patch,level,x1,x2,x3,mesh_perX,mesh_perY,mesh_perZ)
+    SUBROUTINE setup_mesh_x3(patch,level,x1,x2,x3) !mesh_perX,mesh_perY,mesh_perZ)
       IMPLICIT NONE
       INTEGER,               INTENT(IN) :: patch,level
       REAL(kind=8), DIMENSION(:,:,:), INTENT(IN) :: x1,x2,x3
-      LOGICAL, INTENT(IN) :: mesh_perX,mesh_perY,mesh_perZ
+      !LOGICAL, INTENT(IN) :: mesh_perX,mesh_perY,mesh_perZ
       
-      CALL setup_mesh_data_x3(patch,level,x1,x2,x3,mesh_perX,mesh_perY,mesh_perZ)
+      CALL setup_mesh_data_x3(patch,level,x1,x2,x3) !mesh_perX,mesh_perY,mesh_perZ)
       
     END SUBROUTINE setup_mesh_x3
 
