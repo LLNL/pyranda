@@ -132,7 +132,7 @@ ddt(:Et:)   =  -div( (:Et: - :tauxx:)*:u: -:tauxy:*:v:- :tx:*:kappa:, (:Et: - :t
 :kappa:     = gbar( ring(:T:)* :rho:*:cv:/(:T: * :dt: ) ) * 1.0e-3
 # Artificial shear
 :S:    = sqrt( :ux:*:ux: + :vy:*:vy: + .5*((:uy:+:vx:)**2 ) )
-:mu:   =  gbar( ringV(:u:,:v:,:w:) * :rho: ) * 1.0e-1 #+ .0005
+:mu:   =  gbar( ringV(:u:,:v:,:w:) * :rho: ) * 1.0e-4 #+ .0005
 #:mu:   =  gbar( ring(:S:  ) * :rho: ) * 1.0e-4
 # Tau
 [:ux:,:uy:,:tz:] = grad(:u:)
@@ -153,9 +153,9 @@ bc.slip([ ['u','v']  ],['y1'])
 :rhou: = :rho:*:u:
 :rhov: = :rho:*:v:
 :cs:  = sqrt( :p: / :rho: * :gamma: )
-:dt: = dt.courant(:u:,:v:,:w:,:cs:)*1.0
-:dtB: = 0.2* dt.diff(:beta:,:rho:)
-:dt: = numpy.minimum(:dt:,:dtB:)
+:dtC: = dt.courant(:u:,:v:,:w:,:cs:) * 8.0
+:dtB: = 0.5* dt.diff(:beta:,:rho:)
+:dt: = numpy.minimum(:dtC:,:dtB:)
 :dtM: = 0.2* dt.diff(:mu:,:rho:)
 :dt: = numpy.minimum(:dt:,:dtM:)
 :umag: = sqrt( :u:*:u: + :v:*:v: )
@@ -205,7 +205,7 @@ time = 0.0
 viz = True
 
 # Approx a max dt and stopping time
-tt = 6.0 #
+tt = 18.0 #
 
 # Mesh for viz on master
 xx   =  ss.PyMPI.zbar( x )
@@ -213,7 +213,7 @@ yy   =  ss.PyMPI.zbar( y )
 
 # Start time loop
 cnt = 1
-viz_freq = 50
+viz_freq = 500
 pvar = 'umag'
 
 
@@ -224,25 +224,14 @@ dt = ss.variables['dt'].data * CFL
 
 v = ss.PyMPI.zbar( ss.variables[pvar].data )
 p = ss.PyMPI.zbar( ss.variables['p'].data )
-if (ss.PyMPI.master and (not test) ):
 
+if (not test) :
 
-    plt.figure(2)
-    plt.clf()            
-    plt.contourf( xx,yy,v ,64 , cmap=cm.jet)
-    plt.plot(xx, yy, 'k-', lw=0.5, alpha=0.5)
-    plt.plot(xx.T, yy.T, 'k-', lw=0.5, alpha=0.5)
-    plt.title(pvar)
-
-
-    # Plot x1 boundaries
-    plt.plot( xx[0,:],y[0,:],'bo')
-    # Plot y1 boundaires
-    plt.plot( xx[:,0],y[:,0],'go')
-    
-    plt.axis('equal')
-    plt.pause(.001)
-    
+    ss.plot.figure(2)
+    ss.plot.clf()            
+    ss.plot.contourf( pvar, 64 , cmap=cm.jet)
+    #ss.plot.plot(xx, yy, 'k-', lw=0.5, alpha=0.5)
+    ss.plot.showGrid()    
     
 
 wvars = ['p','rho','u','v','beta','mu','umag']
@@ -252,19 +241,26 @@ ss.write(wvars)
 #import pdb
 #pdb.set_trace()
 
-ramp = .1
+ramp = .01
+dt *= ramp
 while tt > time:
     
     # Update the EOM and get next dt
 
-    dt = dt*ramp
-    ramp = min( 1.01*ramp, 1.0)
-    
+
     
     time = ss.rk4(time,dt)
     dt = ss.variables['dt'].data * CFL
     dt = min(dt, (tt - time) )
 
+    dt *= ramp
+    ramp = min( 1.01*ramp, 1.0)
+    #ss.iprint(ramp)
+    
+    
+
+    
+    
     # airfoil extrap
     tramp1 = 0.0 #.03
     tramp2 = 0.0 #.35
@@ -287,39 +283,26 @@ while tt > time:
     
     
     # Print some output
-    ss.iprint("%s -- %s --- %s" % (cnt,time,dt)  )
+    stab = 'None'
+    if ( ss.variables['dt'].data == ss.variables['dtB'].data):
+        stab = "bulk"
+    if ( ss.variables['dt'].data == ss.variables['dtM'].data):
+        stab = "shear"
+    if ( ss.variables['dt'].data == ss.variables['dtC'].data):
+        stab = "CFL"
+                    
+    ss.iprint("%s -- %f --- %f --- %s" % (cnt,time,dt,stab)  )
     cnt += 1
     if viz and (not test):
         v = ss.PyMPI.zbar( ss.variables[pvar].data )
-        if (ss.PyMPI.master) and (cnt%viz_freq == 1) :#or True:
+        if (cnt%viz_freq == 1) :#or True:
 
-            #foo = raw_input()
-            
-            #plt.figure(1)
-            #plt.clf()
-            #ny = ss.PyMPI.ny
-            #plt.plot(xx[:,int(ny/2)],v[:,int(ny/2)] ,'k.-')
-            #plt.title(pvar)
-            #plt.pause(.001)
-
-            plt.figure(2)
-            plt.clf()            
-            plt.contourf( xx,yy,v ,64 , cmap=cm.jet)
-            plt.plot(xx, yy, 'k-', lw=0.5, alpha=0.5)
-            plt.plot(xx.T, yy.T, 'k-', lw=0.5, alpha=0.5)
-            plt.title(pvar)
-            plt.axis('equal')
-            plt.pause(.001)
+            ss.plot.figure(2)
+            ss.plot.clf()            
+            ss.plot.contourf( pvar ,64 , cmap=cm.jet)
+            ss.plot.showGrid()  
 
             ss.write(wvars)
 
 
-# Curve test.  Write file and print its name at the end
-if test:
-    v = ss.PyMPI.zbar( ss.variables[pvar].data )
-    ny = ss.PyMPI.ny
-    v1d =  v[:,int(ny/2)]
-    x1d = xx[:,int(ny/2)]
-    fname = testName + '.dat'
-    numpy.savetxt( fname  , (x1d,v1d) )
-    print(fname)
+
