@@ -35,17 +35,8 @@ class pyrandaMesh:
         mesh_options = {}
         meshStrLines = splitLines( str_mesh ) # Split into lines
 
-        
-        self.options['x1'] = [ 0.0 , 0.0  ,  0.0 ]
-        self.options['xn'] = [ 1   , 1    ,  1   ]
-        self.options['nn'] = [ 1   , 1    ,  1   ]
-        self.options['periodic'] = [False, False, False]
-        self.options['dim'] = 1
-        self.options['coordsys'] = 0
-        self.options['function'] = None
-        #self.options['gridPeriodic'] = [False,False,False]
+        self.options = defaultMeshOptions()
         self.get_sMap()
-
         for msl in meshStrLines:
             exec( fortran3d(msl,self.sMap) )
         
@@ -158,3 +149,16 @@ class pyrandaMesh:
             self.PyMPI.ay,
             self.PyMPI.az)
         
+
+def defaultMeshOptions():
+    options = {}
+    
+    options['x1'] = [ 0.0 , 0.0  ,  0.0 ]
+    options['xn'] = [ 1   , 1    ,  1   ]
+    options['nn'] = [ 1   , 1    ,  1   ]
+    options['periodic'] = [False, False, False]
+    options['dim'] = 1
+    options['coordsys'] = 0
+    options['function'] = None
+    
+    return options

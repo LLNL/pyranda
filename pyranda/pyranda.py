@@ -19,7 +19,7 @@ import inspect
 from .pyrandaMPI   import pyrandaMPI
 from .pyrandaVar   import pyrandaVar
 from .pyrandaEq    import pyrandaEq
-from .pyrandaMesh  import pyrandaMesh
+from .pyrandaMesh  import pyrandaMesh, defaultMeshOptions
 from .pyrandaIO    import pyrandaIO
 from .pyrandaPlot  import pyrandaPlot
 from .pyrandaUtils import *
@@ -38,7 +38,12 @@ class pyrandaSim:
             self.mesh.makeMeshStr( meshOptions )
             meshOptions = self.mesh.options
 
-        self.meshOptions = meshOptions
+        defMeshOptions = defaultMeshOptions()
+        defMeshOptions.update( meshOptions )
+
+        meshOptions =      defMeshOptions
+        self.meshOptions = defMeshOptions
+        self.mesh.options =defMeshOptions 
 
         if 'coordsys' in meshOptions:
             self.mesh.coordsys = meshOptions['coordsys']
