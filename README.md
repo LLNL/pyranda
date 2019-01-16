@@ -48,6 +48,6 @@ in 1D, in the x-direction from (0,1) using 100 points and evolve the solution .1
 &nbsp;&nbsp;&nbsp;`time = pysim.rk4(time,dt)`  
 
 ### 6 - Plot the solution
-'pysim.plot.plot('phi')'
+`pysim.plot.plot('phi')`
 
 <img src="https://github.com/LLNL/pyranda/blob/master/docs/images/Advection.png" alt="alt text" width="500pt">
