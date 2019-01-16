@@ -8,11 +8,7 @@
 #
 # Written by: Britton J. Olson, olson45@llnl.gov
 ################################################################################
-from mpi4py import MPI
 import numpy 
-import re
-import sys
-import time
 from .pyrandaPackage import pyrandaPackage
 
 immersed_iter = 2

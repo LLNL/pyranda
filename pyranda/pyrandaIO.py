@@ -12,7 +12,6 @@ import os
 import numpy 
 
 
-
 class pyrandaIO:
     """
     Class to handle IO of pyranda objects and files

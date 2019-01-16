@@ -9,8 +9,7 @@
 # Written by: Britton J. Olson, olson45@llnl.gov
 ################################################################################
 import numpy
-from .pyrandaUtils import *
-
+from .pyrandaUtils import fortran3d, splitLines
 from . import parcop
 from .pyrandaVar   import pyrandaVar
 

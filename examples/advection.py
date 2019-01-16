@@ -37,8 +37,8 @@ ss.EOM(" ddt(:phi:)  =  -:c: * ddx(:phi:) ")
 
 # Initialize variables
 ic = """
-r   = sqrt( (meshx-:pi:)**2  )
-:phi: = 1.0 + 0.1 * exp( -(r/(:pi:/4.0))**2 )
+r   = sqrt( (meshx-pi)**2  )
+:phi: = 1.0 + 0.1 * exp( -(r/(pi/4.0))**2 )
 :phi2: = 1.0*:phi:
 :c:   = 1.0
 """

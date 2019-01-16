@@ -11,8 +11,7 @@ import numpy
 import scipy.interpolate as SI
 import scipy.interpolate as spint
 import scipy.spatial.qhull as qhull
-import scipy
-
+from scipy.spatial import KDTree as KDTree
         
 class ipoint:
     """
@@ -62,7 +61,7 @@ class ipoint:
         pts[1] = self.y*1.0
         points = list(pts.transpose())
 
-        mytree = scipy.spatial.cKDTree(x_y)
+        mytree = KDTree(x_y)
         dist, indexes = mytree.query(points)
 
         ii = int(indexes[0]/self.ny)

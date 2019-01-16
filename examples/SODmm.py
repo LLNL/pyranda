@@ -153,15 +153,15 @@ ss.EOM(eom)
 ic = """
 :gamma: = 1.4 + 3d()
 pert    = .0*exp( -abs(meshx-1.0)**2/(.2**2))
-:pA:    =  gbar(where(meshx < :pi:, 10.0, 1.0)) * ( 1.0 + pert)
+:pA:    =  gbar(where(meshx < pi, 10.0, 1.0)) * ( 1.0 + pert)
 :rhoA:  = (1.0 + 3d()) * ( 1.0 + pert*(:gamma:-1) )
 :uA:    = pert
 :rhouA: = :rhoA: * :uA:
 :EtA:   = :pA: / ( :gamma: - 1.0 ) + .5*:rhoA:*(:uA:*:uA:) 
-:pB: = gbar(where(meshx < :pi:, 10.0, 1.0)) * ( 1.0 + pert)
+:pB: = gbar(where(meshx < pi, 10.0, 1.0)) * ( 1.0 + pert)
 :EtB:   =  :pB:/(:gamma:-1.0)
 :rhoB:  = 0.125 + 3d() 
-:phi:   = :pi: - meshx
+:phi:   = pi - meshx
 """
 
 # Set the initial conditions

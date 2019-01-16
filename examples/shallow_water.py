@@ -45,7 +45,7 @@ z = ss.mesh.coords[2].data
 
 # Set some initial comnditions
 ic = """
-rad = sqrt( (meshx-:pi:)**2 + (meshy-:pi:)**2 )
+rad = sqrt( (meshx-pi)**2 + (meshy-pi)**2 )
 :eta: = 1.0 + 0.01 * exp( -(rad)*2/(0.7**2) )
 :g: = 1.0
 """

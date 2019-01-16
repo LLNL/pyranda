@@ -52,8 +52,8 @@ ss.EOM(eom)
 # Initial conditions SOD shock tube in 1d
 ic = """
 :gamma: = 1.4
-:Et:  = gbar( where( meshx < :pi:, 1.0/(:gamma:-1.0) , .1 /(:gamma:-1.0) ) )
-:rho: = gbar( where( meshx < :pi:, 1.0    , .125 ) )
+:Et:  = gbar( where( meshx < pi, 1.0/(:gamma:-1.0) , .1 /(:gamma:-1.0) ) )
+:rho: = gbar( where( meshx < pi, 1.0    , .125 ) )
 """
 
 # Set the initial conditions

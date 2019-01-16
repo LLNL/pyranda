@@ -13,9 +13,7 @@ from mpi4py import MPI
 import numpy 
 import re
 import sys,os
-import time
 import glob
-import matplotlib.pyplot as plt
 import inspect
 
 from .pyrandaMPI   import pyrandaMPI
@@ -26,7 +24,6 @@ from .pyrandaIO    import pyrandaIO
 from .pyrandaPlot  import pyrandaPlot
 from .pyrandaUtils import *
 from .pyrandaTex   import pyrandaTex
-from . import parcop
                                               
 class pyrandaSim:
 
@@ -557,11 +554,8 @@ class pyrandaSim:
         return f1
 
     def getVar(self,vname):
-        return parcop.parcop.getvar(vname,
-                                    self.PyMPI.ax,
-                                    self.PyMPI.ay,
-                                    self.PyMPI.az)
-    
+        return self.PyMPI.getVar(vname)    
+                                 
     def gfilterx(self,val):
         f_tilde = self.emptyScalar()
         self.PyMPI.gfil.filter_x(val, f_tilde)
@@ -695,7 +689,7 @@ class pyrandaSim:
         sMap['max('] = 'self.PyMPI.max3D('
         sMap['min('] = 'self.PyMPI.min3D('
         sMap['3d()'] = 'self.emptyScalar()'
-        sMap[':pi:'] = 'numpy.pi'
+        sMap['pi'] = 'numpy.pi'
         
         sMap['meshx']   = 'self.mesh.coords[0].data'
         sMap['meshy']   = 'self.mesh.coords[1].data'

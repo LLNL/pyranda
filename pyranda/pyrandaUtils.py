@@ -8,14 +8,15 @@
 #
 # Written by: Britton J. Olson, olson45@llnl.gov
 ################################################################################
-import numpy
 import re
 import subprocess
+import signal
+import time
+
 
 scalar_key = ":"
 vector_key = [':[',']:']
 tensor_key = [':{','}:']
-
 
 
 def fortran3d(form,sMap,latex=False):
@@ -172,10 +173,6 @@ def runCMD(command_arg_list):
     output = subprocess.Popen(command_arg_list, 
                               stdout=subprocess.PIPE).communicate()[0]
     return output
-
-
-import signal
-import time
  
 def test_request(arg=None):
     """Your http request."""

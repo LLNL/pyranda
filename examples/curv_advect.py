@@ -42,10 +42,10 @@ ddt(:phi:) = -div( :phi: * :u: , :phi:*:v: )
 ss.EOM(eom)
 
 ic = """
-r   = sqrt( (meshx-:pi:)**2 + (meshy-:pi:)**2  )
+r   = sqrt( (meshx-pi)**2 + (meshy-pi)**2  )
 :u: = 1.0
 :v: = 0.0
-:phi: = 1.0 + 0.1 * exp( -(r/(:pi:/4.0))**2 )
+:phi: = 1.0 + 0.1 * exp( -(r/(pi/4.0))**2 )
 """
 
 # Set the initial conditions

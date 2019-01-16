@@ -9,7 +9,8 @@
 # Written by: Britton J. Olson, olson45@llnl.gov
 ################################################################################
 from .pyrandaUtils import *
-        
+import numpy
+
 class pyrandaEq:
 
     def __init__(self,eqstr,sMap,pympi):

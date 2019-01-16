@@ -10,9 +10,7 @@
 ################################################################################
 from mpi4py import MPI
 import numpy 
-import re
 import sys
-import time
 from functools import reduce
 
 from . import parcop
@@ -528,8 +526,12 @@ class pyrandaMPI():
 
         return data
 
-
-
+    def getVar(self,vname):
+        return parcop.parcop.getvar(vname,
+                                    self.ax,
+                                    self.ay,
+                                    self.az)
+    
 
 class parcop_der:
 

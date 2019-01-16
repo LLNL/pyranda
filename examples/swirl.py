@@ -66,10 +66,10 @@ ddt(:phi:)  =  - :gx: * :u1: - :gy: * :v1:  - .01*sign(:phi:)*(:mgp:-1.0)
 :drA:       = ddx(:rhoA:)
 :tau:       = 5.0e-7*gbar(abs(lap(lap(:rho:)))) * :dx4: * :u: * :dr: * :dx:
 :tauA:      = 5.0e-7*gbar(abs(lap(lap(:rhoA:)))) * :dx4: * :uA: * :drA: * :dx:
-:u:         = -sin(meshx/2.0)**2 * sin(meshy)*cos(simtime) * 2.0*:pi:
+:u:         = -sin(meshx/2.0)**2 * sin(meshy)*cos(simtime) * 2.0*pi
 :uA:        = :u:
 :u1:        = :u:
-:v:         = sin(meshy/2.0)**2 * sin(meshx)*cos(simtime) * 2.0*:pi:
+:v:         = sin(meshy/2.0)**2 * sin(meshx)*cos(simtime) * 2.0*pi
 :vA:        = :v:
 :v1:        = :v:
 # Immersed boundary method used for MM levelset

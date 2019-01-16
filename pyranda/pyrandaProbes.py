@@ -7,11 +7,7 @@
 #
 # Written by: Britton J. Olson, olson45@llnl.gov
 ################################################################################
-from mpi4py import MPI
 import numpy
-import re
-import sys
-import time
 import matplotlib.pyplot as plt
 from .pyrandaPackage import pyrandaPackage
 from .pyrandaMisc import ipoint
