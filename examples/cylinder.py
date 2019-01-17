@@ -1,4 +1,3 @@
-from __future__ import print_function
 import sys
 import numpy 
 import matplotlib.pyplot as plt
@@ -149,7 +148,8 @@ cnt = 1
 viz_freq = 25
 
 wvars = ['p','rho','u','v','phi']
-ss.write( wvars )
+if not test:
+    ss.write( wvars )
 CFL = 1.0
 dt = ss.variables['dt'].data * CFL * .1
 
