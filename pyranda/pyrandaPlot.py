@@ -34,6 +34,7 @@ class pyrandaPlot:
     def title(self,name):
         if self.pyranda.PyMPI.master:
             plt.title(name)
+            plt.pause(.01)
 
     def pause(self,val=.01):
         if self.pyranda.PyMPI.master:

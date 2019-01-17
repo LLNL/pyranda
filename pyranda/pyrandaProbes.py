@@ -8,6 +8,7 @@
 # Written by: Britton J. Olson, olson45@llnl.gov
 ################################################################################
 import numpy
+from mpi4py import MPI
 import matplotlib.pyplot as plt
 from .pyrandaPackage import pyrandaPackage
 from .pyrandaMisc import ipoint

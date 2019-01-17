@@ -66,8 +66,6 @@ ss.setIC(ic)
 # Approx a max dt and stopping time
 dt = .01
 tt = .75
-
-# Start time loop
 time = 0.0
 while tt > time:
     time = ss.rk4(time,dt)

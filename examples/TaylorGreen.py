@@ -6,7 +6,7 @@ import numpy
 import matplotlib.pyplot as plt
 from matplotlib import cm
 
-from pyranda import pyrandaSim, pyrandaBC, pyrandaTimestep
+from pyranda import pyrandaSim, pyrandaTimestep
 
 
 # Try to get args for testing
@@ -123,16 +123,6 @@ z = ss.mesh.coords[2].data
 time = 0.0
 viz = True
 
-# Approx a max dt and stopping time
-
-
-# Mesh for viz on master
-xx   =  ss.PyMPI.zbar( x ) / Npts
-yy   =  ss.PyMPI.zbar( y ) / Npts
-#xx   =   x[:,:,16] / Npts
-#yy   =   y[:,:,16] / Npts
-ny = ss.PyMPI.ny
-
 # Start time loop
 CFL = 0.5
 dt = ss.variables['dt'].data * CFL
@@ -171,18 +161,14 @@ while time < tstop:
     cnt += 1
     if viz:
 
-        dd = numpy.where( z <= 1.0e-10, 1.0, 0.0 )
-        v = ss.PyMPI.zbar( dd*ss.variables[pvar].data )
-
+        # Write viz data and plot
         if (cnt%viz_freq == 0):
             ss.write()
-        
-        if (ss.PyMPI.master and (cnt%viz_freq == 0)) and True:
-            plt.figure(2)
-            plt.clf()            
-            plt.contourf( xx,yy,v ,64 , cmap=cm.jet)
-            plt.title(pvar)
-            plt.pause(.001)
+            
+            ss.plot.figure(2)
+            ss.plot.clf()            
+            ss.plot.contourf(pvar ,64 , slice3d='k=16', cmap=cm.jet)
+            ss.plot.title(pvar+',Time=%f' % time)
 
 if test:
     print(enst)

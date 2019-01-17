@@ -1,44 +1,39 @@
 import sys
 import numpy 
-import matplotlib.pyplot as plt
-from matplotlib import cm
-
 from pyranda import pyrandaSim, pyrandaBC, pyrandaTimestep, pyrandaIBM
 
 
-# Try to get args for testing
-try:
-    Npts = int(sys.argv[1])
-except:
-    Npts = 64
-
-try:
-    test = bool(int(sys.argv[2]))
-except:
-    test = False
-
-try:
-    testName = (sys.argv[3])
-except:
-    testName = None
-
 
 ## Define a mesh
-#Npts = 32
+Npts = 64
 L = numpy.pi * 2.0  
 dim = 2
 gamma = 1.4
 
-problem = 'cylinder_test'
+problem = 'cylinder'
 
 Lp = L * (Npts-1.0) / Npts
+
+sys.path.append('../')
+from meshTest import zoomMesh_solve
+dxf = 4*Lp / float(Npts) * .3
+xS = zoomMesh_solve(Npts,-2.*Lp,2.*Lp,-2.,2.,1.0,dxf)
+
+def zoomMesh(i,j,k):
+    x = xS[i]
+    y = xS[j]
+    z = 0.0
+    return x,y,z
+
 mesh_options = {}
-mesh_options['coordsys'] = 0
-mesh_options['periodic'] = numpy.array([False, False, False])
+mesh_options['coordsys'] = 3
+mesh_options['function'] = zoomMesh
+mesh_options['periodic'] = numpy.array([False, False, True])
+mesh_options['gridPeriodic'] = numpy.array([False, False, False])
 mesh_options['dim'] = 3
-mesh_options['x1'] = [ 0.0 , 0.0  ,  0.0 ]
-mesh_options['xn'] = [ Lp   , Lp    ,  Lp ]
-mesh_options['nn'] = [ Npts , Npts ,  1  ]
+mesh_options['x1'] = [ -2*Lp , -2*Lp  ,  0.0 ]
+mesh_options['xn'] = [ 2*Lp   , 2*Lp    ,  Lp ]
+mesh_options['nn'] = [ Npts, Npts ,  1  ]
 
 
 # Initialize a simulation object on a mesh
@@ -60,10 +55,10 @@ e0 = p0/(gamma-1.0) + rho0*.5*u0*u0
 # Define the equations of motion
 eom ="""
 # Primary Equations of motion here
-ddt(:rho:)  =  -ddx(:rho:*:u:)                  - ddy(:rho:*:v:)
-ddt(:rhou:) =  -ddx(:rhou:*:u: + :p: - :tau:)   - ddy(:rhou:*:v:)
-ddt(:rhov:) =  -ddx(:rhov:*:u:)                 - ddy(:rhov:*:v: + :p: - :tau:)
-ddt(:Et:)   =  -ddx( (:Et: + :p: - :tau:)*:u: - :tx:*:kappa:) - ddy( (:Et: + :p: - :tau:)*:v: - :ty:*:kappa: )
+ddt(:rho:)  =  -div(:rho:*:u:,  :rho:*:v:)
+ddt(:rhou:) =  -div(:rhou:*:u: + :p: - :tau:, :rhou:*:v:)
+ddt(:rhov:) =  -div(:rhov:*:u:, :rhov:*:v: + :p: - :tau:)
+ddt(:Et:)   =  -div( (:Et: + :p: - :tau:)*:u: - :tx:*:kappa:, (:Et: + :p: - :tau:)*:v: - :ty:*:kappa: )
 # Level set equation
 #ddt(:phi:)  =  - :gx: * :u1: - :gy: * :v1: 
 # Conservative filter of the EoM
@@ -77,12 +72,12 @@ ddt(:Et:)   =  -ddx( (:Et: + :p: - :tau:)*:u: - :tx:*:kappa:) - ddy( (:Et: + :p:
 :p:         =  ( :Et: - .5*:rho:*(:u:*:u: + :v:*:v:) ) * ( :gamma: - 1.0 )
 :T:         = :p: / (:rho: * :R: )
 # Artificial bulk viscosity (old school way)
-:div:       =  ddx(:u:) + ddy(:v:)
-:beta:      =  gbar( ring(:div:) * :rho: ) * 7.0e-2
-:tau:       = :beta:*:div:
+:div:       =  div(:u:,:v:)
+:beta:      =  gbar( ring(:div:) * :rho: ) * 7.0e-3
+:tau:       =  :beta: * :div: 
 [:tx:,:ty:,:tz:] = grad(:T:)
 :kappa:     = gbar( ring(:T:)* :rho:*:cv:/(:T: * :dt: ) ) * 1.0e-3
-# Apply constant BCs
+# Apply BCs and internal IBM
 [:u:,:v:,:w:] = ibmV( [:u:,:v:,0.0], :phi:, [:gx:,:gy:,:gz:], [:u1:,:u2:,0.0] )
 :rho: = ibmS( :rho: , :phi:, [:gx:,:gy:,:gz:] )
 :p:   = ibmS( :p:   , :phi:, [:gx:,:gy:,:gz:] )
@@ -113,7 +108,8 @@ ic = """
 :R: = 1.0
 :cp: = :R: / (1.0 - 1.0/:gamma: )
 :cv: = :cp: - :R:
-rad = sqrt( (meshx-pi)**2  +  (meshy-pi)**2 ) 
+#rad = sqrt( (meshx-pi)**2  +  (meshy-pi)**2 ) 
+rad = sqrt( meshx**2  +  meshy**2 ) 
 :phi: = rad - pi/4.0
 :rho: = 1.0 + 3d()
 :p:  =  1.0 + 3d() #exp( -(meshx-1.5)**2/.25**2)*.1
@@ -125,7 +121,7 @@ rad = sqrt( (meshx-pi)**2  +  (meshy-pi)**2 )
 :rhou: = :rho:*:u:
 :rhov: = :rho:*:v:
 :cs:  = sqrt( :p: / :rho: * :gamma: )
-:dt: = dt.courant(:u:,:v:,:w:,:cs:)*.1
+:dt: = dt.courant(:u:,:v:,:w:,:cs:)
 [:gx:,:gy:,:gz:] = grad( :phi: )
 :gx: = gbar( :gx: )
 :gy: = gbar( :gy: )
@@ -134,48 +130,38 @@ ic = ic.replace('mach',str(mach))
 
 # Set the initial conditions
 ss.setIC(ic)
-
+    
 
 # Write a time loop
 time = 0.0
 viz = True
 
 # Approx a max dt and stopping time
-tt = 1.5 #
+tt = 3.0 #
 
 # Start time loop
 cnt = 1
-viz_freq = 25
+viz_freq = 100
+pvar = 'umag'
 
+CFL = 1.0
+dt = ss.var('dt').data * CFL*.01
 wvars = ['p','rho','u','v','phi']
 ss.write( wvars )
-CFL = 1.0
-dt = ss.variables['dt'].data * CFL * .1
-
 while tt > time:
     
     # Update the EOM and get next dt
     time = ss.rk4(time,dt)
-    dt = min(ss.variables['dt'].data * CFL, 1.1*dt)
+    dt = min( ss.variables['dt'].data * CFL, dt*1.1)
     dt = min(dt, (tt - time) )
-
+    
     # Print some output
     ss.iprint("%s -- %s --- %f" % (cnt,time,dt)  )
     cnt += 1
-    if viz and (not test):
-        if (cnt%viz_freq == 1): 
-            ss.write( wvars )
-                   
+    if (cnt%viz_freq == 1) :
+        ss.write(wvars)
+        
 
-# Curve test.  Write file and print its name at the end
-if test:
-    x = ss.mesh.coords[0].data
-    xx   =  ss.PyMPI.zbar( x )
-    pvar = 'p'
-    v = ss.PyMPI.zbar( ss.variables[pvar].data )
-    ny = ss.PyMPI.ny
-    v1d =  v[:,int(ny/2)]
-    x1d = xx[:,int(ny/2)]
-    fname = testName + '.dat'
-    numpy.savetxt( fname  , (x1d,v1d) )
-    print(fname)
+ss.writeRestart()
+            
+
