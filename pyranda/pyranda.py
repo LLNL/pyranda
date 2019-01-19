@@ -294,8 +294,8 @@ class pyrandaSim:
 
 
         
-    def emptyScalar(self):
-        return self.PyMPI.emptyScalar()
+    def emptyScalar(self,val=0.0):
+        return self.PyMPI.emptyScalar() + val
         
     def updateFlux(self):
         #
@@ -693,7 +693,7 @@ class pyrandaSim:
         sMap['where('] = 'numpy.where('
         sMap['max('] = 'self.PyMPI.max3D('
         sMap['min('] = 'self.PyMPI.min3D('
-        sMap['3d()'] = 'self.emptyScalar()'
+        sMap['3d('] = 'self.emptyScalar('
         sMap['pi'] = 'numpy.pi'
         
         sMap['meshx']   = 'self.mesh.coords[0].data'

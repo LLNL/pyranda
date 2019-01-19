@@ -801,8 +801,9 @@
      DOUBLE PRECISION, INTENT(IN) :: y_r(ay)
      DOUBLE PRECISION, INTENT(IN) ::  rands(ny+Nbuff,nz+Nbuff)
      DOUBLE PRECISION, INTENT(IN) ::  bmnI(2*Ni+1,2*Nspan+1), bmnO(2*No+1,2*Nspan+1)
+     DOUBLE PRECISION, DIMENSION(ay,az), INTENT(OUT) :: vfilt(ay,az)
      DOUBLE PRECISION, DIMENSION(:,:), ALLOCATABLE :: filt
-     DOUBLE PRECISION :: vfilt(ay,az)
+
      INTEGER :: N1,N2
      INTEGER :: j,k,m,n,mm,nn
      INTEGER :: mF,mG,nF,nG
@@ -843,14 +844,15 @@
      
    END SUBROUTINE filtRands
 
-   SUBROUTINE get_rands(ny,nz,Nbuff,rands,time_seed)
+   SUBROUTINE get_rands_normal(rands,ny,nz,Nbuff,time_seed)
      IMPLICIT NONE
-     INTEGER, INTENT(IN) :: ny,nz,Nbuff
      DOUBLE PRECISION, DIMENSION(4,ny+Nbuff,nz+Nbuff),INTENT(OUT) :: rands
+     INTEGER, INTENT(IN) :: ny,nz,Nbuff
      INTEGER, INTENT(IN) :: time_seed 
-     
      integer, allocatable :: seed(:)
+     DOUBLE PRECISION, DIMENSION(4,ny+Nbuff,nz+Nbuff) :: rtmp
      integer :: n
+     DOUBLE PRECISION :: two=2.0D0,pi=3.14159265359
 
      call random_seed(size = n)
      allocate(seed(n))
@@ -860,37 +862,14 @@
 
      ! Get the RNs... same for all procs     
      CALL random_number(rands)
-     
-   END SUBROUTINE get_rands
-
-
-   SUBROUTINE DFuvw(
-     vU,vV,vW)
-     DOUBLE PRECISION, INTENT(OUT), DIMENSION(ay,az) :: vU,vV,vW
-
-     
-     
-     ! Get random numbers, need 2 sets, of size (ny+buff,nz+buff)... buff is for the filter width
-     CALL get_rands(ny,nz,Nbuff,rands,time_seed)
 
      ! Make them have normal distribution (Box-Mueller theorem)
      rtmp(1:2,:,:) = sqrt( -two*LOG(rands((/1,3/),:,:))) * cos(two*pi*rands((/2,4/),:,:))
      rtmp(3:4,:,:) = sqrt( -two*LOG(rands((/1,3/),:,:))) * sin(two*pi*rands((/2,4/),:,:))
      rands = rtmp
+     
+   END SUBROUTINE get_rands_normal
 
-     ! Filter them here
-     CALL filtRands(UIz,UIy(1),UIy(2),Nbuff, & 
-          buI,buO,rands(1,:,:),vU, &
-          ny,nz,ay,az,iy1,iz1,y_r)
-     CALL filtRands(VIz,VIy(1),VIy(2),Nbuff, &
-          bvI,bvO,rands(2,:,:),vV, &
-          ny,nz,ay,az,iy1,iz1,y_r)
-     CALL filtRands(WIz,WIy(1),WIy(2),Nbuff, &
-          bwI,bwO,rands(3,:,:),vW, &
-          ny,nz,ay,az,iy1,iz1,y_r)
-     
-     
-   END SUBROUTINE DFuvw
 
 
 
