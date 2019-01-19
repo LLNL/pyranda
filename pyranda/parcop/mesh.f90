@@ -55,7 +55,7 @@
   CONTAINS
 !===================================================================================================
 
-   SUBROUTINE setup_mesh(mesh_data,patch_data,comm_data,compact_data,xpy,ypy,zpy) !custom_periodicX,custom_periodicY,custom_periodicZ)
+   SUBROUTINE setup_mesh(mesh_data,patch_data,comm_data,compact_data,xpy,ypy,zpy,custom_per) !custom_periodicX,custom_periodicY,custom_periodicZ)
     IMPLICIT NONE
     CLASS(mesh_type),  INTENT(OUT) :: mesh_data ! Auto deallocation of all components on entry
     CLASS(patch_type), INTENT(IN)  :: patch_data
@@ -65,6 +65,7 @@
     REAL(c_double), DIMENSION(:,:,:), INTENT(IN), OPTIONAL :: xpy
     REAL(c_double), DIMENSION(:,:,:), INTENT(IN), OPTIONAL :: ypy
     REAL(c_double), DIMENSION(:,:,:), INTENT(IN), OPTIONAL :: zpy
+    logical,INTENT(IN),OPTIONAL  :: custom_per
     !logical,INTENT(IN),OPTIONAL  :: custom_periodicX
     !logical,INTENT(IN),OPTIONAL  :: custom_periodicY
     !logical,INTENT(IN),OPTIONAL  :: custom_periodicZ
@@ -82,7 +83,7 @@
     REAL(c_double) :: dA,dB,dC
     LOGICAL :: tmpPx,tmpPy,tmpPz
     INTEGER(c_int) :: i,j,k,flag,filnum,xasym,yasym,zasym
-
+        
      IF ( .NOT. ALLOCATED(mesh_data%zone_index) ) THEN 
      mesh_data%num_zones = patch_data%ax*patch_data%ay*patch_data%az 
      ALLOCATE(mesh_data%zone_index(mesh_data%num_zones)); FORALL(i=1:mesh_data%num_zones) mesh_data%zone_index(i) = i-1
@@ -224,8 +225,9 @@
        dA = dx
        dB = dy
        dC = dz
-
-     if( custom ) then ! custom 1st derivative with unknown bcs
+       
+       
+     if( custom_per ) then ! custom 1st derivative with unknown bcs
 
        custom_periodic = .false. ; custom_nullop = .false.
        custom_lo = comm_data%xcom_lo ; custom_hi = comm_data%xcom_hi

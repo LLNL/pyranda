@@ -15,7 +15,8 @@ MODULE parcop
   USE LES_compact_operators, ONLY : d1x, d1y, d1z
   USE LES_operators, ONLY : div,grad,Laplacian
   USE LES_operators, ONLY : curl,cross,filter,ring,ringV
-
+  USE LES_operators, ONLY : get_rands_normal, filtRands
+  
   CONTAINS
 
 
@@ -69,13 +70,13 @@ MODULE parcop
     END SUBROUTINE setup_mesh
 
 
-    SUBROUTINE setup_mesh_x3(patch,level,x1,x2,x3) !mesh_perX,mesh_perY,mesh_perZ)
+    SUBROUTINE setup_mesh_x3(patch,level,x1,x2,x3,meshPer) !mesh_perX,mesh_perY,mesh_perZ)
       IMPLICIT NONE
       INTEGER,               INTENT(IN) :: patch,level
       REAL(kind=8), DIMENSION(:,:,:), INTENT(IN) :: x1,x2,x3
-      !LOGICAL, INTENT(IN) :: mesh_perX,mesh_perY,mesh_perZ
+      LOGICAL, INTENT(IN) :: meshPer !mesh_perX,mesh_perY,mesh_perZ
       
-      CALL setup_mesh_data_x3(patch,level,x1,x2,x3) !mesh_perX,mesh_perY,mesh_perZ)
+      CALL setup_mesh_data_x3(patch,level,x1,x2,x3,meshPer) !mesh_perX,mesh_perY,mesh_perZ)
       
     END SUBROUTINE setup_mesh_x3
 
@@ -352,4 +353,38 @@ MODULE parcop
     END SUBROUTINE commyz
 
 
+
+  SUBROUTINE TBL_get_rands(rands,ny,nz,Nbuff,time_seed)
+    IMPLICIT NONE
+    DOUBLE PRECISION, DIMENSION(4,ny+Nbuff,nz+Nbuff),INTENT(OUT) :: rands
+    INTEGER, INTENT(IN) :: ny,nz,Nbuff
+    INTEGER, INTENT(IN) :: time_seed 
+
+    CALL get_rands_normal( rands, ny, nz, Nbuff, time_seed)
+
+  END SUBROUTINE TBL_get_rands
+
+
+  SUBROUTINE TBL_filter(Nspan,Ni,No,Nbuff, &
+       bmnI,bmnO,rands,vfilt, &
+       ny, nz, ay, az, iy1, iz1,y_r )        
+    IMPLICIT NONE
+    INTEGER, INTENT(IN) :: Nspan,Ni,No,Nbuff
+    INTEGER, INTENT(IN) :: ny,nz,iy1,iz1,ay,az
+    DOUBLE PRECISION, INTENT(IN) :: y_r(ay)
+    DOUBLE PRECISION, INTENT(IN) ::  rands(ny+Nbuff,nz+Nbuff)
+    DOUBLE PRECISION, INTENT(IN) ::  bmnI(2*Ni+1,2*Nspan+1), bmnO(2*No+1,2*Nspan+1)
+    DOUBLE PRECISION, DIMENSION(ay,az), INTENT(OUT) :: vfilt(ay,az)
+    INTEGER :: N1,N2
+    INTEGER :: j,k,m,n,mm,nn
+    INTEGER :: mF,mG,nF,nG
+
+    CALL filtRands( Nspan,Ni,No,Nbuff, &
+         bmnI,bmnO,rands,vfilt, &
+         ny, nz, ay, az, iy1, iz1,y_r )
+    
+  END SUBROUTINE TBL_filter
+
+
 END MODULE parcop
+
