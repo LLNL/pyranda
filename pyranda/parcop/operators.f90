@@ -827,13 +827,14 @@
            vfilt(j,k) = 0.0D0
            
            DO m=-N1,N1,1
-              mG = (iy1-1) + j + (m + N1)
+              mG = (iy1 ) + j + (m + N1)
               mF = m + N1 + 1
               
               DO n=-N2,N2,1
-                 nG = (iz1-1) + k + (n + N2)
+                 nG = (iz1 ) + k + (n + N2)
                  nF = n + N2 + 1
-                 vfilt(j,k) = vfilt(j,k) + filt(mF,nF)*rands(mG,nG)
+                 !vfilt(j,k) = vfilt(j,k) + filt(mF,nF)*rands(mG,nG)
+                 vfilt(j,k) = vfilt(j,k) + filt(mF,nF)*rands( 1+MOD(mG-1,ny) , 1+MOD(nG-1,nz) )
                  
               END DO
            END DO
