@@ -81,7 +81,7 @@ class pyrandaTBL(pyrandaPackage):
 
     def get_sMap(self):
         sMap = {}
-        sMap['TBL.inflow('] =  "self.packages['TBL'].inflow("
+        sMap['TBL.inflow('] =  "self.packages['TBL'].DFinflow("
         sMap['TBL.setup()'] =  "self.packages['TBL'].setup()"
         self.sMap = sMap
         
@@ -121,7 +121,7 @@ class pyrandaTBL(pyrandaPackage):
 
         tmp = self.pysim.PyMPI.emptyScalar()
         if self.pysim.PyMPI.x1proc:  # Flow dir
-            tmp = self.pysim.mesh.coords[1].data  # Wall dir
+            tmp = self.pysim.mesh.coords[1].data*1.0  # Wall dir
             tmp /= tmp.shape[0]
             tmp /= tmp.shape[2]
         tmp1 = numpy.sum( tmp, (0,2) )
@@ -143,7 +143,8 @@ class pyrandaTBL(pyrandaPackage):
         Uprof = funcMean( self.y_G ) * self.U_in
         for ii in range( yMean.shape[0] ):
             self.Umean[ii,:] = yMean[ii]*self.U_in
-
+            
+            
         fileName = TBLfiles['uumean']
         funcMean = readTBLdata(fileName,delimiter=self.BL_delim)
         yMean = funcMean( self.y_r )
@@ -184,23 +185,8 @@ class pyrandaTBL(pyrandaPackage):
         # Non-dimensionalize the local wall normal length scale for filter size selection
         self.y_r = self.y_r / del_star
 
-        # Setup the 2d filters ( 6 total.  Inner (u,v,w) and outer (u,v,w) )
-        self.UIx = 10
-        self.UIy = [ 20, 35 ]
-        self.UIz = 20
-        
-        self.VIx = 4
-        self.VIy = [ 25, 45 ]
-        self.VIz = 20
-      
-        self.WIx = 4
-        self.WIy = [ 15, 20 ]
-        self.WIz = 30
-
-        Nbuff = 45 * 2
-
         self.simtime_old = self.pysim.time
-        self.tauX = float(self.UIx)*del_star / self.U_in
+        #self.tauX = float(self.UIx)*del_star / self.U_in
 
         # Inner coefficients
         self.buI = setFiltCoeffs(self.UIy[0],self.UIz)
@@ -241,38 +227,35 @@ class pyrandaTBL(pyrandaPackage):
         it1 = self.pysim.PyMPI.chunk_3d_lo[2]
 
         
-        #vU = parcop.parcop.tbl_filter(self.UIz,self.UIy[0],self.UIy[1],
-        #                              self.Nbuff,self.buI,self.buO,rands[0,:,:],
-        #                              self.nW,self.nT,self.aW, self.aT,iw1, it1,  self.y_r )
         vU = parcop.parcop.tbl_filter(self.Nbuff,self.buI,self.buO,rands[0,:,:],
                                       self.nW,self.nT,self.aT,iw1,it1,self.y_r) 
-        
 
-        import pdb
-        pdb.set_trace()
-        
-        #vV = parcop.parcop.tbl_filter(self.VIz,self.VIy[0],self.VIy[1],
-        #                              self.Nbuff,self.bvI,self.bvO,rands[1,:,:],
-        #                              self.nW,self.nT,self.aW, self.aT, iw1, it1,  self.y_r )
-        #vW = parcop.parcop.tbl_filter(self.WIz,self.WIy[0],self.WIy[1],
-        #                              self.Nbuff,self.bwI,self.bwO,rands[2,:,:],
-        #                              self.nW,self.nT,self.aW, self.aT, iw1, it1,  self.y_r )
-                         
+        vV = parcop.parcop.tbl_filter(self.Nbuff,self.bvI,self.bvO,rands[1,:,:],
+                                      self.nW,self.nT,self.aT,iw1,it1,self.y_r)
 
+        vW = parcop.parcop.tbl_filter(self.Nbuff,self.bwI,self.bwO,rands[2,:,:],
+                                      self.nW,self.nT,self.aT,iw1,it1,self.y_r)
+
+        #if ( numpy.isnan(vU.max()) or numpy.isnan(vV.max()) or numpy.isnan(vW.max()) ):
+        #    import pdb
+        #    pdb.set_trace()
+            
+            
         # Restart IO
-
 
         # Get the updated rho_k
         # Time avergaging coefficients and quantities/fluctuations
         # Need to write a restart file with averages stored
         t_nm1 = self.simtime_old*1.0
-        t_n = self.pysim.time
-        self.simtime_old = t_n
+        t_n = self.pysim.time*1.0
+        self.simtime_old = t_n*1.0
         dt_n = t_n - t_nm1
         EXPt = numpy.exp( - numpy.pi * dt_n / self.tauX )
-        self.RHO_u += numpy.sqrt( EXPt ) + vU * numpy.sqrt( 1.0- EXPt )
-        self.RHO_v += numpy.sqrt( EXPt ) + vV * numpy.sqrt( 1.0- EXPt )
-        self.RHO_w += numpy.sqrt( EXPt ) + vW * numpy.sqrt( 1.0- EXPt )
+        wgt1 = numpy.sqrt( EXPt )
+        wgt2 = numpy.sqrt( 1.0 - EXPt )
+        self.RHO_u = self.RHO_u * wgt1 + vU * wgt2
+        self.RHO_v = self.RHO_v * wgt1 + vV * wgt2
+        self.RHO_w = self.RHO_w * wgt1 + vW * wgt2
 
         # Add the perturbations to mean with given 2 point correlations
         uinlet = self.Umean +  self.A11 * self.RHO_u
@@ -293,34 +276,7 @@ class pyrandaTBL(pyrandaPackage):
         # Reconcile EOS outside of this loop/BC call
             
 
-        
-    def inflow(self,var,direction,field):
-
-        val = field
-        
-        # Direction switch
-        if direction == 'x1':
-            if self.pysim.PyMPI.x1proc:
-                self.pysim.variables[var].data[0,:,:] = val[0,:,:]
-                
-            
-        if direction == 'xn':
-            if self.pysim.PyMPI.xnproc:
-                self.pysim.variables[var].data[-1,:,:] = val[-1,:,:]
-            
-
-        if direction == 'y1':
-            if self.pysim.PyMPI.y1proc:
-                self.pysim.variables[var].data[:,0,:] = val[:,0,:]
-                
-            
-        if direction == 'yn':
-            if self.pysim.PyMPI.ynproc:
-                self.pysim.variables[var].data[:,-1,:] = val[:,-1,:]
-
-        
-
-                 
+                             
 
     def get_rands(self,ny,nz,Nbuff):
 

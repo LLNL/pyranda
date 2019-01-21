@@ -42,7 +42,7 @@ ddt(:Et:)   =  -div( (:Et: - :tauxx:)*:u: - :tauxy:*:v: - :tauxz:*:w: , (:Et: - 
 [:vx:,:vy:,:vz:] = grad(:v:)
 [:wx:,:wy:,:wz:] = grad(:w:)
 # Artificial bulk viscosity 
-:mu:        =  gbar( ringV(:u:,:v:,:w:) * :rho: ) * 1.0e-4
+:mu:        =  gbar( ringV(:u:,:v:,:w:) * :rho: ) * 1.0e-1 + mu0
 :beta:      =  gbar( abs(ring(:div:)) * :rho: )  * 7.0e-3
 :taudia:    =  (:beta:-2./3.*:mu:) *:div: - :p:
 :tauxx:     =  2.0*:mu:*:ux:   + :taudia:
