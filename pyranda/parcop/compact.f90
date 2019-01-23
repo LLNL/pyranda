@@ -2799,6 +2799,8 @@ contains
     deallocate( vbs1,vbs2 )
     call nvtxEndRange
     !$acc parallel loop gang vector collapse(3) copyin(op, vbr1, vbr2, v) copyout(dv)
+    !$omp target map(to:op%ar,vbr1,vbr2,v,scalefac) map(from:dv)
+    !$omp parallel do collapse(3) private(this_v,this_sum,z)
     do k=1,az
     do j=1,ay
     do i=1,ax
@@ -2817,6 +2819,7 @@ contains
     end do
     end do
     end do
+    !$omp end target
     call nvtxStartRange("evalx: dealloc")
     deallocate( vbr1,vbr2 )
     call nvtxEndRange
@@ -2846,41 +2849,89 @@ contains
       if( op%hi == MPI_PROC_NULL ) dvop(3:4,:,:) = zero
       nsr = size(dvop)
       call nvtxEndRange
-      call nvtxStartRange("evalx: mpi gather")
+      call nvtxStartRange("evalx: mpi_allgather")
       select case( op%directcom )
       case( 1 ) ! mpi_allgather
+        call nvtxStartRange("evalx: mpi_allgather")
         call mpi_allgather(dvop,nsr,MPI_DOUBLE_PRECISION,dvo,nsr,MPI_DOUBLE_PRECISION,op%hash,mpierr)
+        call nvtxEndRange
+        call nvtxStartRange("evalx: ptrid_block4")
         if( op%periodic ) then
           call ptrid_block4_lus( op%aa, dvo, np, ay, az )
         else
           call btrid_block4_lus( op%aa, dvo, np, ay, az )
         endif
-        if( op%lo /= MPI_PROC_NULL ) forall(i=1:ax,j=1:ay,k=1:az) dv(i,j,k) = dv(i,j,k)-sum(op%rc(i,1:2)*dvo(3:4,j,k,op%lo))
-        if( op%hi /= MPI_PROC_NULL ) forall(i=1:ax,j=1:ay,k=1:az) dv(i,j,k) = dv(i,j,k)-sum(op%rc(i,3:4)*dvo(1:2,j,k,op%hi))
+        call nvtxEndRange
+        call nvtxStartRange("evalx: sum")
+        !$omp target map(tofrom:dv) map(to:dvo) map(to:op%rc,op%lo,op%hi)
+        if( op%lo /= MPI_PROC_NULL ) then
+           !$omp parallel do collapse(3)
+           do i=1,ax
+           do j=1,ay
+           do k=1,az
+              dv(i,j,k) = dv(i,j,k)-sum(op%rc(i,1:2)*dvo(3:4,j,k,op%lo))
+           enddo
+           enddo
+           enddo
+        endif
+        if( op%hi /= MPI_PROC_NULL ) then
+           !$omp parallel do collapse(3)
+           do i=1,ax
+           do j=1,ay
+           do k=1,az
+              dv(i,j,k) = dv(i,j,k)-sum(op%rc(i,3:4)*dvo(1:2,j,k,op%hi))
+           enddo
+           enddo
+           enddo
+        endif
+        !$omp end target
+        call nvtxEndRange
       case( 2 ) ! mpi_gather/scatter
+        call nvtxStartRange("evalx: mpi_gather")
         call mpi_gather(dvop,nsr,MPI_DOUBLE_PRECISION,dvo,nsr,MPI_DOUBLE_PRECISION,0,op%hash,mpierr)
+        call nvtxEndRange
         if( op%id == 0 ) then  ! only master solves
+          call nvtxStartRange("evalx: ptrid_block4")
           if( op%periodic ) then
             call ptrid_block4_lus( op%aa, dvo, np, ay, az )
           else
             call btrid_block4_lus( op%aa, dvo, np, ay, az )
           endif
+          call nvtxEndRange
         else
           dvo = zero
         endif
         ! shuffle solution
+        call nvtxStartRange("evalx: gather shuffle")
+        !$omp target map(tofrom:dvo) map(from:dvop)
+        !$omp parallel workshare
         dvop(3:4,:,:) = dvo(1:2,:,:,0)
+        !$omp end parallel workshare
+        !$omp parallel do 
         do i=0,np-2
+        !do j=1,ay
+        !do k=1,az
           dvop(1:2,:,:) = dvo(3:4,:,:,i)
           dvo(3:4,:,:,i) = dvo(1:2,:,:,i+1)
           dvo(1:2,:,:,i+1) = dvop(1:2,:,:)
-        end do
+        !enddo
+        !enddo
+        enddo
+        !$omp end parallel do
+        !$omp parallel workshare
         dvo(1:2,:,:,0) = dvo(3:4,:,:,np-1)
         dvo(3:4,:,:,np-1) = dvop(3:4,:,:)
+        !$omp end parallel workshare
+        !$omp end target
+        call nvtxEndRange
+        call nvtxStartRange("evalx: scatter shuffle")
         call mpi_scatter(dvo,nsr,MPI_DOUBLE_PRECISION,dvop,nsr,MPI_DOUBLE_PRECISION,0,op%hash,mpierr)
+        call nvtxEndRange
+        call nvtxStartRange("evalx: sum")
         if( op%lo == MPI_PROC_NULL ) dvop(1:2,:,:) = zero
         if( op%hi == MPI_PROC_NULL ) dvop(3:4,:,:) = zero
         forall(i=1:ax,j=1:ay,k=1:az) dv(i,j,k) = dv(i,j,k)-sum(op%rc(i,:)*dvop(:,j,k))
+        call nvtxEndRange
       end select
       call nvtxEndRange
       call nvtxStartRange("evalx: dealloc")
@@ -2962,7 +3013,9 @@ contains
       endif
     endif
     deallocate( vbs1,vbs2 )
-    !$acc parallel loop gang vector collapse(3) copyin(op, vbr1, vbr2, v) copyout(dv)
+    !$omp target map(to:op%ar,vbr1,vbr2,v,scalefac) map(from:dv)
+    !$acc parallel loop gang vector collapse(3) copyin(op, vbr1, vbr2, v,scalefac) copyout(dv)
+    !$omp parallel do collapse(3) private(this_sum,this_v,z)
     do k=1,az
     do j=1,ay
     do i=1,ax
@@ -2981,8 +3034,10 @@ contains
     end do
     end do
     end do
+    !$omp end target
     deallocate( vbr1,vbr2 )
     ! this is only appropriate for explicit bc
+    call nvtxStartRange("evaly: pentLUS")
     if( (op%lo == MPI_PROC_NULL) .and. abs(op%bc(1)) /= 1 .and. present(dv1)) dv(:,1,:)=dv1   ! supply lower solution
     if( (op%hi == MPI_PROC_NULL) .and. abs(op%bc(2)) /= 1 .and. present(dv2)) dv(:,ay,:)=dv2  ! supply upper solution
     if( .not. op%implicit_op ) return
@@ -2992,6 +3047,7 @@ contains
     else
       call bpentLUS3y(op%al,dv,op%m,ax,ay,az)  ! locally non-periodic solution
     endif
+    call nvtxEndRange()
     if( np == 1 ) return
     ! parallel solver
       allocate( dvop(4,ax,az), dvo(4,ax,az,0:np-1) )
@@ -3004,16 +3060,45 @@ contains
       nsr = size(dvop)
       select case( op%directcom )
       case( 1 ) ! mpi_allgather
+        call nvtxStartRange("evaly: allgather")
         call mpi_allgather(dvop,nsr,MPI_DOUBLE_PRECISION,dvo,nsr,MPI_DOUBLE_PRECISION,op%hash,mpierr)
+        call nvtxEndRange()
+        call nvtxStartRange("evaly: btrid")
         if( op%periodic ) then
           call ptrid_block4_lus( op%aa, dvo, np, ax, az )
         else
           call btrid_block4_lus( op%aa, dvo, np, ax, az )
         endif
-        if( op%lo /= MPI_PROC_NULL ) forall(i=1:ax,j=1:ay,k=1:az) dv(i,j,k) = dv(i,j,k)-sum(op%rc(j,1:2)*dvo(3:4,i,k,op%lo))
-        if( op%hi /= MPI_PROC_NULL ) forall(i=1:ax,j=1:ay,k=1:az) dv(i,j,k) = dv(i,j,k)-sum(op%rc(j,3:4)*dvo(1:2,i,k,op%hi))
+        call nvtxEndRange()
+        call nvtxStartRange("evaly: sum")
+        !!$omp target map(tofrom:dv) map(from:op,dvo,op%rc,op%lo,op%hi)
+        if( op%lo /= MPI_PROC_NULL ) then
+           !!$omp parallel do collapse(3)
+           do i=1,ax
+           do j=1,ay
+           do k=1,az
+               dv(i,j,k) = dv(i,j,k)-sum(op%rc(j,1:2)*dvo(3:4,i,k,op%lo))
+           enddo
+           enddo
+           enddo
+        endif
+        if( op%hi /= MPI_PROC_NULL ) then
+           !!$omp parallel do collapse(3)
+           do i=1,ax
+           do j=1,ay
+           do k=1,az
+               dv(i,j,k) = dv(i,j,k)-sum(op%rc(j,3:4)*dvo(1:2,i,k,op%hi))
+           enddo
+           enddo
+           enddo
+        endif
+        !!$omp end target
+        call nvtxEndRange()
       case( 2 ) ! mpi_gather/scatter
+        call nvtxStartRange("evaly: gather")
         call mpi_gather(dvop,nsr,MPI_DOUBLE_PRECISION,dvo,nsr,MPI_DOUBLE_PRECISION,0,op%hash,mpierr)
+        call nvtxEndRange()
+        call nvtxStartRange("evaly: btrid")
         if( op%id == 0 ) then  ! only master solves
           if( op%periodic ) then
             call ptrid_block4_lus( op%aa, dvo, np, ax, az )
@@ -3023,6 +3108,8 @@ contains
         else
           dvo = zero
         endif
+        call nvtxEndRange()
+        call nvtxStartRange("evaly: shuffle")
         ! shuffle solution
         dvop(3:4,:,:) = dvo(1:2,:,:,0)
         do i=0,np-2
@@ -3032,10 +3119,15 @@ contains
         end do
         dvo(1:2,:,:,0) = dvo(3:4,:,:,np-1)
         dvo(3:4,:,:,np-1) = dvop(3:4,:,:)
+        call nvtxEndRange()
+        call nvtxStartRange("evaly: scatter")
         call mpi_scatter(dvo,nsr,MPI_DOUBLE_PRECISION,dvop,nsr,MPI_DOUBLE_PRECISION,0,op%hash,mpierr)
+        call nvtxEndRange()
+        call nvtxStartRange("evaly: sum")
         if( op%lo == MPI_PROC_NULL ) dvop(1:2,:,:) = zero
         if( op%hi == MPI_PROC_NULL ) dvop(3:4,:,:) = zero
         forall(i=1:ax,j=1:ay,k=1:az) dv(i,j,k) = dv(i,j,k)-sum(op%rc(j,:)*dvop(:,i,k))
+        call nvtxEndRange()
       end select
       deallocate( dvop, dvo )
   end subroutine eval_compact_op1y_r3
@@ -3114,6 +3206,8 @@ contains
       endif
     endif
     deallocate( vbs1,vbs2 )
+    !$omp target map(to:op%ar,vbr1,vbr2,v,scalefac) map(from:dv)
+    !$omp parallel do collapse(3) private(this_v,this_sum,z)
     !$acc parallel loop gang vector collapse(3) copyin(op, vbr1, vbr2, v) copyout(dv)
     do k=1,az
     do j=1,ay
@@ -3133,6 +3227,7 @@ contains
     end do
     end do
     end do
+    !$omp end target
     deallocate( vbr1,vbr2 )
     ! this is only appropriate for explicit bc
     if( (op%lo == MPI_PROC_NULL) .and. abs(op%bc(1)) /= 1 .and. present(dv1)) dv(:,:,1)=dv1   ! supply lower solution
@@ -3171,8 +3266,28 @@ contains
         else
           call btrid_block4_lus( op%aa, dvo, np, ax, ay )
         endif
-        if( op%lo /= MPI_PROC_NULL ) forall(i=1:ax,j=1:ay,k=1:az) dv(i,j,k) = dv(i,j,k)-sum(op%rc(k,1:2)*dvo(3:4,i,j,op%lo))
-        if( op%hi /= MPI_PROC_NULL ) forall(i=1:ax,j=1:ay,k=1:az) dv(i,j,k) = dv(i,j,k)-sum(op%rc(k,3:4)*dvo(1:2,i,j,op%hi))
+        !!$omp target map(to:op%rc,op%lo,op%hi,dvo) map(tofrom:dv)
+        if( op%lo /= MPI_PROC_NULL ) then
+        !!$omp parallel do collapse(3)
+        do i=1,ax
+        do j=1,ay
+        do k=1,az
+           dv(i,j,k) = dv(i,j,k)-sum(op%rc(k,1:2)*dvo(3:4,i,j,op%lo))
+        enddo
+        enddo
+        enddo
+        endif
+        if( op%hi /= MPI_PROC_NULL ) then
+        !!$omp parallel do collapse(3)
+        do i=1,ax
+        do j=1,ay
+        do k=1,az
+           dv(i,j,k) = dv(i,j,k)-sum(op%rc(k,3:4)*dvo(1:2,i,j,op%hi))
+        enddo
+        enddo
+        enddo
+        endif
+        !!$omp end target
       case( 2 ) ! mpi_gather/scatter
         call mpi_gather(dvop,nsr,MPI_DOUBLE_PRECISION,dvo,nsr,MPI_DOUBLE_PRECISION,0,op%hash,mpierr)
         if( op%id == 0 ) then  ! only master solves
@@ -3196,7 +3311,16 @@ contains
         call mpi_scatter(dvo,nsr,MPI_DOUBLE_PRECISION,dvop,nsr,MPI_DOUBLE_PRECISION,0,op%hash,mpierr)
         if( op%lo == MPI_PROC_NULL ) dvop(1:2,:,:) = zero
         if( op%hi == MPI_PROC_NULL ) dvop(3:4,:,:) = zero
-        forall(i=1:ax,j=1:ay,k=1:az) dv(i,j,k) = dv(i,j,k)-sum(op%rc(k,:)*dvop(:,i,j))
+        !!$omp target map(tofrom:dv) map(to:dvop,op%rc)
+        !!$omp parallel do collapse(3)
+        do i=1,ax
+        do j=1,ay
+        do k=1,az
+           dv(i,j,k) = dv(i,j,k)-sum(op%rc(k,:)*dvop(:,i,j))
+        enddo
+        enddo
+        enddo
+        !!$omp end target
       end select
       deallocate( dvop, dvo )
   end subroutine eval_compact_op1z_r3

@@ -57,10 +57,10 @@ toss_3_x86_64_ib.compiler     = intel
 toss_3_x86_64_ib.mpirun       = srun
 toss_3_x86_64_ib.np_arg       = -n
 
-blueos_3_ppc64le_ib.xl.mpif90  = /usr/tce/packages/spectrum-mpi/spectrum-mpi-2018.04.27-xl-beta-2018.06.01/bin/mpif90
-blueos_3_ppc64le_ib.xl.cc      = /usr/tce/packages/xl/xl-beta-2018.06.01/bin/xlc
+blueos_3_ppc64le_ib.xl.mpif90  = mpixlf
+blueos_3_ppc64le_ib.xl.cc      = xlc
 blueos_3_ppc64le_ib.gnu.mpif90 = /usr/tcetmp/bin/mpigfortran
-blueos_3_ppc64le_ib.compiler   = gnu
+blueos_3_ppc64le_ib.compiler   = xl
 blueos_3_ppc64le_ib.python     = /usr/tcetmp/bin/python
 blueos_3_ppc64le_ib.mpirun     = mpirun
 blueos_3_ppc64le_ib.np_arg     = -n
@@ -94,9 +94,14 @@ xl.fflags    = -fPIC -qsuppress=cmpmsg -qsuppress=1500-036 -qxlf2003=polymorphic
 xl.lopts     = -qmkshrobj
 pgi.fflags   = -fPIC
 ifdef gpu
-pgi.fflags += CUDAROOT=/gpfs/sw/software/CUDA/9.1.85/ -ta=tesla:cc70,managed -Minfo=accel -Mcuda=cuda9.0
-pgi.ldflags += CUDAROOT=/gpfs/sw/software/CUDA/9.1.85/ -ta=tesla:cc70,managed -Minfo=accel -Mcuda=cuda9.0
-pgi.libs += -L/gpfs/sw/software/CUDa/9.1.85/lib64 -lnvToolsExt
+#pgi.fflags += CUDAROOT=/gpfs/sw/software/CUDA/9.1.85/ -ta=tesla:cc70,managed -Minfo=accel -Mcuda=cuda9.0
+pgi.fflags += -ta=tesla:cc70,managed -Minfo=accel -Mcuda=cuda9.0
+pgi.ldflags += -ta=tesla:cc70,managed -Minfo=accel -Mcuda=cuda9.0
+pgi.libs += -L/gpfs/sw/software/CUDA/9.1.85/lib64 -lnvToolsExt
+
+xl.fflags += -qsmp -qoffload
+xl.ldflags += -qsmp -qoffload
+xl.libs += -L${CUDA_HOME}/lib64/ -lnvToolsExt
 endif
 
 default.lopts = -shared
