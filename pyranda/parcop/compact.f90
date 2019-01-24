@@ -101,7 +101,7 @@ module LES_compact
   
   TYPE control_type  ! from input or samrai
     LOGICAL(c_bool) :: null_opx=.false.,null_opy=.false.,null_opz=.false.    ! skip operations
-    integer(c_int) :: d1spec=1,d2spec=1,d8spec=1,gfspec=6,sfspec=1,tfspec=8  ! compact scheme
+    integer(c_int) :: d1spec=1,d2spec=1,d4spec=1,d8spec=1,gfspec=6,sfspec=1,tfspec=8  ! compact scheme
     integer(c_int) :: imcfspec=1,imfcspec=1,islspec=1,isrspec=2              ! compact scheme
     integer(c_int) :: amrcfspec=1,amrfcspec=2                                ! compact scheme
     INTEGER(c_int) :: directcom = 1  ! parallel solve
@@ -116,6 +116,7 @@ module LES_compact
     type(compact_op1_d1), dimension(2) :: d1x,d1y,d1z
 !    type(compact_op1_r3), dimension(2) :: d1x,d1y,d1z
     type(compact_op1_r3), dimension(2) :: d2x,d2y,d2z
+    type(compact_op1_r3), dimension(2) :: d4x,d4y,d4z
     type(compact_op1_r4), dimension(2) :: d8x,d8y,d8z
     type(compact_op1_r4), dimension(2) :: gfx,gfy,gfz, sfx,sfy,sfz, tfx,tfy,tfz  ! gaussian, spectral, tophat filters
     type(compact_op1), dimension(2) :: isrx,isry,isrz,islx,isly,islz  ! arbitrarily right/left shifted interpolation
@@ -3583,6 +3584,36 @@ contains
      call cops%d2z(n)%setup(weight,zcom,zmsh,cops%mbc(:,3,n),null_opz)
       cops%d2z(n)%directcom = directcom
       if( spew .and. .not. cops%d2z(n)%null_op ) print *,n,'setting up compact d2z ',weight%description%name,' for ',zmsh%bc1,' ',zmsh%bcn
+    end do
+    ! d4
+    spec = cops%control%d4spec
+    if( spec < 1 .or. spec > nderiv4 ) then
+      null_op = .true.
+      print *,'## invalid d4spec ##'
+    else
+      null_op = .false.
+      weight => compact_weight_d4(spec)
+    endif
+    do n=1,cops%nop(1)
+      cops%d4x(n)%null_op = null_op
+      if( null_op ) cycle
+      call cops%d4x(n)%setup(weight,xcom,xmsh,cops%mbc(:,1,n),null_opx)
+      cops%d4x(n)%directcom = directcom
+      if( spew .and. .not. cops%d4x(n)%null_op ) print *,n,'setting up compact d4x ',weight%description%name,' for ',xmsh%bc1,' ',xmsh%bcn
+    end do
+    do n=1,cops%nop(2)
+      cops%d4y(n)%null_op = null_op
+      if( null_op ) cycle
+      call cops%d4y(n)%setup(weight,ycom,ymsh,cops%mbc(:,2,n),null_opy)
+      cops%d4y(n)%directcom = directcom
+      if( spew .and. .not. cops%d4y(n)%null_op ) print *,n,'setting up compact d4y ',weight%description%name,' for ',ymsh%bc1,' ',ymsh%bcn
+    end do
+    do n=1,cops%nop(3)
+      cops%d4z(n)%null_op = null_op
+      if( null_op ) cycle
+      call cops%d4z(n)%setup(weight,zcom,zmsh,cops%mbc(:,3,n),null_opz)
+      cops%d4z(n)%directcom = directcom
+      if( spew .and. .not. cops%d4z(n)%null_op ) print *,n,'setting up compact d4z ',weight%description%name,' for ',zmsh%bc1,' ',zmsh%bcn
     end do
     ! d8
     spec = cops%control%d8spec

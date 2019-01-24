@@ -556,6 +556,9 @@ class parcop_der:
     def ddz(self,val):        
         return parcop.parcop.ddz(  val )
 
+    def dd4x(self,val):
+        return parcop.parcop.dd4x(  val )
+
     def div(self,fx,fy,fz):
         return parcop.parcop.divergence(fx,fy,fz)
 
