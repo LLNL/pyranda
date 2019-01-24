@@ -115,6 +115,7 @@ contains
     if( verbose) print *,'available compact weights:'
     call c10d1(compact_weight_d1(1))  ! 1st derivative
     call c10d2(compact_weight_d2(1))  ! 2nd derivative
+    call e4d4( compact_weight_d4(1))  ! 4th derivative (explicit)
     call c10d8(compact_weight_d8(1))  ! 8th derivative
     call c8ff9(compact_weight_ff(1))  ! 9/10 filter
     call c8ff8(compact_weight_ff(2))  ! 8/10 filter
@@ -1548,6 +1549,83 @@ contains
     cf%arb2(:,3,2) = cf%arb1(ncr:1:-1,1,2)
   end subroutine cfamrfc
 
+  subroutine e4d4(ff)  ! setup 4th derivative, explicit
+    implicit none
+    TYPE(compact_weight), intent(out) :: ff
+    INTEGER(c_int), PARAMETER :: nol = 0, nor = 3, nir = 3
+    INTEGER(c_int), PARAMETER :: ncl=2*nol+1, ncr=nor+nir+1, nci=2*nol
+    INTEGER(c_int), PARAMETER :: nst = 0, nbc1 = 4, nbc2 = 4
+    LOGICAL(c_bool),PARAMETER :: implicit_op = .false.
+    ! Fourth order 4th derivative
+    DOUBLE PRECISION, PARAMETER :: agau = 28.0D0/3.0D0
+    DOUBLE PRECISION, PARAMETER :: bgau = -6.5D0
+    DOUBLE PRECISION, PARAMETER :: cgau = 2.0D0
+    DOUBLE PRECISION, PARAMETER :: dgau = -1.0D0/6.0D0
+    ! Second order 4th derivative
+    DOUBLE PRECISION, PARAMETER :: a3gau = 6.0D0
+    DOUBLE PRECISION, PARAMETER :: b3gau = -4.0D0
+    DOUBLE PRECISION, PARAMETER :: c3gau = 1.0D0
+
+    INTEGER :: i,j,k
+    ff%description = compact_descriptor('d4exp','explicit',0,0)
+    if( implicit_op ) ff%description%complicity = 'implicit'
+    if( verbose) call ff%description%info()
+    allocate( ff%ali(2*nol+1) )
+    allocate( ff%ari(2*nor+1) )
+    allocate( ff%alb1(2*nol+1,nbc1,-1:2), ff%alb2(2*nol+1,nbc2,-1:2) )
+    allocate( ff%arb1(2*nor+1,nbc1,-1:2), ff%arb2(2*nor+1,nbc2,-1:2) )
+    ff%nol = nol
+    ff%nor = nor
+    ff%nir = nir
+    ff%ncl = ncl
+    ff%ncr = ncr
+    ff%nci = nci
+    ff%nst = nst
+    ff%nbc1 = nbc1
+    ff%nbc2 = nbc2
+    ff%null_option = 1 ! copy if null_op
+    ff%implicit_op = implicit_op
+    if( nol == 0 ) ff%implicit_op = .false.
+    ff%sh = 0.0d0  ! shift
+  ! interior weights
+    !    ff%ali = 1.0D0
+    !    ff%ari = [ dgau , cgau , bgau , agau , bgau , cgau , dgau ]
+    ff%ali = 1.0D0
+    ff%ari = [ dgau , cgau , bgau , agau , bgau , cgau , dgau ]
+  ! one-sided weights, band-diagonal style
+    ff%alb1(:,1,0) = 1.0D0
+    ff%alb1(:,2,0) = 1.0D0
+    ff%alb1(:,3,0) = 1.0D0
+    ff%alb2(:,1,0) = ff%alb1(ncl:1:-1,3,0)
+    ff%alb2(:,2,0) = ff%alb1(ncl:1:-1,2,0)
+    ff%alb2(:,3,0) = ff%alb1(ncl:1:-1,1,0)
+    ff%arb1(:,1,0) = [ 0.0D0   , 0.0D0    , 0.0D0    , 0.0D0    , 0.0D0  , 0.0D0     , 0.0D0  ]
+    ff%arb1(:,2,0) = [ 0.0D0   , 0.0D0    , 0.0D0    , 0.0D0    , 0.0D0  , 0.0D0     , 0.0D0  ]
+    ff%arb1(:,3,0) = [ 0.0D0   , c3gau    , b3gau    , a3gau    , b3gau  , c3gau     , 0.0D0  ]
+    ff%arb2(:,1,0) = ff%arb1(ncr:1:-1,3,0)
+    ff%arb2(:,2,0) = ff%arb1(ncr:1:-1,2,0)
+    ff%arb2(:,3,0) = ff%arb1(ncr:1:-1,1,0)
+  ! symmetric weights
+    call lower_symm_weights(ff%alb1(:,:,+1),ff%arb1(:,:,+1),ff%ali,ff%ari,nol,nor,0,0,+1,+1)
+    call lower_symm_weights(ff%alb1(:,:,-1),ff%arb1(:,:,-1),ff%ali,ff%ari,nol,nor,0,0,-1,-1)
+    call upper_symm_weights(ff%alb2(:,:,+1),ff%arb2(:,:,+1),ff%ali,ff%ari,nol,nor,0,0,+1,+1)
+    call upper_symm_weights(ff%alb2(:,:,-1),ff%arb2(:,:,-1),ff%ali,ff%ari,nol,nor,0,0,-1,-1)
+  ! with extended boundary data
+    ff%alb1(:,1,2) = 1.0D0
+    ff%alb1(:,2,2) = 1.0D0
+    ff%alb1(:,3,2) = 1.0D0
+    ff%alb2(:,1,2) = ff%alb1(ncl:1:-1,3,2)
+    ff%alb2(:,2,2) = ff%alb1(ncl:1:-1,2,2)
+    ff%alb2(:,3,2) = ff%alb1(ncl:1:-1,1,2)
+    ff%arb1(:,1,2) = ff%ari
+    ff%arb1(:,2,2) = ff%ari
+    ff%arb1(:,3,2) = ff%ari
+    ff%arb2(:,1,2) = ff%arb1(ncr:1:-1,3,2)
+    ff%arb2(:,2,2) = ff%arb1(ncr:1:-1,2,2)
+    ff%arb2(:,3,2) = ff%arb1(ncr:1:-1,1,2)
+  end subroutine e4d4
+
+  
 
   subroutine lower_symm_weights_int(alb,arb,ali,ari,nol,nor,shl,shr,syml,symr)
     implicit none
