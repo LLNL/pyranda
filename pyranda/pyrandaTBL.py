@@ -121,83 +121,85 @@ class pyrandaTBL(pyrandaPackage):
 
         tmp = self.pysim.PyMPI.emptyScalar()
         if self.pysim.PyMPI.x1proc:  # Flow dir
+
+            
             tmp = self.pysim.mesh.coords[1].data*1.0  # Wall dir
             tmp /= tmp.shape[0]
             tmp /= tmp.shape[2]
-        tmp1 = numpy.sum( tmp, (0,2) )
+            tmp1 = numpy.sum( tmp, (0,2) )
+
+            self.y_G = numpy.concatenate( self.pysim.PyMPI.ycom.allgather( tmp1 ) ) / self.del_BL
+            self.y_r = tmp1 / self.del_BL #self.y_G[0:aW]
+
+            UUmean = numpy.zeros( (aW,aT) )
+            VVmean = numpy.zeros( (aW,aT) )
+            WWmean = numpy.zeros( (aW,aT) )
+            UVmean = numpy.zeros( (aW,aT) )
+
+            # Read in BL data from file (non-dimensional data)
+            #   and place on 2D planes Umean/Tmean/UUmean/VVmean/WWmean/UVmean
+            fileName = TBLfiles['umean']
+            funcMean = readTBLdata(fileName,delimiter=self.BL_delim)
+            yMean = funcMean( self.y_r )
+            Uprof = funcMean( self.y_G ) * self.U_in
+            for ii in range( yMean.shape[0] ):
+                self.Umean[ii,:] = yMean[ii]*self.U_in
+
+
+            fileName = TBLfiles['uumean']
+            funcMean = readTBLdata(fileName,delimiter=self.BL_delim)
+            yMean = funcMean( self.y_r )
+            for ii in range( yMean.shape[0] ):
+                UUmean[ii,:] = yMean[ii]*self.U_in
+
+            fileName = TBLfiles['vvmean']
+            funcMean = readTBLdata(fileName,delimiter=self.BL_delim)
+            yMean = funcMean( self.y_r )
+            for ii in range( yMean.shape[0] ):
+                VVmean[ii,:] = yMean[ii]*self.U_in
+
+            fileName = TBLfiles['wwmean']
+            funcMean = readTBLdata(fileName,delimiter=self.BL_delim)
+            yMean = funcMean( self.y_r )
+            for ii in range( yMean.shape[0] ):
+                WWmean[ii,:] = yMean[ii]*self.U_in
+
+            fileName = TBLfiles['uvmean']
+            funcMean = readTBLdata(fileName,delimiter=self.BL_delim)
+            yMean = funcMean( self.y_r )
+            for ii in range( yMean.shape[0] ):
+                UVmean[ii,:] = yMean[ii]*self.U_in
+
+
+            # Recast as componets of the Reynolds stress tensor
+            self.A11 = UUmean
+            self.A12 = numpy.where( self.A11 == 0.0, 0.0 , UVmean**2 / self.A11 )
+            self.A22 = numpy.sqrt( VVmean**2 - self.A12**2 )
+            self.A33 = WWmean
+
+            # Calculate the Displacement thickness
+            del_star = 0.0
+            for i in range( Uprof.shape[0]-1 ):
+                del_star = del_star + (Uprof[-1] - Uprof[i])* (self.y_G[i+1]-self.y_G[i])
+
+            # Non-dimensionalize the local wall normal length scale for filter size selection
+            self.y_r = self.y_r / del_star
+
+            self.simtime_old = self.pysim.time
+            #self.tauX = float(self.UIx)*del_star / self.U_in
+
+            # Inner coefficients
+            self.buI = setFiltCoeffs(self.UIy[0],self.UIz)
+            self.bvI = setFiltCoeffs(self.VIy[0],self.VIz)
+            self.bwI = setFiltCoeffs(self.WIy[0],self.WIz)
+
+            # Outer coefficients
+            self.buO = setFiltCoeffs(self.UIy[1],self.UIz)
+            self.bvO = setFiltCoeffs(self.VIy[1],self.VIz)
+            self.bwO = setFiltCoeffs(self.WIy[1],self.WIz)
+
+        # END X1proc check
             
-        self.y_G = numpy.concatenate( self.pysim.PyMPI.ycom.allgather( tmp1 ) ) / self.del_BL
-        self.y_r = self.y_G[0:aW]
-            
-
-        UUmean = numpy.zeros( (aW,aT) )
-        VVmean = numpy.zeros( (aW,aT) )
-        WWmean = numpy.zeros( (aW,aT) )
-        UVmean = numpy.zeros( (aW,aT) )
-        
-        # Read in BL data from file (non-dimensional data)
-        #   and place on 2D planes Umean/Tmean/UUmean/VVmean/WWmean/UVmean
-        fileName = TBLfiles['umean']
-        funcMean = readTBLdata(fileName,delimiter=self.BL_delim)
-        yMean = funcMean( self.y_r )
-        Uprof = funcMean( self.y_G ) * self.U_in
-        for ii in range( yMean.shape[0] ):
-            self.Umean[ii,:] = yMean[ii]*self.U_in
-            
-            
-        fileName = TBLfiles['uumean']
-        funcMean = readTBLdata(fileName,delimiter=self.BL_delim)
-        yMean = funcMean( self.y_r )
-        for ii in range( yMean.shape[0] ):
-            UUmean[ii,:] = yMean[ii]*self.U_in
-
-        fileName = TBLfiles['vvmean']
-        funcMean = readTBLdata(fileName,delimiter=self.BL_delim)
-        yMean = funcMean( self.y_r )
-        for ii in range( yMean.shape[0] ):
-            VVmean[ii,:] = yMean[ii]*self.U_in
-
-        fileName = TBLfiles['wwmean']
-        funcMean = readTBLdata(fileName,delimiter=self.BL_delim)
-        yMean = funcMean( self.y_r )
-        for ii in range( yMean.shape[0] ):
-            WWmean[ii,:] = yMean[ii]*self.U_in
-
-        fileName = TBLfiles['uvmean']
-        funcMean = readTBLdata(fileName,delimiter=self.BL_delim)
-        yMean = funcMean( self.y_r )
-        for ii in range( yMean.shape[0] ):
-            UVmean[ii,:] = yMean[ii]*self.U_in
-
-
-        # Recast as componets of the Reynolds stress tensor
-        self.A11 = UUmean
-        self.A12 = UVmean**2 / self.A11
-        self.A12 = numpy.where( self.A11 == 0.0, 0.0 , self.A12 )
-        self.A22 = numpy.sqrt( VVmean**2 - self.A12**2 )
-        self.A33 = WWmean
-        
-        # Calculate the Displacement thickness
-        del_star = 0.0 
-        for i in range( Uprof.shape[0]-1 ):
-            del_star = del_star + (Uprof[-1] - Uprof[i])* (self.y_G[i+1]-self.y_G[i])
-
-        # Non-dimensionalize the local wall normal length scale for filter size selection
-        self.y_r = self.y_r / del_star
-
-        self.simtime_old = self.pysim.time
-        #self.tauX = float(self.UIx)*del_star / self.U_in
-
-        # Inner coefficients
-        self.buI = setFiltCoeffs(self.UIy[0],self.UIz)
-        self.bvI = setFiltCoeffs(self.VIy[0],self.VIz)
-        self.bwI = setFiltCoeffs(self.WIy[0],self.WIz)
-
-        # Outer coefficients
-        self.buO = setFiltCoeffs(self.UIy[1],self.UIz)
-        self.bvO = setFiltCoeffs(self.VIy[1],self.VIz)
-        self.bwO = setFiltCoeffs(self.WIy[1],self.WIz)
-
         # Set up a restart directory
         # // TODO //
 
@@ -209,7 +211,7 @@ class pyrandaTBL(pyrandaPackage):
 
 
         # DONE SETUP Digitial filtering
-        
+            
 
     def DFinflow(self):
 
@@ -217,57 +219,55 @@ class pyrandaTBL(pyrandaPackage):
         seed = 0
         if self.pysim.PyMPI.master:
             seed = int(numpy.random.rand()*2**32)
-            seed = self.pysim.PyMPI.comm.allreduce(seed, op=MPI.SUM)
 
-        # make parcop operator for these
-        rands = parcop.parcop.tbl_get_rands( self.nW, self.nT, self.Nbuff , seed ) 
+        seed = self.pysim.PyMPI.comm.allreduce(seed, op=MPI.SUM)
 
-        
-        iw1 = self.pysim.PyMPI.chunk_3d_lo[1]
-        it1 = self.pysim.PyMPI.chunk_3d_lo[2]
 
-        
-        vU = parcop.parcop.tbl_filter(self.Nbuff,self.buI,self.buO,rands[0,:,:],
-                                      self.nW,self.nT,self.aT,iw1,it1,self.y_r) 
-
-        vV = parcop.parcop.tbl_filter(self.Nbuff,self.bvI,self.bvO,rands[1,:,:],
-                                      self.nW,self.nT,self.aT,iw1,it1,self.y_r)
-
-        vW = parcop.parcop.tbl_filter(self.Nbuff,self.bwI,self.bwO,rands[2,:,:],
-                                      self.nW,self.nT,self.aT,iw1,it1,self.y_r)
-
-        #if ( numpy.isnan(vU.max()) or numpy.isnan(vV.max()) or numpy.isnan(vW.max()) ):
-        #    import pdb
-        #    pdb.set_trace()
-            
-            
-        # Restart IO
-
-        # Get the updated rho_k
-        # Time avergaging coefficients and quantities/fluctuations
-        # Need to write a restart file with averages stored
-        t_nm1 = self.simtime_old*1.0
-        t_n = self.pysim.time*1.0
-        self.simtime_old = t_n*1.0
-        dt_n = t_n - t_nm1
-        EXPt = numpy.exp( - numpy.pi * dt_n / self.tauX )
-        wgt1 = numpy.sqrt( EXPt )
-        wgt2 = numpy.sqrt( 1.0 - EXPt )
-        self.RHO_u = self.RHO_u * wgt1 + vU * wgt2
-        self.RHO_v = self.RHO_v * wgt1 + vV * wgt2
-        self.RHO_w = self.RHO_w * wgt1 + vW * wgt2
-
-        # Add the perturbations to mean with given 2 point correlations
-        uinlet = self.Umean +  self.A11 * self.RHO_u
-        vinlet =               self.A12 * self.RHO_u + self.A22 * self.RHO_v  
-        winlet =               self.A33 * self.RHO_w
-
-        # Get the temperature perturbation using strong Reynolds Analogy (SRA)
-        #MaSq = Mach**2
-        #Tinlet = self.Tmean + self.Tmean * ( -gm1*MaSq * (uinlet - self.Umean) / U_in )
-        
-        # Add to inlet
         if self.pysim.PyMPI.x1proc:
+            # make parcop operator for these
+            rands = parcop.parcop.tbl_get_rands( self.nW, self.nT, self.Nbuff , seed ) 
+
+
+            iw1 = self.pysim.PyMPI.chunk_3d_lo[1]
+            it1 = self.pysim.PyMPI.chunk_3d_lo[2]
+
+
+            vU = parcop.parcop.tbl_filter(self.Nbuff,self.buI,self.buO,rands[0,:,:],
+                                          self.nW,self.nT,self.aT,iw1,it1,self.y_r) 
+
+            vV = parcop.parcop.tbl_filter(self.Nbuff,self.bvI,self.bvO,rands[1,:,:],
+                                          self.nW,self.nT,self.aT,iw1,it1,self.y_r)
+
+            vW = parcop.parcop.tbl_filter(self.Nbuff,self.bwI,self.bwO,rands[2,:,:],
+                                          self.nW,self.nT,self.aT,iw1,it1,self.y_r)
+
+            # Restart IO
+
+            # Get the updated rho_k
+            # Time avergaging coefficients and quantities/fluctuations
+            # Need to write a restart file with averages stored
+            t_nm1 = self.simtime_old*1.0
+            t_n = self.pysim.time*1.0
+            self.simtime_old = t_n*1.0
+            dt_n = t_n - t_nm1
+            EXPt = numpy.exp( - numpy.pi * dt_n / self.tauX )
+            wgt1 = numpy.sqrt( EXPt )
+            wgt2 = numpy.sqrt( 1.0 - EXPt )
+            self.RHO_u = self.RHO_u * wgt1 + vU * wgt2
+            self.RHO_v = self.RHO_v * wgt1 + vV * wgt2
+            self.RHO_w = self.RHO_w * wgt1 + vW * wgt2
+
+            # Add the perturbations to mean with given 2 point correlations
+            uinlet = self.Umean +  self.A11 * self.RHO_u
+            vinlet =               self.A12 * self.RHO_u + self.A22 * self.RHO_v  
+            winlet =               self.A33 * self.RHO_w
+
+            # Get the temperature perturbation using strong Reynolds Analogy (SRA)
+            #MaSq = Mach**2
+            #Tinlet = self.Tmean + self.Tmean * ( -gm1*MaSq * (uinlet - self.Umean) / U_in )
+        
+            # Add to inlet
+
             self.pysim.variables[self.u].data[0,:,:] = uinlet
             self.pysim.variables[self.v].data[0,:,:] = vinlet
             self.pysim.variables[self.w].data[0,:,:] = winlet
