@@ -104,10 +104,25 @@ MODULE parcop
          dxg = mesh_ptr%dAdx
       CASE('dAy')
          dxg = mesh_ptr%dAdy
+      CASE('dAz')
+         dxg = mesh_ptr%dAdz
       CASE('dBx')
          dxg = mesh_ptr%dBdx
       CASE('dBy')
          dxg = mesh_ptr%dBdy
+      CASE('dBz')
+         dxg = mesh_ptr%dBdz
+      CASE('dCx')
+         dxg = mesh_ptr%dCdx
+      CASE('dCy')
+         dxg = mesh_ptr%dCdy
+      CASE('dCz')
+         dxg = mesh_ptr%dCdz
+      CASE('dtJ')
+         dxg = mesh_ptr%detxyz
+      CASE DEFAULT
+         print*,"You requested variable: ", TRIM(vname)
+         print*,".... I cant find that"
       END SELECT
                           
     END SUBROUTINE getVar
@@ -230,10 +245,24 @@ MODULE parcop
       INTEGER,               INTENT(IN) :: nx,ny,nz
       real(kind=8), dimension(nx,ny,nz), intent(in) :: val
       real(kind=8), dimension(nx,ny,nz),intent(out) :: dval      
-
       CALL d4x(val,dval)
-
     END SUBROUTINE dd4x
+
+    SUBROUTINE dd4y(val,dval,nx,ny,nz)
+      IMPLICIT NONE
+      INTEGER,               INTENT(IN) :: nx,ny,nz
+      real(kind=8), dimension(nx,ny,nz), intent(in) :: val
+      real(kind=8), dimension(nx,ny,nz),intent(out) :: dval      
+      CALL d4y(val,dval)
+    END SUBROUTINE dd4y
+
+    SUBROUTINE dd4z(val,dval,nx,ny,nz)
+      IMPLICIT NONE
+      INTEGER,               INTENT(IN) :: nx,ny,nz
+      real(kind=8), dimension(nx,ny,nz), intent(in) :: val
+      real(kind=8), dimension(nx,ny,nz),intent(out) :: dval      
+      CALL d4z(val,dval)
+    END SUBROUTINE dd4z
 
     
 
