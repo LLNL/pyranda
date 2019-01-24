@@ -471,10 +471,7 @@ class pyrandaSim:
         self.PyIO.makeDump(iodata,dumpName)
 
         
-        
-
-        
-                        
+                                        
     def ddx(self,val):
         if self.nx <= 1:
             return 0.0
@@ -490,6 +487,8 @@ class pyrandaSim:
             return 0.0
         return self.PyMPI.der.ddz( val )
 
+    def dd4x(self,val):
+        return self.PyMPI.der.dd4x( val )
         
     def div(self,f1,f2=None,f3=None):
 

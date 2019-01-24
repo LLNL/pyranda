@@ -12,7 +12,7 @@ MODULE parcop
 
   USE LES_objects
   USE LES_comm, ONLY : LES_comm_world
-  USE LES_compact_operators, ONLY : d1x, d1y, d1z
+  USE LES_compact_operators, ONLY : d1x,d1y,d1z,d4x,d4y,d4z
   USE LES_operators, ONLY : div,grad,Laplacian
   USE LES_operators, ONLY : curl,cross,filter,ring,ringV
   USE LES_operators, ONLY : get_rands_normal, filtRands
@@ -201,7 +201,6 @@ MODULE parcop
       real(kind=8), dimension(nx,ny,nz), intent(in) :: val
       real(kind=8), dimension(nx,ny,nz),intent(out) :: dval      
 
-
       CALL d1x(val,dval)
 
     END SUBROUTINE ddx
@@ -225,6 +224,18 @@ MODULE parcop
       CALL d1z(val,dval)
 
     END SUBROUTINE ddz
+
+    SUBROUTINE dd4x(val,dval,nx,ny,nz)
+      IMPLICIT NONE
+      INTEGER,               INTENT(IN) :: nx,ny,nz
+      real(kind=8), dimension(nx,ny,nz), intent(in) :: val
+      real(kind=8), dimension(nx,ny,nz),intent(out) :: dval      
+
+      CALL d4x(val,dval)
+
+    END SUBROUTINE dd4x
+
+    
 
     SUBROUTINE plaplacian(val,dval,nx,ny,nz)
       IMPLICIT NONE
