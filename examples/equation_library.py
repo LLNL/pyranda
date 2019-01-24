@@ -43,7 +43,7 @@ ddt(:Et:)   =  -div( (:Et: - :tauxx:)*:u: - :tauxy:*:v: - :tauxz:*:w: , (:Et: - 
 [:wx:,:wy:,:wz:] = grad(:w:)
 # Artificial bulk viscosity 
 :mu:        =  gbar( ringV(:u:,:v:,:w:) * :rho: ) * 1.0e-1 + mu0
-:beta:      =  gbar( abs(ring(:div:)) * :rho: )  * 7.0e-3
+:beta:      =  gbar( abs(ring(:div:)) * :rho: )  * 7.0e-2
 :taudia:    =  (:beta:-2./3.*:mu:) *:div: - :p:
 :tauxx:     =  2.0*:mu:*:ux:   + :taudia:
 :tauyy:     =  2.0*:mu:*:vy:   + :taudia:
@@ -53,6 +53,6 @@ ddt(:Et:)   =  -div( (:Et: - :tauxx:)*:u: - :tauxy:*:v: - :tauxz:*:w: , (:Et: - 
 :tauyz:     = :mu:*(:vz:+:wz:)
 :cs:  = sqrt( :p: / :rho: * :gamma: )
 :dt: = dt.courant(:u:,:v:,:w:,:cs:)*1.0
-:dt: = numpy.minimum(:dt:,0.2 * dt.diff(:beta:,:rho:))
-:dt: = numpy.minimum(:dt:,0.2 * dt.diff(:mu:,:rho:))
+:dt: = numpy.minimum(:dt:,0.1 * dt.diff(:beta:,:rho:))
+:dt: = numpy.minimum(:dt:,0.1 * dt.diff(:mu:,:rho:))
 """

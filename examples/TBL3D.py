@@ -135,21 +135,23 @@ viz = True
 tt = 3.0 #
 
 # Start time loop
-viz_freq = 10
+viz_freq = 100
 pvar = 'umag'
 
-TBL.DFinflow()
+#TBL.DFinflow()
 wvars = ['p','rho','u','v','w','mu','beta','cs']
 
-for i in range(1,nx):
-    ss.var('u').data[i,:,:] = ss.var('u').data[0,:,:]
+#for i in range(1,nx):
+#    ss.var('u').data[i,:,:] = ss.var('u').data[0,:,:]
+
+
+TBL.DFinflow()
 
 ss.parse(":rhou: = :rho:*:u:")
-
 ss.write(wvars)
 
 if 1:
-    CFL = 1.0
+    CFL = 0.8
     dt = ss.var('dt').data * CFL
     while tt > time:
 
