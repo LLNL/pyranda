@@ -489,7 +489,13 @@ class pyrandaSim:
 
     def dd4x(self,val):
         return self.PyMPI.der.dd4x( val )
-        
+
+    def dd4y(self,val):
+        return self.PyMPI.der.dd4y( val )
+
+    def dd4z(self,val):
+        return self.PyMPI.der.dd4z( val )
+
     def div(self,f1,f2=None,f3=None):
 
         if (type(f2) == type(None) and type(f3) == type(None)):
@@ -679,6 +685,9 @@ class pyrandaSim:
         sMap['lap(' ] = 'self.laplacian('
         sMap['ring(' ] = 'self.ring('
         sMap['ringV(' ] = 'self.ringV('
+        sMap['dd4x(' ] = 'self.dd4x('
+        sMap['dd4y(' ] = 'self.dd4y('
+        sMap['dd4z(' ] = 'self.dd4z('
         sMap['sum(' ] = 'self.PyMPI.sum3D('
         sMap['mean('] = '1.0/float(self.npts) * self.PyMPI.sum3D('
         sMap['sign(' ] = 'numpy.sign('
@@ -694,6 +703,7 @@ class pyrandaSim:
         sMap['min('] = 'self.PyMPI.min3D('
         sMap['3d('] = 'self.emptyScalar('
         sMap['pi'] = 'numpy.pi'
+        sMap['meshVar('] = 'self.PyMPI.getVar('
         
         sMap['meshx']   = 'self.mesh.coords[0].data'
         sMap['meshy']   = 'self.mesh.coords[1].data'

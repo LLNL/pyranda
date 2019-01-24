@@ -23,7 +23,7 @@ p0 = 1.0
 rho0 = .1
 gamma = 1.4
 u0 = mach * numpy.sqrt( p0 / rho0 * gamma)
-mu0 = u0 * delBL * rho0 / Re
+mu0 = 0.0 #u0 * delBL * rho0 / Re
 
 #Re = u0 del0 den / ( mu0
 def wallMesh(i,j,k):
@@ -80,8 +80,8 @@ ss.addPackage( TBL )
 
 
 # Import 3D Euler-curvilinear
-from equation_library import euler_3d
-
+#from equation_library import euler_3d
+from equation_library import euler_3d_dir as euler_3d
 
 euler_3d += """
 bc.const(['u','v','w'],['y1'],0.0)
@@ -116,6 +116,20 @@ bc.const( ['u','v','w'] , ['y1'] , 0.0 )
 :cs:  = sqrt( :p: / :rho: * :gamma: )
 :dt: = dt.courant(:u:,:v:,:w:,:cs:)
 TBL.setup()
+# Mesh metrics from parcops
+:dAdx: = meshVar('dAx')
+:dAdy: = meshVar('dAy')
+:dAdz: = meshVar('dAz')
+:dBdx: = meshVar('dBx')
+:dBdy: = meshVar('dBy')
+:dBdz: = meshVar('dBz')
+:dCdx: = meshVar('dCx')
+:dCdy: = meshVar('dCy')
+:dCdz: = meshVar('dCz')
+:detJ: = meshVar('dtJ')
+:dA: = meshVar('d1')
+:dB: = meshVar('d2')
+:dC: = meshVar('d3')
 """
 ic = ic.replace('mach',str(mach))
 ic = ic.replace('rho0',str(rho0))
@@ -135,11 +149,11 @@ viz = True
 tt = 3.0 #
 
 # Start time loop
-viz_freq = 100
+viz_freq = 30
 pvar = 'umag'
 
 #TBL.DFinflow()
-wvars = ['p','rho','u','v','w','mu','beta','cs']
+wvars = ['p','rho','u','v','w','betaA','betaB','betaC','cs']
 
 #for i in range(1,nx):
 #    ss.var('u').data[i,:,:] = ss.var('u').data[0,:,:]
@@ -151,7 +165,7 @@ ss.parse(":rhou: = :rho:*:u:")
 ss.write(wvars)
 
 if 1:
-    CFL = 0.8
+    CFL = 1.0
     dt = ss.var('dt').data * CFL
     while tt > time:
 
@@ -163,9 +177,10 @@ if 1:
         #ss.cycle += 1
         dt = min( ss.variables['dt'].data * CFL, dt)
         dt = min(dt, (tt - time) )
-
+        dtCFL = ss.variables['dtC'].data
+    
         # Print some output
-        ss.iprint("%s -- %.6e --- %.4e" % (ss.cycle,time,dt)  )
+        ss.iprint("%s -- %.6e --- %.4e --- CFL: %.4e" % (ss.cycle,time,dt,dt/dtCFL)  )
 
         if (ss.cycle%viz_freq == 0) :
             ss.write(wvars)            
