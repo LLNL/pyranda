@@ -164,7 +164,7 @@ TBL.DFinflow()
 ss.parse(":rhou: = :rho:*:u:")
 ss.write(wvars)
 
-if 1:
+if 0:
     CFL = 1.0
     dt = ss.var('dt').data * CFL
     while tt > time:
