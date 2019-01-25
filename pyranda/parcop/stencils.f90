@@ -1554,7 +1554,7 @@ contains
     TYPE(compact_weight), intent(out) :: ff
     INTEGER(c_int), PARAMETER :: nol = 0, nor = 3, nir = 3
     INTEGER(c_int), PARAMETER :: ncl=2*nol+1, ncr=nor+nir+1, nci=2*nol
-    INTEGER(c_int), PARAMETER :: nst = 0, nbc1 = 4, nbc2 = 4
+    INTEGER(c_int), PARAMETER :: nst = 0, nbc1 = 3, nbc2 = 3
     LOGICAL(c_bool),PARAMETER :: implicit_op = .false.
     ! Fourth order 4th derivative
     DOUBLE PRECISION, PARAMETER :: agau = 28.0D0/3.0D0
