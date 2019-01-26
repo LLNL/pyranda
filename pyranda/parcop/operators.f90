@@ -530,6 +530,33 @@
      ENDIF
    END FUNCTION ringz
 
+
+   SUBROUTINE filterGdir(filtype,fun,bar,direction)
+    IMPLICIT NONE
+    CHARACTER(LEN=*), INTENT(IN) :: filtype
+    DOUBLE PRECISION, DIMENSION(:,:,:), INTENT(IN) :: fun
+    DOUBLE PRECISION, DIMENSION(:,:,:), INTENT(OUT) :: bar
+    INTEGER, INTENT(IN)  :: direction ! 1-x,2-y,3-z
+    DOUBLE PRECISION, DIMENSION(SIZE(fun,1),SIZE(fun,2),SIZE(fun,3)) :: tmp
+    REAL(c_double), DIMENSION(:,:,:), POINTER :: CellBar
+    INTEGER :: filnum,xasym,yasym,zasym
+
+    ASSOCIATE( Gfilter=>compact_ptr%control%gfspec )
+
+      IF (direction == 1)  THEN
+         CALL bppfx(fun,bar,Gfilter,1)
+      END IF
+      IF (direction == 2)  THEN
+         CALL bppfy(fun,bar,Gfilter,1)
+      END IF
+      IF (direction == 3)  THEN
+         CALL bppfz(fun,bar,Gfilter,1)
+      END IF
+      
+    END ASSOCIATE
+  END SUBROUTINE filterGdir
+
+    
 ! CONSERVATIVE FILTER (except for 'smooth' filtype)=================================================
    SUBROUTINE filter(filtype,fun,bar,component)
     IMPLICIT NONE

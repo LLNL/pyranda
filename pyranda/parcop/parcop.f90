@@ -14,7 +14,7 @@ MODULE parcop
   USE LES_comm, ONLY : LES_comm_world
   USE LES_compact_operators, ONLY : d1x,d1y,d1z,d4x,d4y,d4z
   USE LES_operators, ONLY : div,grad,Laplacian
-  USE LES_operators, ONLY : curl,cross,filter,ring,ringV
+  USE LES_operators, ONLY : curl,cross,filter,ring,ringV,filterGdir
   USE LES_operators, ONLY : get_rands_normal, filtRands
   
   CONTAINS
@@ -319,6 +319,17 @@ MODULE parcop
       CALL filter(filtype,val,dval)
 
     END SUBROUTINE gFilter
+    
+    SUBROUTINE gFilterDir(val,dval,nx,ny,nz,dir)
+      IMPLICIT NONE
+      INTEGER,               INTENT(IN) :: nx,ny,nz,dir
+      real(kind=8), dimension(nx,ny,nz), intent(in) :: val
+      real(kind=8), dimension(nx,ny,nz),intent(out) :: dval
+      CHARACTER(LEN=6), PARAMETER :: filtype='smooth'
+
+      CALL filterGdir(filtype,val,dval,dir)
+
+    END SUBROUTINE gFilterDir
 
 
     SUBROUTINE gradS(val,val1,val2,val3,nx,ny,nz)

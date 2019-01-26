@@ -16,14 +16,25 @@ Ly = 5.0
 Lz = 0.5
 
 
+problem = 'myTBL_2'
+nx = 400
+ny = 128
+nz = 32
+
+Lx = 25.0
+Ly = 10.0
+Lz = 1.0
+
+
+
 delBL = 2.5
-Re = 1500
+Re = 1.0e12
 mach = 0.3
 p0 = 1.0
 rho0 = .1
 gamma = 1.4
 u0 = mach * numpy.sqrt( p0 / rho0 * gamma)
-mu0 = 0.0 #u0 * delBL * rho0 / Re
+mu0 = u0 * delBL * rho0 / Re
 
 #Re = u0 del0 den / ( mu0
 def wallMesh(i,j,k):
@@ -63,11 +74,11 @@ TBL.UIx = 10
 TBL.UIy = [ 10, 15 ]
 TBL.UIz = 10
         
-TBL.VIx = 4
+TBL.VIx = 8
 TBL.VIy = [ 15, 20 ]
 TBL.VIz = 10
       
-TBL.WIx = 4
+TBL.WIx = 8
 TBL.WIy = [ 10, 20 ]
 TBL.WIz = 10
 
@@ -75,7 +86,7 @@ TBL.Nbuff = 20 * 2
 TBL.BL_data = BL_data
 TBL.U_in    = u0 / 18.93   # Max val data / mean flow u0 in pyranda
 TBL.del_BL  = 2.5 / 100.0  # Data val at BL / physical location
-TBL.tauX    = 10.2
+TBL.tauX    = 2.5
 ss.addPackage( TBL )
 
 
@@ -87,13 +98,24 @@ euler_3d += """
 bc.const(['u','v','w'],['y1'],0.0)
 bc.extrap(['rho','p'],['y1','yn'])
 bc.extrap(['rho','p'],['xn'])
+bc.const(['rho'],['x1'],rho0)
+bc.const(['p'],['x1'],p0)
 TBL.inflow()
+# Sponge outflow
+:wgt: = ( 1.0 + tanh( (meshx-Lx*(1.0-0.025))/ (.025*Lx) ) ) * 0.5
+:u: = :u:*(1-:wgt:) + gbarx(:u:)*:wgt:
+:v: = :v:*(1-:wgt:) + gbarx(:v:)*:wgt:
+:w: = :w:*(1-:wgt:) + gbarx(:w:)*:wgt:
+bc.extrap(['u','v','w'],['xn'])
 :rhou: = :rho:*:u:
 :rhov: = :rho:*:v:
 :rhow: = :rho:*:w:
 :Et:   =  .5*:rho:*(:u:*:u: + :v:*:v: + :w:*:w:)  + :p: / ( :gamma: - 1.0 )
 """
 euler_3d = euler_3d.replace('mu0',str(mu0))
+euler_3d = euler_3d.replace('rho0',str(rho0))
+euler_3d = euler_3d.replace('p0',str(p0))
+euler_3d = euler_3d.replace('Lx',str(Lx))
 
 # Add the EOM to the solver
 ss.EOM(euler_3d)
@@ -146,7 +168,7 @@ time = 0.0
 viz = True
 
 # Approx a max dt and stopping time
-tt = 3.0 #
+tt = 20.0 #
 
 # Start time loop
 viz_freq = 30
@@ -164,8 +186,8 @@ TBL.DFinflow()
 ss.parse(":rhou: = :rho:*:u:")
 ss.write(wvars)
 
-if 0:
-    CFL = 1.0
+if 1:
+    CFL = 0.9
     dt = ss.var('dt').data * CFL
     while tt > time:
 

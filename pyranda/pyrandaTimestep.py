@@ -36,6 +36,7 @@ class pyrandaTimestep(pyrandaPackage):
         sMap = {}
         sMap['dt.courant('] = "self.packages['Timestep'].courant("
         sMap['dt.diff('] = "self.packages['Timestep'].diff("
+        sMap['dt.diffDir('] = "self.packages['Timestep'].diffDir("
         self.sMap = sMap
 
     def courant(self,u,v,w,c):
@@ -74,5 +75,14 @@ class pyrandaTimestep(pyrandaPackage):
         dt_max = self.pyranda.PyMPI.min3D( drate )
 
         return dt_max
+
+
+    def diffDir(self,bulk,density,delta):
+
+        drate = density * delta * delta / numpy.maximum( 1.0e-12, bulk )
+        dt_max = self.pyranda.PyMPI.min3D( drate )
+
+        return dt_max
+
         
         

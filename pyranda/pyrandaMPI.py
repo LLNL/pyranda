@@ -595,6 +595,11 @@ class parcop_gfil:
     def filter(self,val):
         return parcop.parcop.gfilter( val)
 
+    def filterDir(self,val,direction):
+        return parcop.parcop.gfilterdir( val, direction)
+
+    
+    
 class parcop_sfil:
 
     def __init__(self):
