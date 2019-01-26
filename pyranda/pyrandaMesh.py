@@ -158,6 +158,7 @@ def defaultMeshOptions():
     options['xn'] = [ 1   , 1    ,  1   ]
     options['nn'] = [ 1   , 1    ,  1   ]
     options['periodic'] = [False, False, False]
+    options['periodicGrid'] = True  # Recompute
     options['dim'] = 1
     options['coordsys'] = 0
     options['function'] = None
