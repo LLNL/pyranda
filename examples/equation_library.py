@@ -82,9 +82,9 @@ ddt(:Et:)   =  ( -ddx( :FAe:*:detJ: ) - ddy( :FBe:*:detJ: ) - ddz( :FCe:*:detJ: 
 [:vx:,:vy:,:vz:] = grad(:v:)
 [:wx:,:wy:,:wz:] = grad(:w:)
 # Artificial bulk viscosity 
-#:mu:        =  gbar( ringV(:u:,:v:,:w:) * :rho: ) * 0.0e-1 + mu0
+:mu:        =  gbar( ringV(:u:,:v:,:w:) * :rho: ) * 1.0e-4 + mu0
 #:beta:      =  gbar( abs(ring(:div:)) * :rho: )  * 7.0e-2
-:mu:        = 0.0*:mu:
+#:mu:        = mu0
 :beta:      =  0.0*:beta: #gbar( abs(ring(:div:)) * :rho: )  * 7.0e-2
 :taudia:    =  (:beta:-2./3.*:mu:) *:div: - :p:
 :tauxx:     =  2.0*:mu:*:ux:   + :taudia:
@@ -106,7 +106,9 @@ ddt(:Et:)   =  ( -ddx( :FAe:*:detJ: ) - ddy( :FBe:*:detJ: ) - ddz( :FCe:*:detJ: 
 :betaC: = :rho: * :betaT: * :dC:
 :cs:  = sqrt( :p: / :rho: * :gamma: )
 :dtC: = dt.courant(:u:,:v:,:w:,:cs:)*1.0
-:dt: = numpy.minimum(:dtC:,0.1 * dt.diff(:beta:,:rho:))
+:dt: = numpy.minimum(:dtC:,0.2 * dt.diffDir(:betaA:,:rho:,:dA:))
+:dt: = numpy.minimum(:dt: ,0.2 * dt.diffDir(:betaB:,:rho:,:dB:))
+:dt: = numpy.minimum(:dt: ,0.2 * dt.diffDir(:betaC:,:rho:,:dC:))
 :dt: = numpy.minimum(:dt:,0.1 * dt.diff(:mu:,:rho:))
 # Physical fluxes
 :Fxu: = :rhou:*:u: - :tauxx:

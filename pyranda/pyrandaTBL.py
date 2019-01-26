@@ -329,6 +329,6 @@ def readTBLdata(fileName,delimiter=None):
     """
     
     ff = numpy.loadtxt(fileName,delimiter=delimiter)              
-    ii = interpolate.interp1d(ff[:,0], ff[:,1])
+    ii = interpolate.interp1d(ff[:,0], ff[:,1],fill_value='extrapolate')
 
     return ii

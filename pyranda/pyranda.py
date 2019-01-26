@@ -567,19 +567,13 @@ class pyrandaSim:
         return self.PyMPI.getVar(vname)    
                                  
     def gfilterx(self,val):
-        f_tilde = self.emptyScalar()
-        self.PyMPI.gfil.filter_x(val, f_tilde)
-        return f_tilde
+        return self.PyMPI.gfil.filterDir(val, 1)
 
     def gfiltery(self,val):
-        f_tilde = self.emptyScalar()
-        self.PyMPI.gfil.filter_y(val, f_tilde)
-        return f_tilde
+        return self.PyMPI.gfil.filterDir(val, 2)
 
     def gfilterz(self,val):
-        f_tilde = self.emptyScalar()
-        self.PyMPI.gfil.filter_z(val, f_tilde)
-        return f_tilde 
+        return self.PyMPI.gfil.filterDir(val, 3)
 
     def gfilter(self,val):
         return self.PyMPI.gfil.filter(val)
@@ -679,6 +673,9 @@ class pyrandaSim:
         sMap['ddz(' ] = 'self.ddz('
         sMap['fbar('] = 'self.filter('
         sMap['gbar('] = 'self.gfilter('
+        sMap['gbarx('] = 'self.gfilterx('
+        sMap['gbary('] = 'self.gfiltery('
+        sMap['gbarz('] = 'self.gfilterz('
         sMap['grad('] = 'self.grad('
         sMap['simtime'] = 'self.time'
         sMap['deltat'] = 'self.deltat'
