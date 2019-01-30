@@ -100,15 +100,15 @@ class pyrandaMesh:
                 # Evaluate an ijk function for the mesh
                 if 'function' in self.options:
                     self.function = self.options['function']
-
-                    for i in range(ax):
-                        for j in range(ay):
-                            for k in range(az):
-                                # Get global indices
-                                ii = i + self.PyMPI.chunk_3d_lo[0]
-                                jj = j + self.PyMPI.chunk_3d_lo[1]
-                                kk = k + self.PyMPI.chunk_3d_lo[2]
-                                x[i,j,k],y[i,j,k],z[i,j,k] = self.function(ii,jj,kk)
+                    if self.function:
+                        for i in range(ax):
+                            for j in range(ay):
+                                for k in range(az):
+                                    # Get global indices
+                                    ii = i + self.PyMPI.chunk_3d_lo[0]
+                                    jj = j + self.PyMPI.chunk_3d_lo[1]
+                                    kk = k + self.PyMPI.chunk_3d_lo[2]
+                                    x[i,j,k],y[i,j,k],z[i,j,k] = self.function(ii,jj,kk)
             
             # Define the grid here (send to fortran
             #mesh_perX = options['gridPeriodic'][0]

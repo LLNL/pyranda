@@ -836,6 +836,7 @@ def pyrandaRestart(rootname,suffix=None):
     # Make the object - (will do new domain-decomp)
     # clip functions
     serial_data['mesh'].pop('function',None)
+    serial_data['mesh'].pop('function-name',None)
     pysim = pyrandaSim(rootname,serial_data['mesh'])
 
     # Load packages
@@ -847,7 +848,7 @@ def pyrandaRestart(rootname,suffix=None):
 
     # EOM and IC's
     pysim.EOM( serial_data['EOM'] )
-    pysim.setIC( serial_data['ICs'] )
+    #pysim.setIC( serial_data['ICs'] )
     pysim.time = serial_data['time']
     pysim.deltat = serial_data['deltat']
     
