@@ -170,6 +170,12 @@ while time < tstop:
             ss.plot.contourf(pvar ,64 , slice3d='k=16', cmap=cm.jet)
             ss.plot.title(pvar+',Time=%f' % time)
 
+
+
+data = ss.PyMPI.subsum3xz( ss.mesh.coords[1].data ) / (Npts*Npts)
+if ss.PyMPI.master:
+    print(data)
+            
 if test:
     print(enst)
 else:

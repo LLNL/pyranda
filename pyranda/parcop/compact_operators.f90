@@ -168,6 +168,77 @@ contains
     ! dv = dv/mesh_data%d3**2  ! 3D metric
   end subroutine d2z
 
+
+  subroutine d4x(v,dv,bc,vb1,vb2)
+    IMPLICIT NONE
+    real(kind=c_double), dimension(:,:,:), intent(in) :: v
+    real(kind=c_double), dimension(:,:,:),intent(out) :: dv
+    real(kind=c_double), dimension(:,:,:), intent(in), optional :: vb1,vb2
+    integer(c_int), intent(in), optional :: bc
+    integer(c_int) :: iop,i,j,k
+    ! perform operation?
+    if( compact_ops%control%null_opx ) then
+      dv = zero
+      return
+    endif
+    ! symmetry option
+    iop = 1
+    if( present(bc) ) then
+      if( bc > 0 ) iop = bc
+      if( bc == -1 .and. allocated(compact_ops%d4x(2)%ar) ) iop = 2
+    endif
+    ! calculate grid derivative sans metric
+    dv = compact_ops%d4x(iop)%evalx(v,vb1,vb2)
+    ! No metric... unity assumed
+  end subroutine d4x
+
+  subroutine d4y(v,dv,bc,vb1,vb2)
+    IMPLICIT NONE
+    real(kind=c_double), dimension(:,:,:), intent(in) :: v
+    real(kind=c_double), dimension(:,:,:),intent(out) :: dv
+    real(kind=c_double), dimension(:,:,:), intent(in), optional :: vb1,vb2
+    integer(c_int), intent(in), optional :: bc
+    integer(c_int) :: iop,i,j,k
+    ! perform operation?
+    if( compact_ops%control%null_opy ) then
+      dv = zero
+      return
+    endif
+    ! symmetry option
+    iop = 1
+    if( present(bc) ) then
+      if( bc > 0 ) iop = bc
+      if( bc == -1 .and. allocated(compact_ops%d4y(2)%ar) ) iop = 2
+    endif
+    ! calculate grid derivative sans metric
+    dv = compact_ops%d4y(iop)%evaly(v,vb1,vb2)
+    ! No metric... unity assumed
+  end subroutine d4y
+
+  subroutine d4z(v,dv,bc,vb1,vb2)
+    IMPLICIT NONE
+    real(kind=c_double), dimension(:,:,:), intent(in)  :: v
+    real(kind=c_double), dimension(:,:,:), intent(out) :: dv
+    real(kind=c_double), dimension(:,:,:), intent(in), optional :: vb1,vb2
+    integer(c_int), intent(in), optional :: bc
+    integer(c_int) :: iop,i,j,k
+    ! perform operation?
+    if( compact_ops%control%null_opz ) then
+      dv = zero
+      return
+    endif
+    ! symmetry option
+    iop = 1
+    if( present(bc) ) then
+      if( bc > 0 ) iop = bc
+      if( bc == -1 .and. allocated(compact_ops%d4z(2)%ar) ) iop = 2
+    endif
+    ! calculate grid derivative sans metric
+    dv = compact_ops%d4z(iop)%evalz(v,vb1,vb2)
+    ! No metric... unity assumed
+  end subroutine d4z
+
+  
   subroutine d8x(v,dv,bc,vb1,vb2)
     IMPLICIT NONE
     real(kind=c_double), dimension(:,:,:), intent(in) :: v

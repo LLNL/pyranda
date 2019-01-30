@@ -82,7 +82,7 @@ class pyrandaIO:
         fid.write("DIMENSIONS  %s %s %s  \n" % (ax,ay,az))
         fid.write("POINTS %s float  \n" % len(fx))
 
-        numpy.savetxt(fid,mesh,fmt='%f')
+        numpy.savetxt(fid,mesh,fmt='%.6e')
 
         fid.write("POINT_DATA %s  \n" % len(fx) )
 
@@ -93,7 +93,7 @@ class pyrandaIO:
                 gdata = self.PyMPI.ghost( variables[var].data )
             else:
                 gdata = variables[var].data
-            numpy.savetxt(fid,gdata.flatten(order='F') ,fmt='%f')
+            numpy.savetxt(fid,gdata.flatten(order='F') ,fmt='%.6e')
         
         fid.close()
         

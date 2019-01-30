@@ -232,6 +232,15 @@ class pyrandaMPI():
         return numpy.reshape(fldataT, (n1,n2), order = 'C' )
 
 
+    def subsum3xz(self,data):
+        icom = self.xzcom
+        lsum = numpy.sum( data, (0,2) )
+        gsum = self.xzcom.allreduce( lsum, op=MPI.SUM )
+        Gsum = self.ycom.allgather( gsum )
+        return numpy.concatenate(Gsum)
+        
+
+    
     def sum2D(self,data,com,n2,n3,index,g2,g3):
 
         a2 = g2[1] - g2[0]
@@ -547,6 +556,15 @@ class parcop_der:
     def ddz(self,val):        
         return parcop.parcop.ddz(  val )
 
+    def dd4x(self,val):
+        return parcop.parcop.dd4x(  val )
+
+    def dd4y(self,val):
+        return parcop.parcop.dd4y(  val )
+
+    def dd4z(self,val):
+        return parcop.parcop.dd4z(  val )
+
     def div(self,fx,fy,fz):
         return parcop.parcop.divergence(fx,fy,fz)
 
@@ -577,6 +595,11 @@ class parcop_gfil:
     def filter(self,val):
         return parcop.parcop.gfilter( val)
 
+    def filterDir(self,val,direction):
+        return parcop.parcop.gfilterdir( val, direction)
+
+    
+    
 class parcop_sfil:
 
     def __init__(self):

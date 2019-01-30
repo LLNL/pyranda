@@ -530,6 +530,33 @@
      ENDIF
    END FUNCTION ringz
 
+
+   SUBROUTINE filterGdir(filtype,fun,bar,direction)
+    IMPLICIT NONE
+    CHARACTER(LEN=*), INTENT(IN) :: filtype
+    DOUBLE PRECISION, DIMENSION(:,:,:), INTENT(IN) :: fun
+    DOUBLE PRECISION, DIMENSION(:,:,:), INTENT(OUT) :: bar
+    INTEGER, INTENT(IN)  :: direction ! 1-x,2-y,3-z
+    DOUBLE PRECISION, DIMENSION(SIZE(fun,1),SIZE(fun,2),SIZE(fun,3)) :: tmp
+    REAL(c_double), DIMENSION(:,:,:), POINTER :: CellBar
+    INTEGER :: filnum,xasym,yasym,zasym
+
+    ASSOCIATE( Gfilter=>compact_ptr%control%gfspec )
+
+      IF (direction == 1)  THEN
+         CALL bppfx(fun,bar,Gfilter,1)
+      END IF
+      IF (direction == 2)  THEN
+         CALL bppfy(fun,bar,Gfilter,1)
+      END IF
+      IF (direction == 3)  THEN
+         CALL bppfz(fun,bar,Gfilter,1)
+      END IF
+      
+    END ASSOCIATE
+  END SUBROUTINE filterGdir
+
+    
 ! CONSERVATIVE FILTER (except for 'smooth' filtype)=================================================
    SUBROUTINE filter(filtype,fun,bar,component)
     IMPLICIT NONE
@@ -786,7 +813,95 @@
      forall(i=1:ax,j=1:ay,k=1:az,l=-cx:cx,m=-cy:cy,n=-cz:cz) ff(3*i+l-1,3*j+m-1,3*k+n-1) = f3(i,j,k,l,m,n)
      deallocate(f3)
    END SUBROUTINE interp_Rubik_compact
-   
+
+
+   SUBROUTINE filtRands(Nspan,Ni,No,Nbuff, &
+        bmnI,bmnO,rands,vfilt, &
+        ny, nz, ay, az, iy1, iz1,y_r )        
+     !USE inputs, ONLY: ny,nz
+     !USE globals, ONLY: iy,iz,ay,az
+     !USE nozfull_data, ONLY: y_r
+     IMPLICIT NONE
+
+     INTEGER, INTENT(IN) :: Nspan,Ni,No,Nbuff
+     INTEGER, INTENT(IN) :: ny,nz,iy1,iz1,ay,az
+     DOUBLE PRECISION, INTENT(IN) :: y_r(ay)
+     DOUBLE PRECISION, INTENT(IN) ::  rands(ny+Nbuff,nz+Nbuff)
+     DOUBLE PRECISION, INTENT(IN) ::  bmnI(2*Ni+1,2*Nspan+1), bmnO(2*No+1,2*Nspan+1)
+     DOUBLE PRECISION, DIMENSION(ay,az), INTENT(OUT) :: vfilt(ay,az)
+     DOUBLE PRECISION, DIMENSION(:,:), ALLOCATABLE :: filt
+
+     INTEGER :: N1,N2
+     INTEGER :: j,k,m,n,mm,nn
+     INTEGER :: mF,mG,nF,nG
+     
+     N2 = Nspan
+     DO j=1,ay
+
+        ! Inner Layer
+        IF( y_r(j) < 1.0D0 ) THEN
+           N1 = Ni
+           IF(.NOT. ALLOCATED(filt)) ALLOCATE(filt(SIZE(bmnI,1),SIZE(bmnI,2) )  )
+           filt = bmnI
+           ! Outer Layer
+        ELSE
+           N1 = No
+           IF(.NOT. ALLOCATED(filt)) ALLOCATE(filt(SIZE(bmnO,1),SIZE(bmnO,2) ) )
+           filt = bmnO
+        END IF
+        
+        DO k=1,az
+           vfilt(j,k) = 0.0D0
+           
+           DO m=-N1,N1,1
+              mG = (iy1 ) + j + (m + N1)
+              mF = m + N1 + 1
+              
+              DO n=-N2,N2,1
+                 nG = (iz1 ) + k + (n + N2)
+                 nF = n + N2 + 1
+                 !vfilt(j,k) = vfilt(j,k) + filt(mF,nF)*rands(mG,nG)
+                 vfilt(j,k) = vfilt(j,k) + filt(mF,nF)*rands( 1+MOD(mG-1,ny) , 1+MOD(nG-1,nz) )
+                 
+              END DO
+           END DO
+        END DO
+        
+        DEALLOCATE(filt)  ! Every new y, compute a new filter
+     END DO
+     
+   END SUBROUTINE filtRands
+
+   SUBROUTINE get_rands_normal(rands,ny,nz,Nbuff,time_seed)
+     IMPLICIT NONE
+     DOUBLE PRECISION, DIMENSION(4,ny+Nbuff,nz+Nbuff),INTENT(OUT) :: rands
+     INTEGER, INTENT(IN) :: ny,nz,Nbuff
+     INTEGER, INTENT(IN) :: time_seed 
+     integer, allocatable :: seed(:)
+     DOUBLE PRECISION, DIMENSION(4,ny+Nbuff,nz+Nbuff) :: rtmp
+     integer :: n
+     DOUBLE PRECISION :: two=2.0D0,pi=3.14159265359
+
+     call random_seed(size = n)
+     allocate(seed(n))
+     seed(:) = time_seed
+     call random_seed(put=seed)
+
+
+     ! Get the RNs... same for all procs     
+     CALL random_number(rands)
+
+     ! Make them have normal distribution (Box-Mueller theorem)
+     rtmp(1:2,:,:) = sqrt( -two*LOG(rands((/1,3/),:,:))) * cos(two*pi*rands((/2,4/),:,:))
+     rtmp(3:4,:,:) = sqrt( -two*LOG(rands((/1,3/),:,:))) * sin(two*pi*rands((/2,4/),:,:))
+     rands = rtmp
+     
+   END SUBROUTINE get_rands_normal
+
+
+
+
+
 !===================================================================================================
  END MODULE LES_operators
 !=================================================================================================== 

@@ -294,8 +294,8 @@ class pyrandaSim:
 
 
         
-    def emptyScalar(self):
-        return self.PyMPI.emptyScalar()
+    def emptyScalar(self,val=0.0):
+        return self.PyMPI.emptyScalar() + val
         
     def updateFlux(self):
         #
@@ -471,10 +471,7 @@ class pyrandaSim:
         self.PyIO.makeDump(iodata,dumpName)
 
         
-        
-
-        
-                        
+                                        
     def ddx(self,val):
         if self.nx <= 1:
             return 0.0
@@ -490,7 +487,15 @@ class pyrandaSim:
             return 0.0
         return self.PyMPI.der.ddz( val )
 
-        
+    def dd4x(self,val):
+        return self.PyMPI.der.dd4x( val )
+
+    def dd4y(self,val):
+        return self.PyMPI.der.dd4y( val )
+
+    def dd4z(self,val):
+        return self.PyMPI.der.dd4z( val )
+
     def div(self,f1,f2=None,f3=None):
 
         if (type(f2) == type(None) and type(f3) == type(None)):
@@ -562,19 +567,13 @@ class pyrandaSim:
         return self.PyMPI.getVar(vname)    
                                  
     def gfilterx(self,val):
-        f_tilde = self.emptyScalar()
-        self.PyMPI.gfil.filter_x(val, f_tilde)
-        return f_tilde
+        return self.PyMPI.gfil.filterDir(val, 1)
 
     def gfiltery(self,val):
-        f_tilde = self.emptyScalar()
-        self.PyMPI.gfil.filter_y(val, f_tilde)
-        return f_tilde
+        return self.PyMPI.gfil.filterDir(val, 2)
 
     def gfilterz(self,val):
-        f_tilde = self.emptyScalar()
-        self.PyMPI.gfil.filter_z(val, f_tilde)
-        return f_tilde 
+        return self.PyMPI.gfil.filterDir(val, 3)
 
     def gfilter(self,val):
         return self.PyMPI.gfil.filter(val)
@@ -674,12 +673,18 @@ class pyrandaSim:
         sMap['ddz(' ] = 'self.ddz('
         sMap['fbar('] = 'self.filter('
         sMap['gbar('] = 'self.gfilter('
+        sMap['gbarx('] = 'self.gfilterx('
+        sMap['gbary('] = 'self.gfiltery('
+        sMap['gbarz('] = 'self.gfilterz('
         sMap['grad('] = 'self.grad('
         sMap['simtime'] = 'self.time'
         sMap['deltat'] = 'self.deltat'
         sMap['lap(' ] = 'self.laplacian('
         sMap['ring(' ] = 'self.ring('
         sMap['ringV(' ] = 'self.ringV('
+        sMap['dd4x(' ] = 'self.dd4x('
+        sMap['dd4y(' ] = 'self.dd4y('
+        sMap['dd4z(' ] = 'self.dd4z('
         sMap['sum(' ] = 'self.PyMPI.sum3D('
         sMap['mean('] = '1.0/float(self.npts) * self.PyMPI.sum3D('
         sMap['sign(' ] = 'numpy.sign('
@@ -693,8 +698,9 @@ class pyrandaSim:
         sMap['where('] = 'numpy.where('
         sMap['max('] = 'self.PyMPI.max3D('
         sMap['min('] = 'self.PyMPI.min3D('
-        sMap['3d()'] = 'self.emptyScalar()'
+        sMap['3d('] = 'self.emptyScalar('
         sMap['pi'] = 'numpy.pi'
+        sMap['meshVar('] = 'self.PyMPI.getVar('
         
         sMap['meshx']   = 'self.mesh.coords[0].data'
         sMap['meshy']   = 'self.mesh.coords[1].data'

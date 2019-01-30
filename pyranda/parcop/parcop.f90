@@ -12,10 +12,11 @@ MODULE parcop
 
   USE LES_objects
   USE LES_comm, ONLY : LES_comm_world
-  USE LES_compact_operators, ONLY : d1x, d1y, d1z
+  USE LES_compact_operators, ONLY : d1x,d1y,d1z,d4x,d4y,d4z
   USE LES_operators, ONLY : div,grad,Laplacian
-  USE LES_operators, ONLY : curl,cross,filter,ring,ringV
-
+  USE LES_operators, ONLY : curl,cross,filter,ring,ringV,filterGdir
+  USE LES_operators, ONLY : get_rands_normal, filtRands
+  
   CONTAINS
 
 
@@ -69,13 +70,13 @@ MODULE parcop
     END SUBROUTINE setup_mesh
 
 
-    SUBROUTINE setup_mesh_x3(patch,level,x1,x2,x3) !mesh_perX,mesh_perY,mesh_perZ)
+    SUBROUTINE setup_mesh_x3(patch,level,x1,x2,x3,meshPer) !mesh_perX,mesh_perY,mesh_perZ)
       IMPLICIT NONE
       INTEGER,               INTENT(IN) :: patch,level
       REAL(kind=8), DIMENSION(:,:,:), INTENT(IN) :: x1,x2,x3
-      !LOGICAL, INTENT(IN) :: mesh_perX,mesh_perY,mesh_perZ
+      LOGICAL, INTENT(IN) :: meshPer !mesh_perX,mesh_perY,mesh_perZ
       
-      CALL setup_mesh_data_x3(patch,level,x1,x2,x3) !mesh_perX,mesh_perY,mesh_perZ)
+      CALL setup_mesh_data_x3(patch,level,x1,x2,x3,meshPer) !mesh_perX,mesh_perY,mesh_perZ)
       
     END SUBROUTINE setup_mesh_x3
 
@@ -103,10 +104,25 @@ MODULE parcop
          dxg = mesh_ptr%dAdx
       CASE('dAy')
          dxg = mesh_ptr%dAdy
+      CASE('dAz')
+         dxg = mesh_ptr%dAdz
       CASE('dBx')
          dxg = mesh_ptr%dBdx
       CASE('dBy')
          dxg = mesh_ptr%dBdy
+      CASE('dBz')
+         dxg = mesh_ptr%dBdz
+      CASE('dCx')
+         dxg = mesh_ptr%dCdx
+      CASE('dCy')
+         dxg = mesh_ptr%dCdy
+      CASE('dCz')
+         dxg = mesh_ptr%dCdz
+      CASE('dtJ')
+         dxg = mesh_ptr%detxyz
+      CASE DEFAULT
+         print*,"You requested variable: ", TRIM(vname)
+         print*,".... I cant find that"
       END SELECT
                           
     END SUBROUTINE getVar
@@ -200,7 +216,6 @@ MODULE parcop
       real(kind=8), dimension(nx,ny,nz), intent(in) :: val
       real(kind=8), dimension(nx,ny,nz),intent(out) :: dval      
 
-
       CALL d1x(val,dval)
 
     END SUBROUTINE ddx
@@ -224,6 +239,32 @@ MODULE parcop
       CALL d1z(val,dval)
 
     END SUBROUTINE ddz
+
+    SUBROUTINE dd4x(val,dval,nx,ny,nz)
+      IMPLICIT NONE
+      INTEGER,               INTENT(IN) :: nx,ny,nz
+      real(kind=8), dimension(nx,ny,nz), intent(in) :: val
+      real(kind=8), dimension(nx,ny,nz),intent(out) :: dval      
+      CALL d4x(val,dval)
+    END SUBROUTINE dd4x
+
+    SUBROUTINE dd4y(val,dval,nx,ny,nz)
+      IMPLICIT NONE
+      INTEGER,               INTENT(IN) :: nx,ny,nz
+      real(kind=8), dimension(nx,ny,nz), intent(in) :: val
+      real(kind=8), dimension(nx,ny,nz),intent(out) :: dval      
+      CALL d4y(val,dval)
+    END SUBROUTINE dd4y
+
+    SUBROUTINE dd4z(val,dval,nx,ny,nz)
+      IMPLICIT NONE
+      INTEGER,               INTENT(IN) :: nx,ny,nz
+      real(kind=8), dimension(nx,ny,nz), intent(in) :: val
+      real(kind=8), dimension(nx,ny,nz),intent(out) :: dval      
+      CALL d4z(val,dval)
+    END SUBROUTINE dd4z
+
+    
 
     SUBROUTINE plaplacian(val,dval,nx,ny,nz)
       IMPLICIT NONE
@@ -278,6 +319,17 @@ MODULE parcop
       CALL filter(filtype,val,dval)
 
     END SUBROUTINE gFilter
+    
+    SUBROUTINE gFilterDir(val,dval,nx,ny,nz,dir)
+      IMPLICIT NONE
+      INTEGER,               INTENT(IN) :: nx,ny,nz,dir
+      real(kind=8), dimension(nx,ny,nz), intent(in) :: val
+      real(kind=8), dimension(nx,ny,nz),intent(out) :: dval
+      CHARACTER(LEN=6), PARAMETER :: filtype='smooth'
+
+      CALL filterGdir(filtype,val,dval,dir)
+
+    END SUBROUTINE gFilterDir
 
 
     SUBROUTINE gradS(val,val1,val2,val3,nx,ny,nz)
@@ -352,4 +404,38 @@ MODULE parcop
     END SUBROUTINE commyz
 
 
+
+  SUBROUTINE TBL_get_rands(rands,ny,nz,Nbuff,time_seed)
+    IMPLICIT NONE
+    DOUBLE PRECISION, DIMENSION(4,ny+Nbuff,nz+Nbuff),INTENT(OUT) :: rands
+    INTEGER, INTENT(IN) :: ny,nz,Nbuff
+    INTEGER, INTENT(IN) :: time_seed 
+
+    CALL get_rands_normal( rands, ny, nz, Nbuff, time_seed)
+
+  END SUBROUTINE TBL_get_rands
+
+
+  SUBROUTINE TBL_filter(Nspan,Ni,No,Nbuff, &
+       bmnI,bmnO,rands,vfilt, &
+       ny, nz, ay, az, iy1, iz1,y_r )        
+    IMPLICIT NONE
+    INTEGER, INTENT(IN) :: Nspan,Ni,No,Nbuff
+    INTEGER, INTENT(IN) :: ny,nz,iy1,iz1,ay,az
+    DOUBLE PRECISION, INTENT(IN) :: y_r(ay)
+    DOUBLE PRECISION, INTENT(IN) ::  rands(ny+Nbuff,nz+Nbuff)
+    DOUBLE PRECISION, INTENT(IN) ::  bmnI(2*Ni+1,2*Nspan+1), bmnO(2*No+1,2*Nspan+1)
+    DOUBLE PRECISION, DIMENSION(ay,az), INTENT(OUT) :: vfilt(ay,az)
+    INTEGER :: N1,N2
+    INTEGER :: j,k,m,n,mm,nn
+    INTEGER :: mF,mG,nF,nG
+
+    CALL filtRands( Nspan,Ni,No,Nbuff, &
+         bmnI,bmnO,rands,vfilt, &
+         ny, nz, ay, az, iy1, iz1,y_r )
+    
+  END SUBROUTINE TBL_filter
+
+
 END MODULE parcop
+
