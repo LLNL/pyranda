@@ -437,5 +437,106 @@ MODULE parcop
   END SUBROUTINE TBL_filter
 
 
+  SUBROUTINE flamencoFlux()
+
+    ! Take in pre-ghosted conserved variables and return fluxes on those EOMs
+    ! Inputs: iNnx,iNny,iNnz
+    !
+    !         U (zonal,Conserved Vars) -> rSol3D
+    !             size(iNVar,-iNcHalo+1:iNnx+iNcHalo-1,-iNcHalo+1:iNny+iNcHalo-1,-iNcHalo+1:iNnz+iNcHalo-1))
+    !         rX,rY,rZ (nodal,grid points)
+    !             size(1-iNnHalo:iNnx+iNnHalo,1-iNnHalo:iNny+iNnHalo,1-iNnHalo:iNnz+iNnHalo)
+    ! Outputs:
+    !         rFlux3D (flux of conserved vars)
+    
+    implicit none
+    integer n
+    ! Array sizes, various options
+    integer :: iNVar,iNVarComputed,iNcHalo,iNnHalo,iNnx,iNny,iNnz,iLowMachScheme,iNumberOfSpecies,iEquationOfState,iRecons,iInvOrder
+    ! Thermodynamic properties
+    real(8),allocatable,dimension(:) :: rSpecificGasConstant
+    real(8),allocatable,dimension(:,:,:) :: rCv,rCp
+    ! X,Y,Z arrays
+    real(8),allocatable,dimension(:,:,:) :: rX,rY,rZ
+    ! Solution array, flux array
+    real(8),allocatable,dimension(:,:,:,:) :: rSol3D,rFlux3D
+    
+    iNnx = 33 ! Number of nodes in x direction
+    iNny = 33 ! Number of nodes in y direction
+    iNnz = 33 ! Number of nodes in z direction
+    iNumberOfSpecies = 1 ! Number of species
+    iNVarComputed = 4+iNumberOfSpecies ! Number of computed variables in solution array
+    iNVar = iNVarComputed+4 ! Total number of variables in solution array
+    iEquationOfState = 1 ! Equation of state. 1=ideal gas (fixed gamma)
+    iRecons = 0 ! Choice of variables to reconstruct at interface. 0=conserved, 1=primitive (preferred for multispecies)
+    iInvOrder = 5 ! Reconstruction scheme to use. 1=1st order, 2=minmod, 3=van Leer, 4=superbee, 5=5th order MUSCL
+    iLowMachScheme = 1 ! Low Mach correction. 0=off, 1=on
+    
+    ! Number of halo cells based on reconstruction scheme being used
+    select case(iInvOrder)
+    case(1)
+       iNcHalo=1
+    case(2:4)
+       iNcHalo=2
+    case(5)
+       iNcHalo=3
+    end select
+    ! Number of halo nodes (always 1)
+    iNnHalo = 1
+    
+    ! Array dimensions
+    allocate(rX(1-iNnHalo:iNnx+iNnHalo,1-iNnHalo:iNny+iNnHalo,1-iNnHalo:iNnz+iNnHalo))
+    allocate(rY(1-iNnHalo:iNnx+iNnHalo,1-iNnHalo:iNny+iNnHalo,1-iNnHalo:iNnz+iNnHalo))
+    allocate(rZ(1-iNnHalo:iNnx+iNnHalo,1-iNnHalo:iNny+iNnHalo,1-iNnHalo:iNnz+iNnHalo))
+    allocate(rSol3D(iNVar,-iNcHalo+1:iNnx+iNcHalo-1,-iNcHalo+1:iNny+iNcHalo-1,-iNcHalo+1:iNnz+iNcHalo-1))
+    allocate(rFlux3D(iNVar,-iNcHalo+1:iNnx+iNcHalo-1,-iNcHalo+1:iNny+iNcHalo-1,-iNcHalo+1:iNnz+iNcHalo-1))
+    allocate(rSpecificGasConstant(iNumberOfSpecies))
+    allocate(rCv(iNumberOfSpecies,2,5))
+    allocate(rCp(iNumberOfSpecies,2,5))
+    
+    ! (X,Y,Z) coordinates of each node
+    rX = 0.d0; rY = 0.d0; rZ = 0.d0
+    
+    ! Solution array
+    rSol3D(1,:,:,:) = 0.d0 ! X momentum (rho*u)
+    rSol3D(2,:,:,:) = 0.d0 ! Y momentum (rho*v)
+    rSol3D(3,:,:,:) = 0.d0 ! Z momentum (rho*w)
+    rSol3D(4,:,:,:) = 0.d0 ! Total energy (rho*E)
+    if(iNumberOfSpecies.eq.1) then
+       rSol3D(5,:,:,:) = 0.d0 ! Density
+    elseif(iNumberOfSpecies.gt.1) then
+       do n=1,iNumberOfSpecies
+          rSol3D(4+n,:,:,:) = 0.d0 ! Density*Mass Fraction (rho*Y_n)
+       end do
+       rSol3D(iNVar-3,:,:,:) = 0.d0 ! Density
+    end if
+    rSol3D(iNVar-2,:,:,:) = 0.d0 ! Pressure
+    rSol3D(iNVar-1,:,:,:) = 0.d0 ! Gamma
+    rSol3D(iNVar,:,:,:) = 0.d0 ! Temperature
+    
+    ! Flux array
+    rFlux3D = 0.d0 ! Same as rSol3D
+    
+    ! Thermodynamic properties for fixed-gamma ideal gas
+    do n=1,iNumberOfSpecies
+       rSpecificGasConstant(n) = 1.d0 ! Specific gas constant for species n
+       rCp(n,1,1) = 1.d0 ! Specific heat at constant pressure for species n 
+       rCp(n,1,2) = 0.d0; rCp(n,1,3) = 0.d0; rCp(n,1,4) = 0.d0; rCp(n,1,5) = 0.d0 ! For fixed-gamma gas other coefficients are set to zero
+       rCp(n,2,1) = 0.d0; rCp(n,2,2) = 0.d0; rCp(n,2,3) = 0.d0; rCp(n,2,4) = 0.d0; rCp(n,2,5) = 0.d0 ! For fixed-gamma gas other coefficients are set to zero
+       rCv(n,1,1) = 1.d0 ! Specific heat at constant volume for species n 
+       rCv(n,1,2) = 0.d0; rCv(n,1,3) = 0.d0; rCv(n,1,4) = 0.d0; rCv(n,1,5) = 0.d0 ! For fixed-gamma gas other coefficients are set to zero
+       rCv(n,2,1) = 0.d0; rCv(n,2,2) = 0.d0; rCv(n,2,3) = 0.d0; rCv(n,2,4) = 0.d0; rCv(n,2,5) = 0.d0 ! For fixed-gamma gas other coefficients are set to zero
+       
+    end do
+    
+
+    call InviscidFlux(rSol3D,rFlux3D,rX,rY,rZ,iNVar,iNVarComputed,iNcHalo,iNnHalo,iNnx,iNny,iNnz,iLowMachScheme,iNumberOfSpecies,iEquationOfState,rSpecificGasConstant,rCv,rCp,iRecons,iInvOrder)
+    
+    
+    
+  END SUBROUTINE flamencoFlux
+
+  
+
 END MODULE parcop
 
