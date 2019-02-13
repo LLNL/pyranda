@@ -437,7 +437,9 @@ MODULE parcop
   END SUBROUTINE TBL_filter
 
 
-  SUBROUTINE flamencoFlux()
+  SUBROUTINE flamencoFlux(nx,ny,nz,rX,rY,rZ, &
+       & iNnHalo,iNcHalo,iInvOrder,iRecons,iLowMachScheme, &
+       & rhou,rhov,rhow,Et,rho)
 
     ! Take in pre-ghosted conserved variables and return fluxes on those EOMs
     ! Inputs: iNnx,iNny,iNnz
@@ -450,20 +452,23 @@ MODULE parcop
     !         rFlux3D (flux of conserved vars)
     
     implicit none
+    integer, intent(in) :: nx,ny,nz,iNnHalo,iNcHalo,iInvOrder,iRecons,iLowMachScheme
+    real(8),dimension(1-iNnHalo:nx+iNnHalo,1-iNnHalo:ny+iNnHalo,1-iNnHalo:nz+iNnHalo)), intent(in) :: rX,rY,rZ
+
+    real(8),dimension(1-iNcHalo:nx+iNcHalo,1-iNcHalo:ny+iNcHalo,1-iNcHalo:nz+iNcHalo)), intent(in) :: rhou,rhov,rhow,Et,rho,p,gamma,T
+
+    
     integer n
     ! Array sizes, various options
-    integer :: iNVar,iNVarComputed,iNcHalo,iNnHalo,iNnx,iNny,iNnz,iLowMachScheme,iNumberOfSpecies,iEquationOfState,iRecons,iInvOrder
+    integer :: iNVar,iNVarComputed,iNumberOfSpecies,iEquationOfState
     ! Thermodynamic properties
     real(8),allocatable,dimension(:) :: rSpecificGasConstant
     real(8),allocatable,dimension(:,:,:) :: rCv,rCp
     ! X,Y,Z arrays
-    real(8),allocatable,dimension(:,:,:) :: rX,rY,rZ
+
     ! Solution array, flux array
     real(8),allocatable,dimension(:,:,:,:) :: rSol3D,rFlux3D
     
-    iNnx = 33 ! Number of nodes in x direction
-    iNny = 33 ! Number of nodes in y direction
-    iNnz = 33 ! Number of nodes in z direction
     iNumberOfSpecies = 1 ! Number of species
     iNVarComputed = 4+iNumberOfSpecies ! Number of computed variables in solution array
     iNVar = iNVarComputed+4 ! Total number of variables in solution array
@@ -472,47 +477,29 @@ MODULE parcop
     iInvOrder = 5 ! Reconstruction scheme to use. 1=1st order, 2=minmod, 3=van Leer, 4=superbee, 5=5th order MUSCL
     iLowMachScheme = 1 ! Low Mach correction. 0=off, 1=on
     
-    ! Number of halo cells based on reconstruction scheme being used
-    select case(iInvOrder)
-    case(1)
-       iNcHalo=1
-    case(2:4)
-       iNcHalo=2
-    case(5)
-       iNcHalo=3
-    end select
-    ! Number of halo nodes (always 1)
-    iNnHalo = 1
     
-    ! Array dimensions
-    allocate(rX(1-iNnHalo:iNnx+iNnHalo,1-iNnHalo:iNny+iNnHalo,1-iNnHalo:iNnz+iNnHalo))
-    allocate(rY(1-iNnHalo:iNnx+iNnHalo,1-iNnHalo:iNny+iNnHalo,1-iNnHalo:iNnz+iNnHalo))
-    allocate(rZ(1-iNnHalo:iNnx+iNnHalo,1-iNnHalo:iNny+iNnHalo,1-iNnHalo:iNnz+iNnHalo))
     allocate(rSol3D(iNVar,-iNcHalo+1:iNnx+iNcHalo-1,-iNcHalo+1:iNny+iNcHalo-1,-iNcHalo+1:iNnz+iNcHalo-1))
     allocate(rFlux3D(iNVar,-iNcHalo+1:iNnx+iNcHalo-1,-iNcHalo+1:iNny+iNcHalo-1,-iNcHalo+1:iNnz+iNcHalo-1))
     allocate(rSpecificGasConstant(iNumberOfSpecies))
     allocate(rCv(iNumberOfSpecies,2,5))
     allocate(rCp(iNumberOfSpecies,2,5))
     
-    ! (X,Y,Z) coordinates of each node
-    rX = 0.d0; rY = 0.d0; rZ = 0.d0
-    
     ! Solution array
-    rSol3D(1,:,:,:) = 0.d0 ! X momentum (rho*u)
-    rSol3D(2,:,:,:) = 0.d0 ! Y momentum (rho*v)
-    rSol3D(3,:,:,:) = 0.d0 ! Z momentum (rho*w)
-    rSol3D(4,:,:,:) = 0.d0 ! Total energy (rho*E)
-    if(iNumberOfSpecies.eq.1) then
-       rSol3D(5,:,:,:) = 0.d0 ! Density
-    elseif(iNumberOfSpecies.gt.1) then
-       do n=1,iNumberOfSpecies
-          rSol3D(4+n,:,:,:) = 0.d0 ! Density*Mass Fraction (rho*Y_n)
-       end do
-       rSol3D(iNVar-3,:,:,:) = 0.d0 ! Density
-    end if
-    rSol3D(iNVar-2,:,:,:) = 0.d0 ! Pressure
-    rSol3D(iNVar-1,:,:,:) = 0.d0 ! Gamma
-    rSol3D(iNVar,:,:,:) = 0.d0 ! Temperature
+    rSol3D(1,:,:,:) = rhou ! X momentum (rho*u)
+    rSol3D(2,:,:,:) = rhov ! Y momentum (rho*v)
+    rSol3D(3,:,:,:) = rhow ! Z momentum (rho*w)
+    rSol3D(4,:,:,:) = Et ! Total energy (rho*E)
+    !if(iNumberOfSpecies.eq.1) then
+       rSol3D(5,:,:,:) = rho ! Density
+    !elseif(iNumberOfSpecies.gt.1) then
+    !   do n=1,iNumberOfSpecies
+    !      rSol3D(4+n,:,:,:) = 0.d0 ! Density*Mass Fraction (rho*Y_n)
+    !   end do
+    !   rSol3D(iNVar-3,:,:,:) = 0.d0 ! Density
+    !end if
+    rSol3D(iNVar-2,:,:,:) = p ! Pressure
+    rSol3D(iNVar-1,:,:,:) = gamma ! Gamma
+    rSol3D(iNVar,:,:,:) = T ! Temperature
     
     ! Flux array
     rFlux3D = 0.d0 ! Same as rSol3D
@@ -530,7 +517,8 @@ MODULE parcop
     end do
     
 
-    call InviscidFlux(rSol3D,rFlux3D,rX,rY,rZ,iNVar,iNVarComputed,iNcHalo,iNnHalo,iNnx,iNny,iNnz,iLowMachScheme,iNumberOfSpecies,iEquationOfState,rSpecificGasConstant,rCv,rCp,iRecons,iInvOrder)
+    call InviscidFlux(rSol3D,rFlux3D,rX,rY,rZ,iNVar,iNVarComputed,iNcHalo,iNnHalo,nx,ny,nz,iLowMachScheme,iNumberOfSpecies,iEquationOfState,rSpecificGasConstant,rCv,rCp,iRecons,iInvOrder)
+
     
     
     
