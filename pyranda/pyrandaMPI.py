@@ -8,8 +8,8 @@
 #
 # Written by: Britton J. Olson, olson45@llnl.gov
 ################################################################################
-from mpi4py import MPI
 import numpy 
+from mpi4py import MPI
 import sys
 from functools import reduce
 

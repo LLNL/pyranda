@@ -5,3 +5,4 @@ from .pyrandaBC import pyrandaBC
 from .pyrandaProbes import pyrandaProbes
 from .pyrandaTBL import pyrandaTBL
 from .pyranda import pyrandaRestart
+from .pyrandaQuest import pyrandaQuest

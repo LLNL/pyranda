@@ -420,9 +420,10 @@ class pyrandaSim:
         
         # Serialize the mesh function
         if 'function' in serial_data['mesh']:
-            serial_data['mesh']['function'] = inspect.getsource(
-                self.meshOptions['function'] )
-            serial_data['mesh']['function-name'] = self.meshOptions['function'].__name__
+            if (serial_data['mesh']['function'] != None):
+                serial_data['mesh']['function'] = inspect.getsource(
+                    self.meshOptions['function'] )
+                serial_data['mesh']['function-name'] = self.meshOptions['function'].__name__
             
         # Variable map
         serial_data['vars'] = {}

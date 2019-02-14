@@ -233,11 +233,167 @@ def naca_omesh(NACA,nx,ny,
 
 
     return [xgrid,ygrid]
+
+
+
+def naca_stl(NACA,nx,
+             te=.05,dratio=5,teSig=40,
+             dr0=.001,fact=1.05,iS=20,PLOT=True):
+
+
+    Fpts = nx
+    npts = int( nx*dratio )
+    X,Y = naca.naca(NACA, npts)
+
+    # Reverse order
+    X = X[::-1]
+    Y = Y[::-1]
+
+    [X,Y] = roundTrailingEdge(X,Y,te)
+
+    # Wrap around (closed loop)
+    X += [ X[0] ]
+    Y += [ Y[0] ]
+
+
+    x = npy.array(X)
+    y = npy.array(Y)
+    tck, u = interpolate.splprep([x, y], s=0)
+
+    # Uniform spacing around foil
+    unew = npy.arange(0, 1.0, 1.0/Fpts )
+
+    # Add stretched meshing.. 0 and 0.5
+    unewI = npy.arange(0, Fpts, 1)
+    wgt = []
+    wsum = 0
+    for i in range(Fpts):
+        wgt.append( wsum )   
+        dd = min( i , ((Fpts-1)-i) ) 
+        exp0 = npy.exp( - dd*dd / ( Fpts/float(teSig) )**2 )  # 1 @ refine, 0 else
+        exp0 *= (1.0 - 1.0 / dratio)
+        dr = 1.0 - exp0
+        wsum += dr
+
+    unew = npy.array( wgt ) / wsum
+    out = interpolate.splev(unew, tck)
+
+    # Final airfoil coords
+    Xnaca = out[0]
+    Ynaca = out[1]
+
+    N =  Xnaca.shape[0]
+    Ni = N/2
+    
+    
+
+
+    #% Make it 3D
+    span = 1.0
+    #X = npy.array([ Xnaca, Xnaca ]).transpose();
+    #Z = npy.array([ Ynaca, Ynaca ]).transpose();
+    X = npy.append( Xnaca, Xnaca )
+    Y = npy.append( Ynaca, Ynaca )
+    Z = npy.append( -(span/2)*npy.ones(N),  (span/2)*npy.ones(N))
+
+
+    tri = npy.array([])
+
+    
+    #% Triangulate the top and bottom
+    i=0
+    tri = npy.array( [[i,N+i,i+1]] )
+    for i in range(1,N-1):
+        tri = npy.append( tri , [[i,N+i,i+1]], axis=0)
+
+    tri = npy.append( tri, [[ 0, N ,2*N-1  ]] , axis=0)
+    tri = npy.append( tri, [[ 0, N-1 ,2*N-1  ]] , axis=0)
+
+    for i in range(N+1,2*N-1):
+        tri = npy.append( tri , [[i, i+1, i-N+1]] , axis=0 )
+
+
+    # Make end caps
+    X = npy.append( X, X.mean() )
+    X = npy.append( X, X.mean() )
+    Y = npy.append( Y, Y.mean() )
+    Y = npy.append( Y, Y.mean() )
+    Z = npy.append( Z,  -span/2. )
+    Z = npy.append( Z,   span/2. )
+
+    for i in range(0,N-1):
+        tri = npy.append( tri, [[i, (i+1)  ,  2*N]] , axis=0)
+
+    tri = npy.append( tri , [ [N-1,0,2*N] ], axis=0)
+
+    for i in range(N,2*N-1):
+        tri = npy.append( tri, [[i,  i+1  ,  2*N+1]] , axis=0)
+
+    tri = npy.append( tri , [ [2*N-1 ,N,2*N+1] ], axis=0)
+    
+    #tri = npy.append( tri , [[2*N, N+1, 1]] , axis=0)
         
+
+    # Open file
+    fo = open('airfoil2.stl', 'w');
+    
+    #% Write file
+    fo.write( 'solid airfoil\n')
+
+
+    #import pdb
+    #pdb.set_trace()
+
+    meanX = X.mean()
+    meanY = Y.mean()
+    meanZ = Z.mean()
+    
+    for i in range( len(tri) ):
+        #  % Calculate normal vector
+        AB = [X[tri[i,1]] - X[tri[i,0]], Y[tri[i,1]] - Y[tri[i,0]], Z[tri[i,1]] - Z[tri[i,0]] ];
+        AC = [X[tri[i,2]] - X[tri[i,0]], Y[tri[i,2]] - Y[tri[i,0]], Z[tri[i,2]] - Z[tri[i,0]] ];
+        n = npy.matrix( npy.cross(AB, AC) ) / npy.matrix( npy.linalg.norm(npy.cross(AB, AC)));
+
+        nx = n.item(0,0)
+        ny = n.item(0,1)
+        nz = n.item(0,2)
+
+        #x1 = ( X[tri[i,0]] + X[tri[i,1]] + X[tri[i,2]] ) / 3.0
+        #y1 = ( Y[tri[i,0]] + Y[tri[i,1]] + Y[tri[i,2]] ) / 3.0
+        #z1 = ( Z[tri[i,0]] + Z[tri[i,1]] + Z[tri[i,2]] ) / 3.0
+
+        #vx = x1 - meanX
+        #vy = y1 - meanY
+        #vz = z1 - meanZ
+
+        direc = 1.0 #-npy.sign( vx*nx + vy*ny + vz*nz )
+        
+        # Write facet
+        fo.write( '  facet normal %e %e %e\n' % (direc*nx,direc*ny,direc*nz) )
+        fo.write( '    outer loop\n')
+        fo.write( '      vertex %e %e %e\n' % ( X[tri[i,0]], Y[tri[i,0]], Z[tri[i,0]] ) )
+        fo.write( '      vertex %e %e %e\n' % ( X[tri[i,1]], Y[tri[i,1]], Z[tri[i,1]] ) )
+        fo.write( '      vertex %e %e %e\n' % ( X[tri[i,2]], Y[tri[i,2]], Z[tri[i,2]] ) )
+        fo.write( '    endloop\n' )
+        fo.write( '  endfacet\n'  )
+        
+
+    fo.write( 'endsolid airfoil\n' )
+
+    fo.close()
+    
+    
+
 
 if __name__ == "__main__":
 
     NACA = '2412'
     nx = 400
     ny = 100
-    naca_omesh(NACA,nx,ny)
+    #naca_omesh(NACA,nx,ny)
+
+
+    naca_stl(NACA,nx)
+
+    
+    
