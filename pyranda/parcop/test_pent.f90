@@ -6,7 +6,7 @@ PROGRAM test_pent
   USE LES_comm, ONLY : comm_type, LES_comm_world
   USE LES_mesh, ONLY : mesh_type
   USE LES_objects 
-  USE parcop, ONLY : setup,ddx
+  USE parcop, ONLY : setup,ddx,point_to_objects,setup_mesh
   IMPLICIT NONE
   INCLUDE "mpif.h"
 
@@ -101,7 +101,11 @@ PROGRAM test_pent
   simtime = 0.0D0
 
   ! Setup matrices/solvers
-  CALL setup(0,0,MPI_COMM_WORLD,nx,ny,nz,px,py,pz,x1,xn,y1,yn,z1,zn,bx1,bxn,by1,byn,bz1,bzn)
+  CALL setup(0,0,MPI_COMM_WORLD,nx,ny,nz,px,py,pz,0,x1,xn,y1,yn,z1,zn,bx1,bxn,by1,byn,bz1,bzn)
+
+
+  CALL setup_mesh(0,0)
+  CALL point_to_objects(0,0)
 
   ! Allocated some arrays
   ALLOCATE( rho(nx/px,ny/py,nz/pz) )
