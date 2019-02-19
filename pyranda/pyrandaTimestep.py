@@ -52,7 +52,7 @@ class pyrandaTimestep(pyrandaPackage):
             uA = ( u*dAdx + v*dAdy ) / magA
             uB = ( u*dBdx + v*dBdy ) / magB
             vrate = ( numpy.abs(uA) / self.pysim.getVar('d1') +
-                      numpy.abs(uA) / self.pysim.getVar('d2') )
+                      numpy.abs(uB) / self.pysim.getVar('d2') )
 
         else:
             vrate = ( numpy.abs(u) / self.dx +
