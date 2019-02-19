@@ -175,15 +175,6 @@ ic = ic.replace('mach',str(mach))
 # Set the initial conditions
 ss.setIC(ic)
     
-# Length scale for art. viscosity
-# Initialize variables
-x = ss.mesh.coords[0].data
-y = ss.mesh.coords[1].data
-z = ss.mesh.coords[2].data
-dx = (x[1,0,0] - x[0,0,0])
-#ss.variables['dx2'].data += dx**2
-
-
 # Write a time loop
 time = 0.0
 viz = True
@@ -191,21 +182,14 @@ viz = True
 # Approx a max dt and stopping time
 tt = 30.0 #
 
-# Mesh for viz on master
-xx   =  ss.PyMPI.zbar( x )
-yy   =  ss.PyMPI.zbar( y )
-
 # Start time loop
 cnt = 1
 viz_freq = 100
 pvar = 'p'
 
-#import pdb
-#pdb.set_trace()
+
 CFL = 1.0
 dt = ss.variables['dt'].data * CFL*.01
-
-
 
 
 # Make a probe set for diagnostics
@@ -216,18 +200,7 @@ x = R0 * numpy.cos( theta )
 y = R0 * numpy.sin( theta )
 probes = pyrandaProbes(ss,x=x,y=y,z=None)
 
-#theta2 = numpy.linspace(0,2.0*numpy.pi,200)[:-1]
-#R0 = 5.0
-#x = R0 * numpy.cos( theta2 )
-#y = R0 * numpy.sin( theta2 )
-#probes2 = pyrandaProbes(ss,x=x,y=y,z=None)
-
-
-
 pressure = []
-#pMax = probes.get(pvar)
-
-
 
 ss.plot.figure(2)
 ss.plot.clf()            
@@ -255,9 +228,6 @@ while tt > time:
         pressure.append( prb )
 
 
-    #pMax = numpy.maximum( pMax, prb )
-    #pMin = numpy.minimum( pMin, prb )
-    
     # Print some output
     ss.iprint("%s -- %s --- %f" % (cnt,time,dt)  )
     cnt += 1
@@ -269,20 +239,11 @@ while tt > time:
         
         if (cnt%viz_freq == 1) :#or True:
 
-
-
-            #pMax = numpy.maximum( pMax, probes.get('p') )        
-            
             ss.plot.figure(2)
             ss.plot.clf()            
             ss.plot.contourf(pvar,64 , cmap=cm.jet)
             ss.plot.contour('phi',[0.0])
             
-            #plt.plot(xx, yy, 'k-', lw=0.5, alpha=0.5)
-            #plt.plot(xx.T, yy.T, 'k-', lw=0.5, alpha=0.5)
-            #plt.title(pvar)
-            #plt.axis('equal')
-            #plt.pause(.001)
 
 
 ss.writeRestart()
@@ -303,31 +264,12 @@ if (ss.PyMPI.master):
     plt.figure(3)
     ax = plt.subplot(111, projection='polar')
     ax.plot(theta, amp)
-    #plt.show()
-    #plt.figure(3)
-    #plt.plot( theta, prb )
 
 ss.plot.figure(2)
 probes.plot()
 
 
-plt.show()
-
     
-#plt.figure(1)
-#plt.clf()
-#plt.plot( pMax )
-#ax = plt.subplot(111, projection='polar')
-#ax.plot(theta, pMax-pMin)
 
 
 
-# Curve test.  Write file and print its name at the end
-if test:
-    v = ss.PyMPI.zbar( ss.variables[pvar].data )
-    ny = ss.PyMPI.ny
-    v1d =  v[:,int(ny/2)]
-    x1d = xx[:,int(ny/2)]
-    fname = testName + '.dat'
-    numpy.savetxt( fname  , (x1d,v1d) )
-    print(fname)

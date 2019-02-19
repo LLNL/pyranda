@@ -91,3 +91,5 @@ class pyrandaProbes(pyrandaPackage):
                 plt.plot( x , y, style)
             else:
                 plt.plot( x , y ,'ko')
+
+            plt.pause(.1)
