@@ -24,7 +24,7 @@ ddt(:rho:)  =  -div(:rho:*:u:  ,  :rho:*:v: , :rho:*:w:)
 ddt(:rhou:) =  -div(:rhou:*:u: - :tauxx: , :rhou:*:v: - :tauxy:, :rhou:*:w: - :tauxz:)
 ddt(:rhov:) =  -div(:rhov:*:u: - :tauxy: , :rhov:*:v: - :tauyy:, :rhov:*:w: - :tauyz:)
 ddt(:rhow:) =  -div(:rhow:*:u: - :tauxz: , :rhow:*:v: - :tauyz:, :rhow:*:w: - :tauzz:)
-ddt(:Et:)   =  -div( (:Et: - :tauxx:)*:u: - :tauxy:*:v: - :tauxz:*:w: , (:Et: - :tauyy:)*:v: -:tauxy:*:u: - :tauyz:*:w: ,  (:Et: - :tauzz:)*:w: - :tauxz:*:u: - :tauyz:*:v: )
+ddt(:Et:)   =  -div( (:Et: - :tauxx:)*:u: - :tauxy:*:v: - :tauxz:*:w: - :tx:*:kappa:, (:Et: - :tauyy:)*:v: -:tauxy:*:u: - :tauyz:*:w: - :ty:*:kappa:,  (:Et: - :tauzz:)*:w: - :tauxz:*:u: - :tauyz:*:v: - :tz:*:kappa:)
 # Conservative filter of the EoM
 :rho:       =  fbar( :rho:  )
 :rhou:      =  fbar( :rhou: )
@@ -36,13 +36,19 @@ ddt(:Et:)   =  -div( (:Et: - :tauxx:)*:u: - :tauxy:*:v: - :tauxz:*:w: , (:Et: - 
 :v:         =  :rhov: / :rho:
 :w:         =  :rhow: / :rho:
 :p:         =  ( :Et: - .5*:rho:*(:u:*:u: + :v:*:v: + :w:*:w:) ) * ( :gamma: - 1.0 )
+:T:         = :p: / (:rho: * :R: )
+# Artificial thermal conductivity
+[:tx:,:ty:,:tz:] = grad(:T:)
+:kappa:     = gbar( ring(:T:)* :rho:*:cv:/(:T: * :dt: ) ) * 1.0e-3
 # Divergence and cross derivatives
 :div:       =  div(:u:,:v:,:w:) 
 [:ux:,:uy:,:uz:] = grad(:u:)
 [:vx:,:vy:,:vz:] = grad(:v:)
 [:wx:,:wy:,:wz:] = grad(:w:)
 # Artificial bulk viscosity 
-:mu:        =  gbar( ringV(:u:,:v:,:w:) * :rho: ) * 1.0e-1 + mu0
+#:S:    = sqrt( :ux:*:ux: + :vy:*:vy: + :wz:*:wz: + .5*((:uy:+:vx:)**2 ) )
+:mu:        =  gbar( ringV(:u:,:v:,:w:) * :rho: ) * 1.0e-4 + mu0
+#:mu:        =  gbar( ring(:S:  ) * :rho: ) * 1.0e-4 + mu0
 :beta:      =  gbar( abs(ring(:div:)) * :rho: )  * 7.0e-2
 :taudia:    =  (:beta:-2./3.*:mu:) *:div: - :p:
 :tauxx:     =  2.0*:mu:*:ux:   + :taudia:
