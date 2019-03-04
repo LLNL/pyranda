@@ -32,6 +32,7 @@ class pyrandaBC(pyrandaPackage):
         sMap['bc.exit(']   =  "self.packages['BC'].exitbc("
         sMap['bc.slip(']   =  "self.packages['BC'].slipbc("
         sMap['bc.field(']  =  "self.packages['BC'].applyBC('field',"
+        sMap['bc.farfield(']  =  "self.packages['BC'].farfieldbc("
         self.sMap = sMap
         
 
@@ -325,3 +326,238 @@ class pyrandaBC(pyrandaPackage):
             beno = numpy.maximum( numpy.minimum( beno, numpy.maximum(0.0,u2) ), numpy.minimum( 0.0, u2) )
 
         return beno
+
+
+
+    def getnormal(self,direction):
+        
+        dAdx = self.pyranda.getVar("dAx")
+        dAdy = self.pyranda.getVar("dAy")
+        dAdz = self.pyranda.getVar("dAz")
+
+        dBdx = self.pyranda.getVar("dBx")
+        dBdy = self.pyranda.getVar("dBy")
+        dBdz = self.pyranda.getVar("dBz")
+
+        dCdx = self.pyranda.getVar("dCx")
+        dCdy = self.pyranda.getVar("dCy")
+        dCdz = self.pyranda.getVar("dCz")
+        
+        dataKey = "farfield-%s" % direction
+        if self.BCdata.has_key( dataKey ):
+            [xnormal,ynormal,znormal] = self.BCdata[dataKey]
+
+        else:
+            if (direction == 'x1'):
+                xnormal = -dAdx[0,:,:]/numpy.sqrt(dAdx[0,:,:]**2+dAdy[0,:,:]**2+dAdz[0,:,:]**2)
+                ynormal = -dAdy[0,:,:]/numpy.sqrt(dBdx[0,:,:]**2+dBdy[0,:,:]**2+dBdz[0,:,:]**2)
+                znormal = -dAdz[0,:,:]/numpy.sqrt(dCdx[0,:,:]**2+dCdy[0,:,:]**2+dCdz[0,:,:]**2)
+            if (direction == 'y1'):
+                xnormal = -dBdx[:,0,:]/numpy.sqrt(dAdx[:,0,:]**2+dAdy[:,0,:]**2+dAdz[:,0,:]**2)
+                ynormal = -dBdy[:,0,:]/numpy.sqrt(dBdx[:,0,:]**2+dBdy[:,0,:]**2+dBdz[:,0,:]**2)
+                znormal = -dBdz[:,0,:]/numpy.sqrt(dCdx[:,0,:]**2+dCdy[:,0,:]**2+dCdz[:,0,:]**2)
+            if (direction == 'z1'):
+                xnormal = -dCdx[:,:,0]/numpy.sqrt(dAdx[:,:,0]**2+dAdy[:,:,0]**2+dAdz[:,:,0]**2)
+                ynormal = -dCdy[:,:,0]/numpy.sqrt(dBdx[:,:,0]**2+dBdy[:,:,0]**2+dBdz[:,:,0]**2)
+                znormal = -dCdz[:,:,0]/numpy.sqrt(dCdx[:,:,0]**2+dCdy[:,:,0]**2+dCdz[:,:,0]**2)
+
+            if (direction == 'xn'):
+                xnormal = dAdx[-1,:,:]/numpy.sqrt(dAdx[-1,:,:]**2+dAdy[-1,:,:]**2+dAdz[-1,:,:]**2)
+                ynormal = dAdy[-1,:,:]/numpy.sqrt(dBdx[-1,:,:]**2+dBdy[-1,:,:]**2+dBdz[-1,:,:]**2)
+                znormal = dAdz[-1,:,:]/numpy.sqrt(dCdx[-1,:,:]**2+dCdy[-1,:,:]**2+dCdz[-1,:,:]**2)
+            if (direction == 'yn'):
+                xnormal = dBdx[:,-1,:]/numpy.sqrt(dAdx[:,-1,:]**2+dAdy[:,-1,:]**2+dAdz[:,-1,:]**2)
+                ynormal = dBdy[:,-1,:]/numpy.sqrt(dBdx[:,-1,:]**2+dBdy[:,-1,:]**2+dBdz[:,-1,:]**2)
+                znormal = dBdz[:,-1,:]/numpy.sqrt(dCdx[:,-1,:]**2+dCdy[:,-1,:]**2+dCdz[:,-1,:]**2)
+            if (direction == 'zn'):
+                xnormal = dCdx[:,:,-1]/numpy.sqrt(dAdx[:,:,-1]**2+dAdy[:,:,-1]**2+dAdz[:,:,-1]**2)
+                ynormal = dCdy[:,:,-1]/numpy.sqrt(dBdx[:,:,-1]**2+dBdy[:,:,-1]**2+dBdz[:,:,-1]**2)
+                znormal = dCdz[:,:,-1]/numpy.sqrt(dCdx[:,:,-1]**2+dCdy[:,:,-1]**2+dCdz[:,:,-1]**2)
+
+            self.BCdata[dataKey] = [xnormal,ynormal,znormal]/numpy.sqrt(xnormal**2+ynormal**2+znormal**2)
+
+
+        return xnormal, ynormal, znormal
+
+
+
+    def Reimann(self,direction,Rhoref,Uref,Vref,Wref,Pref,gamma,rhoi,Ui,Vi,Wi,Pi):
+        """
+        Riemann invariants
+        index
+        b - variables at the boundary index=0,ax,ay,az
+        i - variables inside the domain index=1,n-2,...
+        o - variables at outiside of the domain (inf)
+        """
+
+        # itializing free stream vectors
+        rhoo = numpy.zeros((Ui.shape[0],1)) + Rhoref
+        Uo   = numpy.zeros((Ui.shape[0],1)) + Uref
+        Vo   = numpy.zeros((Ui.shape[0],1)) + Vref
+        Wo   = numpy.zeros((Ui.shape[0],1)) + Wref
+        Po   = numpy.zeros((Ui.shape[0],1)) + Pref
+
+        # getting normal vectors
+        nx,ny,nz = self.getnormal(direction)
+
+        Vni = Ui*nx+Vi*ny+Wi*nz
+        Vno = Uo*nx+Vo*ny+Wo*nz
+        SSo = numpy.sqrt(gamma*Po/rhoo)   
+        SSi = numpy.sqrt(gamma*Pi/rhoi)
+        tmp = numpy.sqrt(Ui**2+Vi**2+Wi**2)/SSi   
+
+        # Compute Riemann invariants for supersonic and subsonic cases
+        Rplus  = numpy.where( tmp >= 1.0 ,  Vno + 2.0*SSo/(gamma -1.0) , Vni + 2.0*SSi/(gamma -1.0) )
+        Rminus = numpy.where( tmp >= 1.0 ,  Vni - 2.0*SSi/(gamma -1.0) , Vno - 2.0*SSo/(gamma -1.0) )
+        
+        Vnormal = (Rminus + Rplus)*0.5
+        SSb = (Rplus - Rminus)*(gamma-1.0)*0.25
+        Ub = numpy.where( Vnormal >= 0.0 ,  Ui+(Vnormal-Vni)*nx , Uo+(Vnormal-Vno)*nx )
+        Vb = numpy.where( Vnormal >= 0.0 ,  Vi+(Vnormal-Vni)*ny , Vo+(Vnormal-Vno)*ny )
+        Wb = numpy.where( Vnormal >= 0.0 ,  Wi+(Vnormal-Vni)*nz , Wo+(Vnormal-Vno)*nz )
+
+        aux = 1.0/(gamma-1.0)
+        rhob = numpy.where( Vnormal >= 0.0 , ((rhoi**gamma*SSb**2)/(gamma*Pi))**aux , ((rhoo**gamma*SSb**2)/(gamma*Po))**aux)
+
+        Pb  = rhob*SSb**2/gamma
+        Etb  = Pb/(gamma -1.0) + 0.5*rhob*(Ub*Ub+Vb*Vb+Wb*Wb)
+
+        return rhob,Ub,Vb,Wb,Etb,Pb
+
+
+
+
+    def farfieldbc(self,direction):
+        
+        if type(direction) != type([]):
+            direction = [direction]
+        
+        for d in direction:
+            self.farfield( d )
+
+
+    def farfield(self,direction):
+
+        refdata = self.BCdata['farfield-properties-%s' % direction]
+        Rhoref = refdata['rho0']
+        Uref = refdata['u0']
+        Vref = refdata['v0']
+        Wref = refdata['w0']
+        Pref = refdata['p0']
+        gamma = refdata['gamma']
+
+        rho = refdata['rho']
+        u = refdata['u']
+        v = refdata['v']
+        w = refdata['w']
+        p = refdata['p']
+
+
+        # Direction switch
+        if direction == 'x1':
+            if self.pyranda.PyMPI.x1proc:
+                rhoi = self.pyranda.variables[rho].data[1,:,:]
+                Ui   = self.pyranda.variables[u].data[1,:,:]           
+                Vi   = self.pyranda.variables[v].data[1,:,:]
+                Wi   = self.pyranda.variables[w].data[1,:,:]
+                Pi   = self.pyranda.variables[p].data[1,:,:]
+
+                [rhob,Ub,Vb,Wb,Etb,Pb]=self.Reimann(direction,Rhoref,Uref,Vref,Wref,Pref,gamma,rhoi,Ui,Vi,Wi,Pi)
+
+                # update variables
+                self.pyranda.variables[rho].data[0,:,:] = rhob
+                self.pyranda.variables[u].data[0,:,:] = Ub
+                self.pyranda.variables[v].data[0,:,:] = Vb
+                self.pyranda.variables[w].data[0,:,:] = Wb
+                self.pyranda.variables[p].data[0,:,:] = Pb
+
+                
+
+        if direction == 'xn':
+            if self.pyranda.PyMPI.xnproc:
+                rhoi = self.pyranda.variables[rho].data[-2,:,:]
+                Ui   = self.pyranda.variables[u].data[-2,:,:]           
+                Vi   = self.pyranda.variables[v].data[-2,:,:]
+                Wi   = self.pyranda.variables[w].data[-2,:,:]
+                Pi   = self.pyranda.variables[p].data[-2,:,:]
+
+                [rhob,Ub,Vb,Wb,Etb,Pb]=self.Reimann(direction,Rhoref,Uref,Vref,Wref,Pref,gamma,rhoi,Ui,Vi,Wi,Pi)
+
+                # update variables
+                self.pyranda.variables[rho].data[-1,:,:] = rhob
+                self.pyranda.variables[u].data[-1,:,:] = Ub
+                self.pyranda.variables[v].data[-1,:,:] = Vb
+                self.pyranda.variables[w].data[-1,:,:] = Wb
+                self.pyranda.variables[p].data[-1,:,:] = Pb
+
+
+        if direction == 'y1':
+            if self.pyranda.PyMPI.y1proc:
+                rhoi = self.pyranda.variables[rho].data[:,1,:]
+                Ui   = self.pyranda.variables[u].data[:,1,:]           
+                Vi   = self.pyranda.variables[v].data[:,1,:]
+                Wi   = self.pyranda.variables[w].data[:,1,:]
+                Pi   = self.pyranda.variables[p].data[:,1,:]
+
+                [rhob,Ub,Vb,Wb,Etb,Pb]=self.Reimann(direction,Rhoref,Uref,Vref,Wref,Pref,gamma,rhoi,Ui,Vi,Wi,Pi)
+
+                # update variables
+                self.pyranda.variables[rho].data[:,0,:] = rhob
+                self.pyranda.variables[u].data[:,0,:] = Ub
+                self.pyranda.variables[v].data[:,0,:] = Vb
+                self.pyranda.variables[w].data[:,0,:] = Wb
+                self.pyranda.variables[p].data[:,0,:] = Pb
+                
+
+        if direction == 'yn':
+            if self.pyranda.PyMPI.ynproc:
+                rhoi = self.pyranda.variables[rho].data[:,-2,:]
+                Ui   = self.pyranda.variables[u].data[:,-2,:]
+                Vi   = self.pyranda.variables[v].data[:,-2,:]
+                Wi   = self.pyranda.variables[w].data[:,-2,:]
+                Pi   = self.pyranda.variables[p].data[:,-2,:]
+
+                [rhob,Ub,Vb,Wb,Etb,Pb]=self.Reimann(direction,Rhoref,Uref,Vref,Wref,Pref,gamma,rhoi,Ui,Vi,Wi,Pi)
+
+                # update variables
+                self.pyranda.variables[rho].data[:,-1,:] = rhob
+                self.pyranda.variables[u].data[:,-1,:] = Ub
+                self.pyranda.variables[v].data[:,-1,:] = Vb
+                self.pyranda.variables[w].data[:,-1,:] = Wb
+                self.pyranda.variables[p].data[:,-1,:] = Pb                                 
+
+
+        if direction == 'z1':
+            if self.pyranda.PyMPI.z1proc:
+                rhoi = self.pyranda.variables[rho].data[:,:,1]
+                Ui   = self.pyranda.variables[u].data[:,:,1]           
+                Vi   = self.pyranda.variables[v].data[:,:,1]
+                Wi   = self.pyranda.variables[w].data[:,:,1]
+                Pi   = self.pyranda.variables[p].data[:,:,1]
+
+                [rhob,Ub,Vb,Wb,Etb,Pb]=self.Reimann(direction,Rhoref,Uref,Vref,Wref,Pref,gamma,rhoi,Ui,Vi,Wi,Pi)
+
+                # update variables
+                self.pyranda.variables[rho].data[:,:,0] = rhob
+                self.pyranda.variables[u].data[:,:,0] = Ub
+                self.pyranda.variables[v].data[:,:,0] = Vb
+                self.pyranda.variables[w].data[:,:,0] = Wb
+                self.pyranda.variables[p].data[:,:,0] = Pb                  
+                
+
+        if direction == 'zn':
+            if self.pyranda.PyMPI.znproc:
+                rhoi = self.pyranda.variables[rho].data[:,:,-2]
+                Ui   = self.pyranda.variables[u].data[:,:,-2]           
+                Vi   = self.pyranda.variables[v].data[:,:,-2]
+                Wi   = self.pyranda.variables[w].data[:,:,-2]
+                Pi   = self.pyranda.variables[p].data[:,:,-2] 
+
+                [rhob,Ub,Vb,Wb,Etb,Pb]=self.Reimann(direction,Rhoref,Uref,Vref,Wref,Pref,gamma,rhoi,Ui,Vi,Wi,Pi)
+
+                # update variables
+                self.pyranda.variables[rho].data[:,:,-1] = rhob
+                self.pyranda.variables[u].data[:,:,-1] = Ub
+                self.pyranda.variables[v].data[:,:,-1] = Vb
+                self.pyranda.variables[w].data[:,:,-1] = Wb
+                self.pyranda.variables[p].data[:,:,-1] = Pb    
