@@ -8,6 +8,7 @@ PROGRAM test_laplace
   USE LES_objects 
   USE parcop, ONLY : setup,plaplacian
   USE nvtx
+  USE omp_lib
   !USE cudafor
   IMPLICIT NONE
   INCLUDE "mpif.h"
@@ -23,7 +24,7 @@ PROGRAM test_laplace
   INTEGER :: t1,t2,clock_rate,clock_max
   CHARACTER(LEN=32) :: arg
   INTEGER :: nargs,ii,iterations
-  INTEGER :: rank,ierror
+  INTEGER :: rank,ierror,devs
 
   ! MPI
   CALL MPI_INIT(mpierr)
@@ -40,6 +41,11 @@ PROGRAM test_laplace
      PRINT*,"./test_laplace 100 32 1 32 1 32 1"
      PRINT*,"mpirun -n 8 ./test_laplace 100 64 2 64 2 64 2"
   ENDIF
+
+  !devs = omp_get_num_devices()
+  !IF (devs > 0) THEN
+  !   CALL omp_set_default_device(mod(rank,devs))
+  !ENDIF
   
   ! Default domain, grid and processors map
   x1 = 0.0
@@ -124,7 +130,7 @@ PROGRAM test_laplace
      CALL nvtxEndRange()
      IF (.true.) THEN
         !$acc kernels
-        rho(:,:,:) = rho(:,:,:)-0.0001*drho(:,:,:)
+        rho(:,:,:) = rho(:,:,:)-0.0000001*drho(:,:,:)
         !$acc end kernels
         PRINT *, "rho(31, 31, 21) = ", rho(31,31,21)
      ENDIF
@@ -134,7 +140,7 @@ PROGRAM test_laplace
 
 
   IF ( rank == 0 ) THEN
-     print*,'Elapsed time = ', real(t2-t1) / real(clock_rate)
+     print *,'Dimensions per node:', nx,ny,nz, '---Elapsed time = ', real(t2-t1) / real(clock_rate)
   END IF
   
   CALL remove_objects(0,0)

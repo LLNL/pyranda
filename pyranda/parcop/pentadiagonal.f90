@@ -219,7 +219,8 @@
                  + a(:,3,2,n)*tmp(3,i) + a(:,4,2,n)*tmp(4,i)
      end do
     end do
-    !$acc parallel loop collapse(2) copyin(a) copy(r)
+    !$acc parallel loop collapse(3) copyin(a) copy(r) create(tmp)
+    !$omp parallel do collapse(3) private(tmp)
      do j=1,n2
       do i=1,n1
       do k=n-1,1,-1
@@ -763,9 +764,8 @@
     real(kind=c_double), dimension(n1,n2,n3), intent(inout) :: r
     integer(c_int) :: i,j,k
     if( n > n1 ) return
-    !$omp target map(tofrom:r) map(to:c)
-    !$omp parallel do collapse(2) 
     !$acc parallel loop collapse(2) copyin(c) copy(r)
+    !$omp target teams distribute parallel do collapse(2) map(tofrom:r) map(to:c) private(i)
     do k=1,n3
     do j=1,n2
       do i=1,n-2
@@ -779,7 +779,6 @@
       end do
     end do
     end do
-    !$omp end target
   end subroutine bpentLUS3x_orig
 
 
@@ -792,6 +791,8 @@
     integer(c_int) :: i,j,k
     if( n > n1 ) return
     !$acc parallel loop gang vector collapse(2) copyin(c,r) copyout(r)
+    !$omp target teams distribute parallel do collapse(2) map(tofrom:r) &
+    !$omp map(to:c) private(tmp1,tmp2,i)
     do k=1,n3
     do j=1,n2
       r(2,j,k)=r(2,j,k)-c(2,2)*r(1,j,k)
@@ -823,8 +824,7 @@
     integer(c_int) :: i,j,k
     if( n > n2 ) return
     !$acc parallel loop collapse(2) copyin(c) copy(r)
-    !$omp target map(tofrom:r) map(to:c)
-    !$omp parallel do collapse(2)
+    !$omp target teams distribute parallel do collapse(2) map(tofrom:r) map(to:c) private(j)
     do k=1,n3
       do i=1,n1
         do j=1,n-2
@@ -838,7 +838,6 @@
         end do
       end do
     end do
-    !$omp end target
   end subroutine bpentLUS3y
 
 

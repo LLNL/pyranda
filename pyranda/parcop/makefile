@@ -65,6 +65,16 @@ blueos_3_ppc64le_ib.python     = /usr/tcetmp/bin/python
 blueos_3_ppc64le_ib.mpirun     = mpirun
 blueos_3_ppc64le_ib.np_arg     = -n
 
+blueos_3_ppc64le_ib_p9.xl.mpif90  = mpixlf
+blueos_3_ppc64le_ib_p9.pgi.mpif90  = mpipgf90
+blueos_3_ppc64le_ib_p9.xl.cc      = xlc
+blueos_3_ppc64le_ib_p9.pgi.cc     = pgcc
+blueos_3_ppc64le_ib_p9.gnu.mpif90 = /usr/tcetmp/bin/mpigfortran
+blueos_3_ppc64le_ib_p9.compiler   = xl
+blueos_3_ppc64le_ib_p9.python     = /usr/tcetmp/bin/python
+blueos_3_ppc64le_ib_p9.mpirun     = mpirun
+blueos_3_ppc64le_ib_p9.np_arg     = -n
+
 Darwin.gnu.mpif90 = $(shell which mpif90)
 Darwin.python     = $(shell which python)
 Darwin.compiler   = gnu
@@ -90,7 +100,7 @@ gnu.fflags   = -fPIC -ffree-form -ffree-line-length-0 -fbackslash
 intel.fflags = -fPIC
 # TODO: what are clang's fflags here
 clang.fflags = -fPIC
-xl.fflags    = -fPIC -qsuppress=cmpmsg -qsuppress=1500-036 -qxlf2003=polymorphic -qnosave -qfree=f90 -qsuffix=cpp=f:f=f -qmaxmem=-1 -qextname 
+xl.fflags    = -fPIC -qsuppress=cmpmsg -qsuppress=1500-036 -qxlf2003=polymorphic -qnosave -qfree=f90 -qsuffix=cpp=f:f=f -qmaxmem=-1 
 xl.lopts     = -qmkshrobj
 pgi.fflags   = -fPIC
 ifdef gpu
@@ -99,8 +109,8 @@ pgi.fflags += -ta=tesla:cc70,managed -Minfo=accel -Mcuda=cuda9.0
 pgi.ldflags += -ta=tesla:cc70,managed -Minfo=accel -Mcuda=cuda9.0
 pgi.libs += -L/gpfs/sw/software/CUDA/9.1.85/lib64 -lnvToolsExt
 
-xl.fflags += -qsmp -qoffload
-xl.ldflags += -qsmp -qoffload
+xl.fflags += -qsmp=omp -qoffload -g
+xl.ldflags += -qsmp=omp -qoffload -g
 xl.libs += -L${CUDA_HOME}/lib64/ -lnvToolsExt
 endif
 
@@ -185,9 +195,11 @@ vpath %.c $(f2py.dir)
 .PHONY: clean info test-mpi4py
 
 %.o: %.f90
+	echo $(compiler)
 	$(mpif90) $(fflags) -c $<
 
 %.o: %.c
+	echo $(compiler)
 	echo $(cc) -fPIC $(python.Iflags) $(numpy.Iflags) $(f2py.Iflags) -c $^
 	$(cc) -fPIC $(python.Iflags) $(numpy.Iflags) $(f2py.Iflags) -c $^
 

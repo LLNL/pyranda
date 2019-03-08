@@ -40,11 +40,16 @@ PROGRAM MAIN
       az=256
 
       ! ****  from compct.f90
-#if 1
+#ifndef CACHE
       do q=1,10
       !$acc parallel loop collapse(3) copyin(v,op,op%ar,vbr1,vbr2) copyout(dv)
+#ifdef OLD
       !$omp target map(to:v,op%ar,vbr1,vbr2) map(from:dv)
       !$omp parallel do collapse(3) private(this_sum, this_v, z)
+#else
+      !$omp target teams distribute parallel do collapse(2) &
+      !$omp map(to:v,op%ar,vbr1,vbr2,scalefac) map(from:dv) private(i,this_v,this_sum)
+#endif
       do k=1,az
       do j=1,ay
       do i=1,ax
@@ -64,7 +69,9 @@ PROGRAM MAIN
       end do
       end do
       end do
+#ifdef OLD
       !$omp end target
+#endif
       v = dv
       end do
 
@@ -72,7 +79,7 @@ PROGRAM MAIN
       do q=1,10
       !$acc parallel loop gang collapse(3) copyin(v,op,op%ar,vbr1,vbr2) copyout(dv) private(smem) vector_length(SMEM_SIZE)
       !$omp target map(to:v,op%ar,vbr1,vbr2) map(from:dv)
-      !$omp teams distribute shared(smem)
+      !!$omp teams distribute shared(smem) collapse(3) private(this_sum,this_v,z)
       !$omp parallel do collapse(3) private(this_sum, this_v, z) 
       do k=1,az
       do j=1,ay
