@@ -247,6 +247,12 @@ test_pent: libparcop.a parcop.o test_pent.o
 test_laplace: libparcop.a parcop.o test_laplace.o
 	$(mpif90) $(ldflags) test_laplace.o parcop.o libparcop.a -o $@ $(libs)
 
+BWtest-pgi: BWtest.F90
+	pgf90 -o BWtest-pgi -ta:tesla,cc70,manage BWtest.F90 -DCACHE=1
+
+BWtest-ibm: BWtest.F90
+	mpixlf -o BWtest-ibm -qsmp=omp -qoffload BWtest.F90 -DCACHE=1 -qsuppress=cmpmsg -qsuppress=1500-036 -qxlf2003=polymorphic -qnosave -qfree=f90 -qsuffix=cpp=f:f=f -qmaxmem=-1 
+
 info:
 	@echo "systype:    $(systype)"
 	@echo "python:     $(python) - verified: $(verified)"

@@ -39,7 +39,7 @@ PROGRAM MAIN
       ay=256
       az=256
 
-      ! ****  from compct.f90
+      ! ****  from compact.f90
 #ifndef CACHE
       do q=1,10
       !$acc parallel loop collapse(3) copyin(v,op,op%ar,vbr1,vbr2) copyout(dv)
