@@ -38,7 +38,7 @@ ddt(:Et:)   =  -ddx( (:Et: + :p: - :tau:)*:u: )
 :p:         =  ( :Et: - .5*:rho:*(:u:*:u:) ) * ( :gamma: - 1.0 )
 # Artificial bulk viscosity (old school way)
 :div:       =  ddx(:u:) 
-:beta:      =  gbar( ring(:div:) * :rho:) * 7.0e-2
+:beta:      =  gbar( ring(:div:) * :rho:) * 1.0
 :tau:       =  :beta:*:div:
 # Apply constant BCs
 bc.extrap(['rho','Et'],['x1'])

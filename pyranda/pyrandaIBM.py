@@ -66,7 +66,6 @@ class pyrandaIBM(pyrandaPackage):
         for i in range(immersed_iter):
             [tvx,tvy,tvz] = self.pyranda.grad(val)
             term = tvx*gDx+tvy*gDy+tvz*gDz
-            #term += self.pyranda.laplacian(SDF)*val
             val = numpy.where( SDF <= epsi , val + immersed_CFL*GridLen*term , val )
             Tval = self.pyranda.gfilter(val)
             val = numpy.where( SDF <= epsi , Tval, val )

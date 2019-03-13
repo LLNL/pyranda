@@ -392,14 +392,23 @@ class pyrandaMPI():
         return gdata
 
     
-    def ghost(self,data,np=1):
+    def ghost(self,data,np=1,dir=-1):
 
         bx = data.shape[0]
         by = data.shape[1]
         bz = data.shape[2]
 
         npx = npy = npz = 0
-        if self.nx > 1:
+
+        
+        xdir = (self.nx > 1)
+
+        if dir != -1:
+            xdir = False
+            if dir == 0:
+                xdir = True
+        
+        if xdir:
             npx = np
         if self.ny > 1:
             npy = np
@@ -409,7 +418,7 @@ class pyrandaMPI():
         gdata = numpy.zeros( (bx+2*npx,by+2*npy,bz+2*npz) )
         gdata[npx:bx+npx,npy:by+npy,npz:bz+npz] = data
 
-        if self.nx > 1:
+        if xdir:
             gdata = self.ghostx(gdata,npx)
         if self.ny > 1:
             gdata = self.ghosty(gdata,npy)
@@ -418,7 +427,7 @@ class pyrandaMPI():
 
         
         # For periodic data, clip sides
-        if self.nx > 1:
+        if xdir:
             if self.x1proc:
                 gdata = gdata[np:,:,:]
             if self.xnproc:
