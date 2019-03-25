@@ -102,6 +102,9 @@ parcop.so: parcopmodule.o fortranobject.o parcop-f2pywrappers2.o
 test_pent: libparcop.a parcop.o test_pent.o
 	$(mpif90) test_pent.o parcop.o libparcop.a -o $@
 
+miniApp: libparcop.a parcop.o miniApp.o
+	$(mpif90) miniApp.o parcop.o libparcop.a -o $@
+
 info:
 	@echo "sys_type:  $(sys_type)"
 	@echo "python:    $(python)"
