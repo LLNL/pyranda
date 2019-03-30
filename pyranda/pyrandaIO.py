@@ -10,6 +10,7 @@
 ################################################################################
 import os
 import numpy 
+import struct
 
 
 class pyrandaIO:
@@ -62,29 +63,28 @@ class pyrandaIO:
             fx = mesh.coords[0].data[:,:,:]
             fy = mesh.coords[1].data[:,:,:]
             fz = mesh.coords[2].data[:,:,:]
-            
+
         ax = fx.shape[0]
         ay = fx.shape[1]
         az = fx.shape[2]
-        
-        fx = fx.flatten(order='F')
-        fy = fy.flatten(order='F')
-        fz = fz.flatten(order='F')
-        
-        mesh = numpy.vstack((fx,fy,fz)).transpose()
-        
+
         fid = open(dumpFile + '.vtk','w')
-                
+
         fid.write("# vtk DataFile Version 3.0 \n")
         fid.write("vtk output \n")
-        fid.write("ASCII \n")
+        fid.write("BINARY \n")
         fid.write("DATASET STRUCTURED_GRID \n")
         fid.write("DIMENSIONS  %s %s %s  \n" % (ax,ay,az))
-        fid.write("POINTS %s float  \n" % len(fx))
+        fid.write("POINTS %s float  \n" % (ax*ay*az))
 
-        numpy.savetxt(fid,mesh,fmt='%.6e')
+        for k in range(az):
+            for j in range(ay):
+                for i in range(ax):
+                    fid.write(struct.pack(">f", fx[i,j,k]))
+                    fid.write(struct.pack(">f", fy[i,j,k]))
+                    fid.write(struct.pack(">f", fz[i,j,k]))
 
-        fid.write("POINT_DATA %s  \n" % len(fx) )
+        fid.write("POINT_DATA %s  \n" % (ax*ay*az) )
 
         for var in varList:
             fid.write("SCALARS %s float \n" % var)
@@ -93,7 +93,10 @@ class pyrandaIO:
                 gdata = self.PyMPI.ghost( variables[var].data )
             else:
                 gdata = variables[var].data
-            numpy.savetxt(fid,gdata.flatten(order='F') ,fmt='%.6e')
+            for k in range(az):
+                for j in range(ay):
+                    for i in range(ax):
+                        fid.write(struct.pack(">f", gdata[i,j,k]))
         
         fid.close()
         
