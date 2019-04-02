@@ -28,7 +28,7 @@ blueos_3_ppc64le_ib.ibm.mpif90 = /usr/tce/packages/spectrum-mpi/spectrum-mpi-201
 blueos_3_ppc64le_ib.gnu.mpif90 = /usr/tcetmp/bin/mpigfortran
 blueos_3_ppc64le_ib.python     = /usr/tcetmp/bin/python
 
-gnu.fflags   = -fPIC -ffree-form -ffree-line-length-0 -fbackslash
+gnu.fflags   = -fPIC -ffree-form -ffree-line-length-0 -fbackslash -funroll-loops -Ofast
 intel.fflags = -fPIC
 # it's likely that mpiclang is using gfortran
 clang.fflags = $(gnu.fflags)

@@ -13,18 +13,20 @@ PROGRAM miniApp
   
   INTEGER(c_int)                 :: nx,ny,nz,px,py,pz,ax,ay,az
   REAL(c_double)                 :: x1,xn,y1,yn,z1,zn
+  INTEGER(c_int)                 :: ns
   CHARACTER(KIND=c_char,LEN=4)   :: bx1,bxn,by1,byn,bz1,bzn
   REAL(c_double)                 :: simtime
   INTEGER(c_int)                 :: world_id,world_np,mpierr
   REAL(c_double), DIMENSION(:,:,:), ALLOCATABLE :: rho,u,v,w,et,p,rad,T,ie,Fx,Fy,Fz,tx,ty,tz,tmp,bar
   REAL(c_double), DIMENSION(:,:,:), ALLOCATABLE :: Fxx,Fyx,Fzx,Fxy,Fyy,Fzy,Fxz,Fyz,Fzz
-  REAL(c_double), DIMENSION(:,:,:,:), ALLOCATABLE :: RHS
-  INTEGER :: i
+  REAL(c_double), DIMENSION(:,:,:,:), ALLOCATABLE :: RHS,Y
+  INTEGER :: i,n
   INTEGER :: t1,t2,clock_rate,clock_max
   CHARACTER(LEN=32) :: arg
-  INTEGER :: nargs,ii,iterations
+  INTEGER :: nargs,io,iterations
   INTEGER :: rank,ierror
   DOUBLE PRECISION :: dt = 0.0
+  !$DEF
   
   ! MPI
   CALL MPI_INIT(mpierr)
@@ -35,11 +37,11 @@ PROGRAM miniApp
   ! Print usage:
   IF ( rank == 0 .AND. nargs == 0) THEN
      PRINT*,"USAGE:"
-     PRINT*,"Serial: ./miniApp [interations=100,nx=32,px=1,ny=1,py=1,nz=1,pz=1]"
-     PRINT*,"Parallel: mpirun -n [num procs] miniApp [interations=100,nx=32,px=1,ny=1,py=1,nz=1,pz=1]"
+     PRINT*,"Serial: ./miniApp [interations=100,ns=3,nx=32,px=1,ny=1,py=1,nz=1,pz=1]"
+     PRINT*,"Parallel: mpirun -n [num procs] miniApp [interations=100,ns=3,nx=32,px=1,ny=1,py=1,nz=1,pz=1]"
      PRINT*,"Examples:"
-     PRINT*,"./miniApp 100 32 1 32 1 32 1"
-     PRINT*,"mpirun -n 8 ./miniApp 100 64 2 64 2 64 2"
+     PRINT*,"./miniApp 100 3 32 1 32 1 32 1"
+     PRINT*,"mpirun -n 8 ./miniApp 100 3 64 2 64 2 64 2"
   ENDIF
 
   ! Default domain, grid and processors map
@@ -64,33 +66,37 @@ PROGRAM miniApp
   iterations = 100
 
   ! Parse the simple input
-  ii=1
-  IF (nargs >= ii) CALL GETARG(ii,arg)
-  IF (nargs >= ii) READ(arg,'(I10)') iterations
+  io=1
+  IF (nargs >= io) CALL GETARG(io,arg)
+  IF (nargs >= io) READ(arg,'(I10)') iterations
 
-  ii=ii+1
-  IF (nargs >= ii) CALL GETARG(ii,arg)
-  IF (nargs >= ii) READ(arg,'(I10)') nx
+  io=io+1
+  IF (nargs >= io) CALL GETARG(io,arg)
+  IF (nargs >= io) READ(arg,'(I10)') ns
 
-  ii=ii+1
-  IF (nargs >= ii) CALL GETARG(ii,arg)
-  IF (nargs >= ii) READ(arg,'(I10)') px
+  io=io+1
+  IF (nargs >= io) CALL GETARG(io,arg)
+  IF (nargs >= io) READ(arg,'(I10)') nx
 
-  ii=ii+1
-  IF (nargs >= ii) CALL GETARG(ii,arg)
-  IF (nargs >= ii) READ(arg,'(I10)') ny
+  io=io+1
+  IF (nargs >= io) CALL GETARG(io,arg)
+  IF (nargs >= io) READ(arg,'(I10)') px
 
-  ii=ii+1
-  IF (nargs >= ii) CALL GETARG(ii,arg)
-  IF (nargs >= ii) READ(arg,'(I10)') py
+  io=io+1
+  IF (nargs >= io) CALL GETARG(io,arg)
+  IF (nargs >= io) READ(arg,'(I10)') ny
 
-  ii=ii+1
-  IF (nargs >= ii) CALL GETARG(ii,arg)
-  IF (nargs >= ii) READ(arg,'(I10)') nz
+  io=io+1
+  IF (nargs >= io) CALL GETARG(io,arg)
+  IF (nargs >= io) READ(arg,'(I10)') py
 
-  ii=ii+1
-  IF (nargs >= ii) CALL GETARG(ii,arg)
-  IF (nargs >= ii) READ(arg,'(I10)') pz
+  io=io+1
+  IF (nargs >= io) CALL GETARG(io,arg)
+  IF (nargs >= io) READ(arg,'(I10)') nz
+
+  io=io+1
+  IF (nargs >= io) CALL GETARG(io,arg)
+  IF (nargs >= io) READ(arg,'(I10)') pz
 
 
 
@@ -122,6 +128,9 @@ PROGRAM miniApp
   ALLOCATE( p(ax,ay,az) )
   ALLOCATE( T(ax,ay,az) )
 
+  ! NS species array
+  ALLOCATE( Y(ax,ay,az,ns) )
+  
   ALLOCATE( rad(ax,ay,az) )
   ALLOCATE( Fx(ax,ay,az) )
   ALLOCATE( Fy(ax,ay,az) )
@@ -146,7 +155,7 @@ PROGRAM miniApp
   ALLOCATE( bar(ax,ay,az) )
 
   
-  ALLOCATE( RHS(ax,ay,az,5) )
+  ALLOCATE( RHS(ax,ay,az,4+ns) )
 
   ! Initialize some profiles
   ! rho = x
@@ -156,62 +165,81 @@ PROGRAM miniApp
   v = 0.0
   w = 0.0
   ie = 1.0
+  Y = 1.0
+  
 
   CALL EOS(ie,rho,p,t)
   
  
 
-  ! Time the derivatives
+  ! Start the pseudo-physics loop
   CALL SYSTEM_CLOCK( t1, clock_rate, clock_max)
+  
   DO i=1,iterations
 
      ie = et - .5 * rho * (u*u + v*v + w*w )
      CALL EOS(ie,rho,p,t)
      !CALL EOS_nx(ie,rho,p,t,ax,ay,az)
      
-     ! Mass equation
-     Fx = rho * u
-     Fy = rho * v
-     Fz = rho * w
-     CALL div(Fx,Fy,Fz,RHS(:,:,:,1))
+     CALL grad(T,tx,ty,tz)
 
+     
+     ! Mass equation(s)
+     DO n=1,ns
+        Fx = rho * u * Y(:,:,:,n)
+        Fy = rho * v * Y(:,:,:,n)
+        Fz = rho * w * Y(:,:,:,n)
+        CALL div(Fx,Fy,Fz,RHS(:,:,:,4+n))
+     END DO
+
+
+     !$UNROLL {dim:3,var:['Fxx','Fyx','Fzx','rho','u','v','w','p','Fxy','Fyy','Fzy','Fxz','Fyz','Fzz','ie','et','Fx','Fy','Fz','tx','ty','tz']}
      ! Momentum equation (x)
      Fxx = rho * u * u + p
      Fyx = rho * u * v
      Fzx = rho * u * w 
-     !CALL div(Fx,Fy,Fz,RHS(:,:,:,2))
      
      ! Momentum equation (y)
      Fxy = rho * v * u 
      Fyy = rho * v * v + p
      Fzy = rho * v * w 
-     !CALL div(Fx,Fy,Fz,RHS(:,:,:,3))
      
      ! Momentum equation (z)
      Fxz = rho * w * u 
      Fyz = rho * w * v
      Fzz = rho * w * w + p
-     !CALL div(Fx,Fy,Fz,RHS(:,:,:,4))
-     CALL div(Fxx,Fxy,Fxz,Fyx,Fyy,Fyz,Fzx,Fzy,Fzz, &
-          RHS(:,:,:,2),RHS(:,:,:,3),RHS(:,:,:,4) )
 
      ! Energy equation
-     et = ie + .5 * rho * (u*u + v*v + w*w )
-     CALL grad(T,tx,ty,tz)
+     et = ie + .5 * rho * (u*u + v*v + w*w)
      
      Fx = et * u - tx
      Fy = et * v - ty
      Fz = et * w - tz
-     CALL div(Fx,Fy,Fz,RHS(:,:,:,5))
+     !$END UNROLL
+
+     CALL div(Fxx,Fxy,Fxz,Fyx,Fyy,Fyz,Fzx,Fzy,Fzz, &
+          RHS(:,:,:,1),RHS(:,:,:,2),RHS(:,:,:,3) )          
+     CALL div(Fx,Fy,Fz,RHS(:,:,:,4))
 
      ! Integrate the equaions
      rho = rho - dt * RHS(:,:,:,1)
+
+     tmp = rho*u - dt * RHS(:,:,:,2)
+     u = tmp / rho
+
+     tmp = rho*v - dt * RHS(:,:,:,3)
+     v = tmp / rho
+
+     tmp = rho*w - dt * RHS(:,:,:,4)
+     w = tmp / rho
+          
      et = et - dt * RHS(:,:,:,5)
 
      
      ! Filter the equations
      tmp = rho
      CALL filter('spectral',tmp,rho)
+
      tmp = rho*u
      CALL filter('spectral',tmp,bar)
      u = bar / rho
@@ -259,8 +287,8 @@ SUBROUTINE EOS(ie,rho,p,T)
   DOUBLE PRECISION :: gamma = 1.4
 
   
-  p = ie / rho * (gamma - 1.0 )
-  t = ie * (gamma )
+  p = ie * (gamma - 1.0 )
+  t = p / rho 
   
   
 END SUBROUTINE EOS
@@ -273,8 +301,8 @@ SUBROUTINE EOS_nx(ie,rho,p,T,nx,ny,nz)
   DOUBLE PRECISION :: gamma = 1.4
 
   
-  p = ie / rho * (gamma - 1.0 )
-  t = ie * (gamma )
+  p = ie * (gamma - 1.0 )
+  t = p / rho
   
   
 END SUBROUTINE EOS_nx
