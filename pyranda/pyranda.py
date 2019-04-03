@@ -13,6 +13,7 @@ from mpi4py import MPI
 import numpy 
 import re
 import sys,os
+import time,random
 import glob
 import inspect
 
@@ -110,15 +111,25 @@ class pyrandaSim:
 
         
         # Print startup message
-        self.iprint( code() )
-        self.iprint( version() )
-        self.iprint( icopyright() )
-        
+        self.iprint( code() , 1500 )
+        self.iprint( version() , 1000)
+        self.iprint( icopyright(), 400 )
 
-    def iprint(self,sprnt):
+        
+    def iprint(self,sprnt,wpm=0):
         if self.PyMPI.master and (not self.silent):
-            print(sprnt)
-            sys.stdout.flush() 
+
+            if wpm == 0:
+                print(sprnt)
+                sys.stdout.flush()
+            else:            
+                typing_speed = wpm                
+                for l in sprnt:
+                    sys.stdout.write(l)
+                    sys.stdout.flush()
+                    time.sleep(random.random()*10.0/typing_speed)
+                print('')
+    
         
     def addPackage(self,package):
         
