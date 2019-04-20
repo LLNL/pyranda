@@ -11,9 +11,9 @@
 import numpy 
 from .pyrandaPackage import pyrandaPackage
 
-immersed_iter = 2
+immersed_iter = 5
 immersed_CFL = 0.5
-immersed_EPS = 0.1
+immersed_EPS = 0.5
 
 class pyrandaIBM(pyrandaPackage):
 
@@ -27,6 +27,8 @@ class pyrandaIBM(pyrandaPackage):
         sMap = {}
         sMap['ibmV('] = "self.packages['IBM'].ibmVel("
         sMap['ibmS('] = "self.packages['IBM'].ibmS("
+        sMap['ibmS2('] = "self.packages['IBM'].ibmS2("
+        sMap['ibmC('] = "self.packages['IBM'].ibmC("
         self.sMap = sMap
         
                  
@@ -55,7 +57,58 @@ class pyrandaIBM(pyrandaPackage):
     
         return self.smooth_terrain( phi, phix, phiy, phiz,
                                     scalar,epsi)
+
+
+    def ibmC(self,scalar,SDF,gphi,Cval):
+
+        SS = scalar - Cval
+        lens = self.pyranda.mesh.GridLen * immersed_EPS
+        gDx = gphi[0]
+        gDy = gphi[1]
+        gDz = gphi[2]
+        
+        #vn =  numpy.where( SDF < lens, SS, 0.0 )
+        tmp = numpy.where( SDF < lens, 0.0 , SS/SDF )            
+        tmp = numpy.where( SDF > -lens, tmp , SS/SDF )
+        #tmp = numpy.where( SDF == 0.0, 0.0,SS/SDF)
+        
+        
+        # Compute linear velocity through zero level
+        #lens = 0.0
+        tmp = self.smooth_terrain(SDF,gDx,gDy,gDz,tmp,lens)
+        vn = numpy.where( SDF < lens, tmp*SDF + Cval, scalar )
+
+        return vn
     
+    
+    def ibmS2(self,scalar,phi,gphi):
+        
+        phix = gphi[0]
+        phiy = gphi[1]
+        phiz = gphi[2]
+        
+        epsi = 0.0    
+
+        # Commpute dV/dPhi
+        [tvx,tvy,tvz] = self.pyranda.grad(scalar)
+        dvdp =  tvx * phix #+ tvy*phiy + tvz*phiz
+        dvdp = numpy.where( phi > 0.0 , dvdp, 0.0 )
+
+        # This gradient goes to zero
+        Sdvdp = self.smooth_terrain( phi, phix,phiy,phiz,dvdp,epsi)
+        #Sdvdp = self.ibmC( dvdp, phi, gphi, 0.0)
+
+        # Only apply der near zero level
+        #GridLen = self.pyranda.mesh.GridLen
+        #Sdvdp *= numpy.where( numpy.abs( phi ) < 5.0*GridLen, 1.0, 0.0 )
+        
+        Sv = self.smooth_terrain( phi, phix, phiy, phiz,
+                                  scalar,epsi)
+
+        
+        S = numpy.where( phi <= epsi, Sv + phi * Sdvdp, Sv)
+        return S
+        
         
 
     def smooth_terrain(self,SDF,gDx,gDy,gDz,val_in,epsi,new=False):
@@ -73,6 +126,20 @@ class pyrandaIBM(pyrandaPackage):
         
         return val
 
+
+    def smooth_terrain2(self,SDF,gDx,gDy,gDz,val_in,epsi,new=False):
+        
+        val = val_in * 1.0
+        GridLen = self.pyranda.mesh.GridLen
+        
+        for i in range(immersed_iter):
+            [tvx,tvy,tvz] = self.pyranda.grad(val)
+            term = tvx*gDx+tvy*gDy+tvz*gDz
+            val = numpy.where( SDF <= epsi , val + immersed_CFL*GridLen*term , val )
+            Tval = self.pyranda.gfilter(val)
+            val = numpy.where( SDF <= epsi , Tval, val )
+        
+        return val
 
     def slip_velocity(self,SDF,gDx,gDy,gDz,v1_in,v2_in,v3_in,lens,new=False,phivar=None):
 
@@ -95,8 +162,7 @@ class pyrandaIBM(pyrandaPackage):
         #v3 = self.smooth_terrain(SDF,gDx,gDy,gDz,v3,0.0,new=new)
             
         norm = v1*gDx+v2*gDy+v3*gDy
-        vn =  numpy.where( SDF < lens, norm, 0.0 )
-        tmp = numpy.where( SDF < lens, 0.0 , norm/(SDF) )            
+        vn =  norm #numpy.where( SDF < lens, norm, 0.0 )
     
         # Remove normal velocity
         v1 = v1 - vn*gDx
@@ -104,8 +170,11 @@ class pyrandaIBM(pyrandaPackage):
         v3 = v3 - vn*gDz
 
         # Compute linear velocity through zero level
-        tmp = self.smooth_terrain(SDF,gDx,gDy,gDz,tmp,lens,new=new)
-        vn = numpy.where( SDF < lens, tmp*SDF, 0.0 )
+        #tmp = numpy.where( SDF < lens, 0.0 , norm/SDF )
+        #tmp = numpy.where( SDF > -lens, tmp , norm/SDF )
+        #tmp = self.smooth_terrain(SDF,gDx,gDy,gDz,tmp,lens,new=new)
+        #vn = numpy.where( SDF < lens, tmp*SDF, 0.0 )
+        vn = self.ibmC(norm,SDF,[gDx,gDy,gDz],0.0)
     
         # Add velocity linear profile
         v1 = v1 + vn*gDx
