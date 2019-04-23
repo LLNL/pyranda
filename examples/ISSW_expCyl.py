@@ -202,27 +202,32 @@ while tt > time:
     # Print some output
     ss.iprint("%s -- %s --- %f" % (cnt,time,dt)  )
     cnt += 1
-    if viz and (not test):
+    if (not test):
 
         if (cnt%viz_freq == 1) :
             ss.write(pvars)
         
-        if (cnt%viz_freq == 1) :#or True:
+        if (cnt%viz_freq == 1):#or True:
 
             pp = probes.get('p')
-            if ss.PyMPI.master:
-                plt.figure(1)
-                plt.clf()
-                cp = (pp - p0) / (.5*rho0*u0**2)
-                plt.plot( numpy.abs(th), cp ,'k-')
-                plt.plot( expData[:,0],expData[:,1],'bo')
+            cp = (pp - p0) / (.5*rho0*u0**2)
+            if viz:
+                if ss.PyMPI.master:
+                    plt.figure(1)
+                    plt.clf()
+                    plt.plot( numpy.abs(th), cp ,'k-')
+                    plt.plot( expData[:,0],expData[:,1],'bo')
             
-            ss.plot.figure(2)
-            ss.plot.clf()            
-            ss.plot.contourf('p' ,64 , cmap=cm.jet)
-            ss.plot.contour('phi',[0.0])
+                ss.plot.figure(2)
+                ss.plot.clf()            
+                ss.plot.contourf('p' ,64 , cmap=cm.jet)
+                ss.plot.contour('phi',[0.0])
 
             
 ss.writeRestart()
-            
+
+# Write probs/Cp to file
+fname = "simData_%s.txt" % Npts
+if ss.PyMPI.master:
+    numpy.savetxt(fname,[th,cp])
 
