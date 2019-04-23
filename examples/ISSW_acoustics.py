@@ -43,7 +43,7 @@ s0 = numpy.sqrt( p0 / rho0 * gamma )
 u0 = s0 * mach
 e0 = p0/(gamma-1.0) + rho0*.5*u0*u0
 k0 = 0.1     # Wave number of sinewave
-amp = .0001
+amp = 1.0e-4
 
 # Define the equations of motion
 eom ="""
@@ -70,10 +70,10 @@ ddt(:Et:)   =  -div( (:Et: + :p: - :tau:)*:u: - :tx:*:kappa: )
 [:u:,:v:,:w:] = ibmV( [:u:,:v:,0.0], :phi:, [:gx:,:gy:,:gz:], [:u1:,:u2:,0.0] )
 :rho: = ibmS( :rho: , :phi:, [:gx:,:gy:,:gz:] )
 :p:   = ibmS( :p:   , :phi:, [:gx:,:gy:,:gz:] )
-:right: = simtime-( ((2.0*k0+0.5)*2.0*pi + meshx)/s0)
-:left:  = simtime-( ( 2.0*xWall + (2.0*k0+0.5)*2.0*pi - meshx) / s0)
-:inlet: = p0*amp*exp( -:right:**2 / (k0*pi/s0)**2 ) + meshx*0.0
-:inlet: = :inlet: + p0*amp*exp( -:left:**2 / (k0*pi/s0)**2 ) + meshx*0.0
+:right: = simtime-( ((2.0*k0+0.5)*2.0*pi + Xshift + meshx)/s0)
+:left:  = simtime-( ( 2.0*xWall + (2.0*k0+0.5)*2.0*pi + Xshift - meshx) / s0)
+:inlet: = p0*amp*exp( -:right:**2 / (k0*pi/s0)**2 ) 
+:inlet: = :inlet: + p0*amp*exp( -:left:**2 / (k0*pi/s0)**2 ) 
 :pA: = :inlet: + p0
 :error: = abs(:p: - :pA:)
 bc.extrap(['rho','p','u'],['xn'])
@@ -124,7 +124,13 @@ def solve(Npts,test=True,delta=0.0):
     delta = delta * (Lp/Npts)
 
     dx = (L/Npts)
-    xWall = (int(.75*Npts)+.3)*dx
+    try:
+        myOff = Offset
+    except:
+        myOff = .5
+    xWall = (int(.75*Npts)+myOff)*dx
+    
+    Xshift = -2*(xWall - .75*2*numpy.pi)
     
     # Initialize a simulation object on a mesh
     ss = pyrandaSim(problem,mesh_options,silent=test)
@@ -134,6 +140,7 @@ def solve(Npts,test=True,delta=0.0):
 
     # Add the EOM to the solver
     meom = eom.replace('u0',str(u0)).replace('p0',str(p0)).replace('rho0',str(rho0)).replace('s0',str(s0)).replace('k0',str(k0)).replace('xWall',str(xWall)).replace('amp',str(amp))
+    meom = meom.replace('Xshift',str(Xshift))
     ss.EOM(meom)
 
     mic = ic.replace('mach',str(mach)).replace('xWall',str(xWall))
@@ -146,7 +153,7 @@ def solve(Npts,test=True,delta=0.0):
     viz = True
 
     # Approx a max dt and stopping time
-    tt = 10.0 #
+    tt = 10.0 
 
     # Start time loop
     cnt = 1
@@ -218,33 +225,38 @@ def solve(Npts,test=True,delta=0.0):
                 except:
                     pass
                 
-    error = ss.eval("mean( where(:phi:>0,:error:,0.0))")
+    error = ss.eval("mean( where(:phi:>0,:error:,0.0))")/amp
     minPhi = ss.eval("min(where(:phi:>0,:phi:,1e6)    )")
     print(error,minPhi)
 
-    ss.plot.plot('error')
-    
-    #try:
-    #    input("HERE")
-    #except:
-    #    pass
+    #if (Npts == 800):
+    #    ss.plot.plot('p','k-',linewidth=2.5,label='$N=800$')
+    #if (Npts == 400):
+    #    ss.plot.plot('p','k--',linewidth=2.5,label='$N=400$')
     
     return [ss,error,minPhi]
     
 
-RES = [50,100,200]#,400]#,800]
+RES = [25,50,100,200,400,800]
 
 #RES = [50,51,52,53,54,55,56,57,58,59,60]
 
 errors = []
+mySS = None
 for r in RES:
     [ss,ee,mphi] = solve(r,test=True)
     errors.append( ee )
+    if (r == 200):
+        mySS = ss
 
 errors = numpy.array(errors)
 RES = numpy.array(RES)
 CR = numpy.log( (errors[1:]/errors[:-1])) / numpy.log( (RES[1:]/RES[:-1]))
 print(CR)
+
+DX = 1.0 / numpy.array( RES) * 2.0*numpy.pi
+
+
 #DEL = [.0,.1,.2,.3,.4,.5,.6,.7,.8,.9]
 
 #for delta in DEL:
@@ -252,4 +264,58 @@ print(CR)
 
 #[ss,ee,mphi] = solve(50,test=False)
 
+#runMe = """
+
+LW = 2.5
+from matplotlib import rcParams
+import os
+rcParams['axes.labelsize'] = 20
+rcParams['xtick.labelsize'] = 16
+rcParams['ytick.labelsize'] = 16
+rcParams['legend.fontsize'] = 20
+rcParams['font.family'] = 'serif'
+rcParams['font.serif'] = ['Computer Modern Roman']
+rcParams['text.usetex'] = True
+floc = "/Users/olson45/Documents/Conference Travel/ISSW32_2019/ISSW32_bjo/figures"
+
+
+#Offset = .1
 #execfile("ISSW_acoustics.py")
+#plt.loglog(1./DX,errors,'bo-', linewidth=LW)
+
+Offset = .5
+#execfile("ISSW_acoustics.py")
+plt.figure(2)
+plt.loglog(1./DX,errors,'ko-', linewidth=LW)
+
+#Offset = .9
+#execfile("ISSW_acoustics.py")
+#plt.loglog(1./DX,errors,'ro-', linewidth=LW)
+
+
+rate = 2
+scl = 1./DX[0]**(-rate)/errors[0]
+plt.loglog( 1./DX , .5/scl * (1./DX)**(-rate), 'k--')
+
+plt.xlabel(r"$\frac{1}{\Delta x}$") 
+plt.ylabel(r"$L_2$ Error")
+plt.tight_layout(pad=1.0)
+plt.savefig(os.path.join(floc,'acoust_conv.pdf'))
+
+
+plt.figure(1)
+
+mySS.plot.plot('p','bo',linewidth=2.5)
+mySS.plot.plot('pA','k--',linewidth=2.5)
+plt.xlim((1.0,3.0))
+
+plt.xlabel(r"$x$") 
+plt.ylabel(r"$p(x)$")
+plt.tight_layout(pad=1.0)
+plt.savefig(os.path.join(floc,'acoust_prof.pdf'))
+
+
+plt.show()
+
+
+#"""

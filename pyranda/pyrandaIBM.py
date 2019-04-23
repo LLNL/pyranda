@@ -11,9 +11,9 @@
 import numpy 
 from .pyrandaPackage import pyrandaPackage
 
-immersed_iter = 5
+immersed_iter = 2
 immersed_CFL = 0.5
-immersed_EPS = 0.5
+immersed_EPS = 0.01
 
 class pyrandaIBM(pyrandaPackage):
 
@@ -69,7 +69,8 @@ class pyrandaIBM(pyrandaPackage):
         
         #vn =  numpy.where( SDF < lens, SS, 0.0 )
         tmp = numpy.where( SDF < lens, 0.0 , SS/SDF )            
-        tmp = numpy.where( SDF > -lens, tmp , SS/SDF )
+        #tmp = numpy.where( SDF > -lens, tmp , SS/SDF ) ## CYL
+        tmp = numpy.where( SDF > -lens, tmp , SS ) ## CYL
         #tmp = numpy.where( SDF == 0.0, 0.0,SS/SDF)
         
         
