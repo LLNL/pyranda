@@ -65,6 +65,7 @@ ss = pyrandaSim(problem,mesh_options)
 ss.addPackage( pyrandaBC(ss) )
 ss.addPackage( pyrandaIBM(ss) )
 ss.addPackage( pyrandaTimestep(ss) )
+del mesh_options
 
 
 rho0 = 1.0
@@ -249,8 +250,11 @@ while tt > time:
             plt.pause(.001)
 
 
-ss.writeRestart()
-            
+
+#ss.writeRestart()#ivars=rvars)
+#from pyranda import pyrandaRestart as pr
+#tt = pr("cylinder_curvilinear")
+
 
 # Curve test.  Write file and print its name at the end
 if test:

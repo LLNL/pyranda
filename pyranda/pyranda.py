@@ -111,7 +111,7 @@ class pyrandaSim:
 
         
         # Print startup message
-        self.iprint( code() , 1500 )
+        self.iprint( code() , 4000 )
         self.iprint( version() , 1000)
         self.iprint( icopyright(), 400 )
 
@@ -395,7 +395,7 @@ class pyrandaSim:
             
 
 
-    def writeRestart(self,suffix=None):
+    def writeRestart(self,ivars=None,suffix=None):
         """
         -writeRestart-
         Description - Main driver to write the entire pyrandaSim state
@@ -417,9 +417,45 @@ class pyrandaSim:
         self.PyMPI.comm.Barrier()
             
         ## Persistent data ##
-        
-        # Original domain-decomp
         serial_data = {}
+
+        supported_types = []
+        supported_types.append(type(''))
+        supported_types.append(type(0))
+        supported_types.append(type(1.0))
+        supported_types.append(type([]))
+        supported_types.append(type({}))
+        supported_types.append(type(None))
+        supported_types.append(type(numpy.float64))
+        supported_types.append(type(True))
+        
+        # Check if ivars dictionary is passed
+        if ivars:
+            # Sanitize "ivars" (dont allow any
+            serial_data["local_vars"] = {}
+            serial_data['local_vars']['numpyArrays'] = {}
+            
+            # For ivars that are numpy arrays, save them individually
+            for vv in ivars:
+                itype = type(ivars[vv])
+
+                isType = False
+                for typ in supported_types:
+                    isType = isType or (typ == itype)
+                
+                if itype == type(numpy.ones(1)):
+                    filename = os.path.join(dumpDir,"%s" % vv)
+                    serial_data['local_vars']['numpyArrays'][vv] = filename
+                    if self.PyMPI.master:
+                        numpy.save( filename, ivars[vv] )
+                elif isType:
+                    serial_data["local_vars"][vv] = ivars[vv]
+                #else:
+                #    self.iprint("Warning: The variable %s is type %s is not supported by restarts." % (vv,itype))
+
+
+                
+        # Original domain-decomp
         serial_data['mesh'] = self.meshOptions.copy()
         serial_data['EOM']  = self.eom
         serial_data['ICs']  = self.ics
@@ -428,27 +464,34 @@ class pyrandaSim:
         serial_data['packages'] = self.packagesRestart
         serial_data['time'] = self.time
         serial_data['deltat'] = self.deltat
+        serial_data['cycle']  = self.cycle
         
-        # Serialize the mesh function
+        # Serialize the mesh function (if it exists)
         if 'function' in serial_data['mesh']:
-            serial_data['mesh']['function'] = inspect.getsource(
-                self.meshOptions['function'] )
-            serial_data['mesh']['function-name'] = self.meshOptions['function'].__name__
+            if serial_data['mesh']['function']:
+                serial_data['mesh']['function'] = None
+        #        import pdb
+        #        pdb.set_trace()
+        #        serial_data['mesh']['function'] = inspect.getsource(
+        #            self.meshOptions['function'] )
+        #        serial_data['mesh']['function-name'] = self.meshOptions['function'].__name__
             
         # Variable map
         serial_data['vars'] = {}
         cnt = 0
-        #IOvariables = list(self.variables).append('meshx').append('meshy').append('meshz')
         for ivar in self.variables:
             serial_data['vars'][ivar] = cnt
             cnt += 1
 
-            
+        PO = numpy.set_printoptions()
+        numpy.set_printoptions(threshold=sys.maxsize)
+        numpy.set_printoptions(linewidth=sys.maxsize)
         if self.PyMPI.master == 1:
             fid = open(os.path.join(dumpDir,'serial.dat'),'w')
             fid.write(str(serial_data))
+        numpy.set_printoptions(PO)
             
-        
+            
         # Parallel
         # Variables
         DATA = self.PyMPI.emptyVector(len(self.variables))
@@ -842,18 +885,37 @@ def pyrandaRestart(rootname,suffix=None):
     # Get serial data
     fid = open(os.path.join(dump,'serial.dat'))
     dstr = fid.readline()
+
+    # Load local data into current state
     serial_data = eval( dstr )
 
-    # Unpack the mesh function
-    #if ( 'function' in serial_data['mesh'] ):
-    #    fname = serial_data['mesh']['function-name']
-    #    exec( serial_data['mesh']['function'] )
-    #    serial_data['mesh']['function'] = eval(fname)
     
-    # Make the object - (will do new domain-decomp)
-    # clip functions
-    serial_data['mesh'].pop('function',None)
-    serial_data['mesh'].pop('function-name',None)
+    # Unpack the mesh function (not needed?)
+    #if ( 'function' in serial_data['mesh'] ):
+    #    if serial_data['mesh']['function']:
+    #        fname = serial_data['mesh']['function-name']
+    #        exec( serial_data['mesh']['function'] )
+    #        serial_data['mesh']['function'] = eval(fname)
+    #    else:
+    #        # clip functions
+    #        serial_data['mesh'].pop('function',None)
+    #        serial_data['mesh'].pop('function-name',None)
+
+    # Unpack any local vars that have been serialized to pickel
+    my_local_vars = {}
+    if "local_vars" in serial_data:
+        for vv in serial_data["local_vars"]:
+            exec("%s = %s" % (vv,serial_data["local_vars"][vv]) )
+        my_local_vars.update( serial_data['local_vars'] )
+
+        for na in serial_data['local_vars']['numpyArrays']:
+            filename = "%s%s" % (serial_data['local_vars']['numpyArrays'][na],'.npy')
+            data = numpy.load(filename)
+            my_local_vars.update( {na:data} )
+            exec("%s = numpy.load('%s')" % (na,filename))
+            
+        serial_data.pop("local_vars",None)
+        
     pysim = pyrandaSim(rootname,serial_data['mesh'])
 
     # Load packages
@@ -865,9 +927,12 @@ def pyrandaRestart(rootname,suffix=None):
 
     # EOM and IC's
     pysim.EOM( serial_data['EOM'] )
-    #pysim.setIC( serial_data['ICs'] )
+    pysim.setIC( serial_data['ICs'] )
+
+    # Simulation state data
     pysim.time = serial_data['time']
     pysim.deltat = serial_data['deltat']
+    pysim.cycle  = serial_data['cycle']  
     
     # Loop over processor dumps of restart data:
     # Loop through variables
