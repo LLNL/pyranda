@@ -85,7 +85,6 @@ ddt(:rhou:) =  -div(:rhou:*:u: + :p: - :tau:, :rhou:*:v:)
 ddt(:rhov:) =  -div(:rhov:*:u:, :rhov:*:v: + :p: - :tau:)
 ddt(:Et:)   =  -div( (:Et: + :p: - :tau:)*:u: - :tx:*:kappa:, (:Et: + :p: - :tau:)*:v: - :ty:*:kappa: )
 # Level set equation
-#ddt(:phi:)  =  - :gx: * :u1: - :gy: * :v1: 
 # Conservative filter of the EoM
 :rho:       =  fbar( :rho:  )
 :rhou:      =  fbar( :rhou: )
@@ -103,7 +102,7 @@ ddt(:Et:)   =  -div( (:Et: + :p: - :tau:)*:u: - :tx:*:kappa:, (:Et: + :p: - :tau
 [:tx:,:ty:,:tz:] = grad(:T:)
 :kappa:     = gbar( ring(:T:)* :rho:*:cv:/(:T: * :dt: ) ) * 1.0e-3
 # Apply constant BCs
-[:u:,:v:,:w:] = ibmV( [:u:,:v:,0.0], :phi:, [:gx:,:gy:,:gz:], [:u1:,:u2:,0.0] )
+[:u:,:v:,:w:] = ibmV( [:u:,:v:,:w:], :phi:, [:gx:,:gy:,:gz:])
 :rho: = ibmS( :rho: , :phi:, [:gx:,:gy:,:gz:] )
 :p:   = ibmS( :p:   , :phi:, [:gx:,:gy:,:gz:] )
 bc.extrap(['rho','p','u'],['xn'])
