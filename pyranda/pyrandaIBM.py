@@ -160,9 +160,9 @@ class pyrandaIBM(pyrandaPackage):
 
         v1 = self.smooth_terrain(SDF,gDx,gDy,gDz,v1,0.0,new=new)
         v2 = self.smooth_terrain(SDF,gDx,gDy,gDz,v2,0.0,new=new)
-        #v3 = self.smooth_terrain(SDF,gDx,gDy,gDz,v3,0.0,new=new)
+        v3 = self.smooth_terrain(SDF,gDx,gDy,gDz,v3,0.0,new=new)
             
-        norm = v1*gDx+v2*gDy+v3*gDy
+        norm = v1*gDx+v2*gDy+v3*gDz
         vn =  norm #numpy.where( SDF < lens, norm, 0.0 )
     
         # Remove normal velocity
@@ -187,6 +187,6 @@ class pyrandaIBM(pyrandaPackage):
             v2 += v2_phi
             v3 += v3_phi
 
-        return [v1,v2,0.0]
+        return [v1,v2,v3]
 
     
