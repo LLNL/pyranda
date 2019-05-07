@@ -31,7 +31,7 @@ except:
 L = numpy.pi * 2.0  
 gamma = 1.4
 
-problem = 'cyl_ISSW_fine2d'
+problem = 'cyl_ISSW_LES'
 
 Lp = L * (Npts-1.0) / Npts
 dx_ish = 4.*Lp / float(Npts)
@@ -39,13 +39,13 @@ Nz = 72
 Lz = Nz * dx_ish
 
 mesh_options = {}
-#mesh_options['coordsys'] = 3
-#mesh_options['function'] = zoomMesh
 mesh_options['periodic'] = numpy.array([False, False, True])
 mesh_options['dim'] = 3
 mesh_options['x1'] = [ -2*Lp + 6., -2*Lp  ,  0.0 ]
 mesh_options['xn'] = [ 2*Lp  + 6. , 2*Lp    ,  Lz ]
 mesh_options['nn'] = [ Npts, Npts ,  Nz  ]
+Lx = 2.*Lp + 6.0
+Ly = 2.*Lp
 if dim == 2:
     mesh_options['nn'] = [ Npts, Npts ,  1  ]
 
@@ -88,10 +88,22 @@ ddt(:Et:)   =  -div( (:Et: + :p: - :tau:)*:u: - :tx:*:kappa: ,(:Et: + :p: - :tau
 [:u:,:v:,:w:] = ibmV( [:u:,:v:,:w:], :phi:, [:gx:,:gy:,:gz:] )
 :rho: = ibmS( :rho: , :phi:, [:gx:,:gy:,:gz:] )
 :p:   = ibmS( :p:   , :phi:, [:gx:,:gy:,:gz:] )
-bc.extrap(['rho','p','u'],['xn'])
-bc.const(['u'],['x1','y1','yn'],u0)
-bc.const(['v'],['x1','xn','y1','yn'],0.0)
-bc.const(['w'],['x1','xn','y1','yn'],0.0)
+# Sponge outflow
+:u: = :u:*(1-:wgt:) + gbar(:u:)*:wgt:
+:v: = :v:*(1-:wgt:) + gbar(:v:)*:wgt:
+:w: = :w:*(1-:wgt:) + gbar(:w:)*:wgt:
+:p: = :p:*(1-:wgt:) + gbar(:p:)*:wgt:
+:rho: = :rho:*(1-:wgt:) + gbar(:rho:)*:wgt:
+# Extrapolation
+#bc.extrap(['rho','p','u'],['xn'])
+#bc.const(['u'],['x1','y1','yn'],u0)
+#bc.const(['v'],['x1','xn','y1','yn'],0.0)
+#bc.const(['w'],['x1','xn','y1','yn'],0.0)
+#bc.const(['rho'],['x1','y1','yn'],rho0)
+#bc.const(['p'],['x1','y1','yn'],p0)
+bc.extrap(['rho','p','u','v','w'],['xn','y1','yn'])
+bc.const(['u'],['x1'],u0)
+bc.const(['v','w'],['x1','y1','yn'],0.0)
 bc.const(['rho'],['x1','y1','yn'],rho0)
 bc.const(['p'],['x1','y1','yn'],p0)
 :Et:  = :p: / ( :gamma: - 1.0 )  + .5*:rho:*(:u:*:u: + :v:*:v: + :w:*:w:)
@@ -99,10 +111,10 @@ bc.const(['p'],['x1','y1','yn'],p0)
 :rhov: = :rho:*:v:
 :rhow: = :rho:*:w:
 :cs:  = sqrt( :p: / :rho: * :gamma: )
-:dt: = dt.courant(:u:,:v:,:w:,:cs:)*.6
+:dt: = dt.courant(:u:,:v:,:w:,:cs:)
 :dtB: = 0.05* dt.diff(:beta:,:rho:)
 :dt: = numpy.minimum(:dt:,:dtB:)
-:umag: = sqrt( :u:*:u: + :v:*:v: + :w:*:w: )
+#:umag: = sqrt( :u:*:u: + :v:*:v: + :w:*:w: )
 """
 eom = eom.replace('u0',str(u0)).replace('p0',str(p0)).replace('rho0',str(rho0))
 
@@ -137,8 +149,12 @@ rad = sqrt( (meshx-3)**2  +  (meshy+5.0)**2 )
 [:gx:,:gy:,:gz:] = grad( :phi: )
 :gx: = gbar( :gx: )
 :gy: = gbar( :gy: )
+wgt1 = ( 1.0 + tanh( (meshx-Lx*(1.0-0.025))/ (.025*Lx) ) ) * 0.5
+#wgt2 = ( 1.0 + tanh( (meshy-Ly*(1.0-0.025))/ (.025*Lx) ) ) * 0.5 
+#wgt3 = ( 1.0 + tanh( -(meshy+Ly*(1.0-0.025))/ (.025*Lx) ) ) * 0.5
+:wgt: = wgt1 #numpy.minimum( wgt1+wgt2+wgt3, 1.0 )
 """
-ic = ic.replace('mach',str(mach))
+ic = ic.replace('mach',str(mach)).replace('Lx',str(Lx)).replace('Ly',str(Ly))
 
 
 # Option to pick up a restart
@@ -157,12 +173,12 @@ viz_times = numpy.linspace(0,tt,viz_N)
 viz = False  # Interactive plots?
 
 # Restart
-restart_freq = 10
+restart_freq = 1000
 
 
 # Pyranda Simulation
 if restart:
-    ss = pyrandaRestart(problem)
+    ss = pyrandaRestart(problem,eom=eom,ics=ic)
     dt = ss.deltat
 
 else:

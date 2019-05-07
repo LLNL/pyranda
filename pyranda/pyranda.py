@@ -863,7 +863,7 @@ class pyrandaSim:
         
 
 
-def pyrandaRestart(rootname,suffix=None):
+def pyrandaRestart(rootname,suffix=None,eom=None,ics=None):
     from numpy import array,int32
     
     """
@@ -926,8 +926,16 @@ def pyrandaRestart(rootname,suffix=None):
         pysim.addPackage( pk )
 
     # EOM and IC's
-    pysim.EOM( serial_data['EOM'] )
-    pysim.setIC( serial_data['ICs'] )
+    if eom:
+        pysim.EOM( eom )
+        pysim.iprint("Loading custom EOS")
+    else:
+        pysim.EOM( serial_data['EOM'] )
+    if ics:
+        pysim.setIC( ics )
+        pysim.iprint("Loading custom ICs")
+    else:
+        pysim.setIC( serial_data['ICs'] )
 
     # Simulation state data
     pysim.time = serial_data['time']
