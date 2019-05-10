@@ -46,7 +46,7 @@ def plotFix( plots ):
     
 ## Define a mesh
 L = numpy.pi * 2.0
-Npts = 200
+Npts = 500
 Lp = L * (Npts-1.0) / Npts
 
 imesh = """
