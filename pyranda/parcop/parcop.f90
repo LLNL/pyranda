@@ -439,7 +439,7 @@ MODULE parcop
 
   SUBROUTINE flamencoFlux(nx,ny,nz,rX,rY,rZ, &
        & iNnHalo,iNcHalo,iInvOrder,iRecons,iLowMachScheme, &
-       & rhou,rhov,rhow,Et,rho)
+       & rhou,rhov,rhow,Et,rho,p,gamma,T,Flux)
 
     ! Take in pre-ghosted conserved variables and return fluxes on those EOMs
     ! Inputs: iNnx,iNny,iNnz
@@ -453,12 +453,14 @@ MODULE parcop
     
     implicit none
     integer, intent(in) :: nx,ny,nz,iNnHalo,iNcHalo,iInvOrder,iRecons,iLowMachScheme
-    real(8),dimension(1-iNnHalo:nx+iNnHalo,1-iNnHalo:ny+iNnHalo,1-iNnHalo:nz+iNnHalo)), intent(in) :: rX,rY,rZ
+    real(8),dimension(1-iNnHalo:nx+iNnHalo,1-iNnHalo:ny+iNnHalo,1-iNnHalo:nz+iNnHalo), intent(in) :: rX,rY,rZ
 
-    real(8),dimension(1-iNcHalo:nx+iNcHalo,1-iNcHalo:ny+iNcHalo,1-iNcHalo:nz+iNcHalo)), intent(in) :: rhou,rhov,rhow,Et,rho,p,gamma,T
+    real(8),dimension(1-iNcHalo:nx+iNcHalo-1,1-iNcHalo:ny+iNcHalo-1,1-iNcHalo:nz+iNcHalo-1), intent(in) :: rhou,rhov,rhow,Et,rho,p,gamma,T
+
+    real(8),dimension(5,1-iNcHalo:nx+iNcHalo-1,1-iNcHalo:ny+iNcHalo-1,1-iNcHalo:nz+iNcHalo-1), intent(out) :: Flux
 
     
-    integer n
+    integer :: n
     ! Array sizes, various options
     integer :: iNVar,iNVarComputed,iNumberOfSpecies,iEquationOfState
     ! Thermodynamic properties
@@ -468,14 +470,25 @@ MODULE parcop
 
     ! Solution array, flux array
     real(8),allocatable,dimension(:,:,:,:) :: rSol3D,rFlux3D
+
+    integer :: innx,inny,innz
+
+    innx = nx  
+    inny = ny
+    innz = nz
     
     iNumberOfSpecies = 1 ! Number of species
     iNVarComputed = 4+iNumberOfSpecies ! Number of computed variables in solution array
-    iNVar = iNVarComputed+4 ! Total number of variables in solution array
+    ! Total number of variables in solution array
+    if(iNumberOfSpecies.eq.1) then
+       iNVar = iNVarComputed+3
+    else
+       iNVar = iNVarComputed+4    
+    end if
     iEquationOfState = 1 ! Equation of state. 1=ideal gas (fixed gamma)
-    iRecons = 0 ! Choice of variables to reconstruct at interface. 0=conserved, 1=primitive (preferred for multispecies)
-    iInvOrder = 5 ! Reconstruction scheme to use. 1=1st order, 2=minmod, 3=van Leer, 4=superbee, 5=5th order MUSCL
-    iLowMachScheme = 1 ! Low Mach correction. 0=off, 1=on
+    !iRecons = 0 ! Choice of variables to reconstruct at interface. 0=conserved, 1=primitive (preferred for multispecies)
+    !iInvOrder = 5 ! Reconstruction scheme to use. 1=1st order, 2=minmod, 3=van Leer, 4=superbee, 5=5th order MUSCL
+    !iLowMachScheme = 1 ! Low Mach correction. 0=off, 1=on
     
     
     allocate(rSol3D(iNVar,-iNcHalo+1:iNnx+iNcHalo-1,-iNcHalo+1:iNny+iNcHalo-1,-iNcHalo+1:iNnz+iNcHalo-1))
@@ -497,9 +510,9 @@ MODULE parcop
     !   end do
     !   rSol3D(iNVar-3,:,:,:) = 0.d0 ! Density
     !end if
-    rSol3D(iNVar-2,:,:,:) = p ! Pressure
-    rSol3D(iNVar-1,:,:,:) = gamma ! Gamma
-    rSol3D(iNVar,:,:,:) = T ! Temperature
+    rSol3D(iNVar-2,:,:,:) = gamma ! Gamma
+    rSol3D(iNVar-1,:,:,:) = p     ! Pressure
+    rSol3D(iNVar,:,:,:) = T       ! Temperature
     
     ! Flux array
     rFlux3D = 0.d0 ! Same as rSol3D
@@ -517,10 +530,13 @@ MODULE parcop
     end do
     
 
+    !print*,maxval( rsol3d )
     call InviscidFlux(rSol3D,rFlux3D,rX,rY,rZ,iNVar,iNVarComputed,iNcHalo,iNnHalo,nx,ny,nz,iLowMachScheme,iNumberOfSpecies,iEquationOfState,rSpecificGasConstant,rCv,rCp,iRecons,iInvOrder)
 
-    
-    
+    flux = rFlux3D(1:5,:,:,:)
+
+    !print*,maxval( rsol3d )
+    !print*,maxval( rflux3d )
     
   END SUBROUTINE flamencoFlux
 
