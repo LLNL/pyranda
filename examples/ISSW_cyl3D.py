@@ -57,6 +57,10 @@ s0 = numpy.sqrt( p0 / rho0 * gamma )
 u0 = s0 * mach
 e0 = p0/(gamma-1.0) + rho0*.5*u0*u0
 
+# Artificial terms
+Ckappa = 1.0e-3
+Cbeta  = 7.0e-2
+
 
 # Define the equations of motion
 eom ="""
@@ -80,10 +84,11 @@ ddt(:Et:)   =  -div( (:Et: + :p: - :tau:)*:u: - :tx:*:kappa: ,(:Et: + :p: - :tau
 :T:         = :p: / (:rho: * :R: )
 # Artificial bulk viscosity (old school way)
 :div:       =  div(:u:,:v:,:w:)
-:beta:      =  gbar( ring(:div:) * :rho: ) * 7.0e-3
+:beta:      =  gbar( ring(:div:) * :rho: ) * Cbeta
 :tau:       =  :beta: * :div: 
 [:tx:,:ty:,:tz:] = grad(:T:)
-:kappa:     = gbar( ring(:T:)* :rho:*:cv:/(:T: * :dt: ) ) * 1.0e-3
+:kappa:     = Ckappa * ring(:T:) / (:T: * :dt: )
+:kappa:   = gbar(  :rho:*:cv: * numpy.minimum( :kappa: , 4.0*:cs:*gridLen ) )
 # Apply constant BCs
 [:u:,:v:,:w:] = ibmV( [:u:,:v:,:w:], :phi:, [:gx:,:gy:,:gz:] )
 :rho: = ibmS( :rho: , :phi:, [:gx:,:gy:,:gz:] )
@@ -112,11 +117,14 @@ bc.const(['p'],['x1','y1','yn'],p0)
 :rhow: = :rho:*:w:
 :cs:  = sqrt( :p: / :rho: * :gamma: )
 :dt: = dt.courant(:u:,:v:,:w:,:cs:)
-:dtB: = 0.05* dt.diff(:beta:,:rho:)
+:dtB: = 0.2* dt.diff(:beta:,:rho:)
+#:dtK: = 0.2 * dt.diff(:kappa: , :rho:*:cv: )
 :dt: = numpy.minimum(:dt:,:dtB:)
+#:dt: = numpy.minimum(:dt:,:dtK:)
 #:umag: = sqrt( :u:*:u: + :v:*:v: + :w:*:w: )
 """
 eom = eom.replace('u0',str(u0)).replace('p0',str(p0)).replace('rho0',str(rho0))
+eom = eom.replace('Cbeta',str(Cbeta)).replace('Ckappa',str(Ckappa))
 
 
 # Initialize variables
@@ -150,16 +158,16 @@ rad = sqrt( (meshx-3)**2  +  (meshy+5.0)**2 )
 :gx: = gbar( :gx: )
 :gy: = gbar( :gy: )
 wgt1 = ( 1.0 + tanh( (meshx-Lx*(1.0-0.025))/ (.025*Lx) ) ) * 0.5
-#wgt2 = ( 1.0 + tanh( (meshy-Ly*(1.0-0.025))/ (.025*Lx) ) ) * 0.5 
-#wgt3 = ( 1.0 + tanh( -(meshy+Ly*(1.0-0.025))/ (.025*Lx) ) ) * 0.5
-:wgt: = wgt1 #numpy.minimum( wgt1+wgt2+wgt3, 1.0 )
+wgt2 = ( 1.0 + tanh( (meshy-Ly*(1.0-0.025))/ (.025*Lx) ) ) * 0.5 
+wgt3 = ( 1.0 + tanh( -(meshy+Ly*(1.0-0.025))/ (.025*Lx) ) ) * 0.5
+:wgt: = numpy.minimum( wgt1+wgt2+wgt3, 1.0 )
 """
 ic = ic.replace('mach',str(mach)).replace('Lx',str(Lx)).replace('Ly',str(Ly))
 
 
 # Option to pick up a restart
 CFL = 1.0
-outVars = ['p','u','v','w','phi','rho','T']
+outVars = ['p','u','v','w','phi','rho','T','beta','kappa']
 
 # Approx a max dt and stopping time
 tt = 25.0 #
@@ -178,9 +186,19 @@ restart_freq = 1000
 
 # Pyranda Simulation
 if restart:
-    ss = pyrandaRestart(problem,eom=eom,ics=ic)
+    ss = pyrandaRestart(problem)
     dt = ss.deltat
 
+    # Hack. updated "WGT" variable
+    wgt1 = ss.eval( "( 1.0 + tanh( (meshx-Lx*(1.0-0.025))/ (.025*Lx) ) ) * 0.5".replace('Lx',str(Lx)).replace('Ly',str(Ly))  )
+    wgt2 = ss.eval( "( 1.0 + tanh( (meshy-Ly*(1.0-0.025))/ (.025*Lx) ) ) * 0.5".replace('Lx',str(Lx)).replace('Ly',str(Ly))  )
+    wgt3 = ss.eval( "( 1.0 + tanh( -(meshy+Ly*(1.0-0.025))/ (.025*Lx) ) ) * 0.5".replace('Lx',str(Lx)).replace('Ly',str(Ly)) )
+    ss.var('wgt').data = numpy.minimum( wgt1+wgt2+wgt3, 1.0 )
+
+    #tt = -1.0
+    ss.mpiPrompt()
+    ss.EOM(eom)
+    
 else:
     # Initialize a simulation object on a mesh
     ss = pyrandaSim(problem,mesh_options)
@@ -205,10 +223,18 @@ while tt > time:
     dt = min( ss.variables['dt'].data * CFL, dt*1.1)
     dt = min(dt, (tt - time) )
 
+    # Flag stability limit
+    lim = 'cfl'
+    if dt == ss.variables['dtB'].data:
+        lim = 'bulk'
+    elif dt != ss.variables['dt'].data:
+        lim = 'ramp'
+    #elif dt == ss.variables['dtK
+    
     
     # Print some output
     cnt = ss.cycle
-    ss.iprint("%s -- %s --- %f" % (cnt,time,dt)  )
+    ss.iprint("%s -- %2.6e --- %2.6e --- %s" % (cnt,time,dt,lim)  )
 
     # Write dumps
     if (cnt%restart_freq == 0):

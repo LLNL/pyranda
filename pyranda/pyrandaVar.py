@@ -23,7 +23,8 @@ class pyrandaVar:
 
         self.data = None  # Need to allocate
         self.PyMPI = None
-
+        self.allocated = False
+        
     def __allocate__(self,pympi):  # Make this private
         
         self.PyMPI = pympi
@@ -35,7 +36,7 @@ class pyrandaVar:
             self.data = pympi.emptyVector()
         else:
             raise ValueError('Error: rank: %s not recognized' % self.rank)
-
+        self.allocated = True
 
 
     def sum(self):

@@ -69,6 +69,10 @@ class pyrandaSim:
         self.nz = nz
         self.npts = nx*ny*nz
 
+        # Strings for eom/ic
+        self.eom = None
+        self.ics = None
+        
         # Initialze some lists/dictionaries
         self.equations = []
         self.conserved = []
@@ -143,7 +147,8 @@ class pyrandaSim:
         Loop over vars and allocate the data
         """
         for v in self.variables:
-            self.variables[v].__allocate__(self.PyMPI)
+            if not self.variables[v].allocated:
+                self.variables[v].__allocate__(self.PyMPI)
         
     
     def var(self,name):
@@ -171,6 +176,7 @@ class pyrandaSim:
         if name not in self.variables:
             var = pyrandaVar(name,kind,rank)
             self.variables[name] = var
+            self.iprint('Adding variables: %s' %  name )
 
     def addEqu(self,equation):
 
@@ -193,6 +199,11 @@ class pyrandaSim:
         Will add eqautions and variables as needed.
         """
 
+        # Logic to update EOMs if needed
+        update = False
+        if self.eom:
+            update = True
+            
         self.eom = eom
         
         # Split up the equation lines
@@ -217,12 +228,13 @@ class pyrandaSim:
         for evar in var_names:
             self.addVar(evar,rank='vector',kind='conserved')   
                                 
-        for variable in self.variables:
-            self.iprint('Adding variables: %s' %  variable )
-
         #### Add equations of motion ####
         self.iprint('Adding equations of motion: ')
 
+        # Reset equations for eom update calls
+        if update:
+            self.equations = []
+        
         eqN = 1
         for eq in eom_lines:
             self.addEqu( eq )
@@ -352,7 +364,7 @@ class pyrandaSim:
 
         
         
-    def write(self,wVars=[]):
+    def write(self,wVars=[],new=False):
         """ 
         Write viz file 
         """
@@ -383,13 +395,23 @@ class pyrandaSim:
 
         # Write .visit file
         if self.PyMPI.master == 1:
-            vid = open( os.path.join(self.PyIO.rootname, 'pyranda.visit' ) , 'w')
-            vid.write("!NBLOCKS %s \n" % self.PyMPI.comm.Get_size() )
-            for vdump in self.vizDumpHistory:
-                iv = vdump[0]
-                for p in range(self.PyMPI.comm.Get_size()):
-                    vid.write("%s\n" % os.path.join('vis' + str(iv).zfill(visInt),
-                                                    'proc-%s.%s.%s' % (str(p).zfill(procInt),str(iv).zfill(visInt),suff ) ) )
+            # For new vis, write a new .visit file
+            visitFile = os.path.join(self.PyIO.rootname, 'pyranda.visit' )
+            exists = os.path.isfile(visitFile)
+            if (new or (not exists)):  # Only for new files...
+                vid = open( visitFile , 'w')
+                vid.write("!NBLOCKS %s \n" % self.PyMPI.comm.Get_size() )
+            else:
+                vid = open( visitFile , 'a')
+                
+            #for vdump in self.vizDumpHistory:
+            vdump = self.vizDumpHistory[-1]  # get the newest file
+            iv = vdump[0]
+            for p in range(self.PyMPI.comm.Get_size()):
+                vid.write("%s\n" % os.path.join(
+                    'vis' + str(iv).zfill(visInt),
+                    'proc-%s.%s.%s' % (str(p).zfill(procInt),str(iv).zfill(visInt),suff ) ) )
+                    
             vid.close()
                     
             
@@ -650,6 +672,7 @@ class pyrandaSim:
     def step(self,nsteps=1):
         for tt in range(nsteps):
             self.rk4(self.time,self.deltat)
+        self.iprint("Cycle: %s - Time: %s - dt: %s" % (self.cycle,self.time,self.deltat))
     
     
     def rk4(self,time,dt):
@@ -759,6 +782,7 @@ class pyrandaSim:
         sMap['meshx']   = 'self.mesh.coords[0].data'
         sMap['meshy']   = 'self.mesh.coords[1].data'
         sMap['meshz']   = 'self.mesh.coords[2].data'
+        sMap['gridLen']    = 'self.mesh.GridLen'
         self.sMap = sMap
         
     def euler(self,time,dt):
@@ -828,7 +852,13 @@ class pyrandaSim:
         self.updateVars()        
         return PHI
 
-    
+    def mpiPrompt(self):
+        self.old_stdout = None
+        if not self.PyMPI.master:            
+            devnull = open(os.devnull, "w")
+            old_stdout = sys.stdout
+            sys.stdout = devnull
+            sys.stderr = devnull
 
     def get_tMap(self):
         tMap = {}
