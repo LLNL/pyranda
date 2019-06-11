@@ -541,6 +541,117 @@ class pyrandaSim:
             return 0.0
         return self.PyMPI.der.ddz( val )
 
+    def ddx_6th(self,val):
+
+        dx = self.PyMPI.dx
+
+        bx = val.shape[0]
+        by = val.shape[1]
+        bz = val.shape[2]
+
+        npx = 3
+        
+        gdata = numpy.zeros( (bx+2*npx,by,bz) )
+        gdata[npx:bx+npx,:,:] = val
+        gval = self.PyMPI.ghostx(gdata,np=npx)
+
+        #0 1 2 3 4 5 6           -6 -5 -4 -3 -2 -1 nx
+        #      x                           x
+              
+        dem = 1./60.
+        der = dem*((    gval[6:,:,:]   - gval[:-6 ,:,:] ) +
+                   -9.*(gval[5:-1,:,:] - gval[1:-5,:,:] ) +
+                   45.*(gval[4:-2,:,:] - gval[2:-4,:,:] ))
+
+        if (not self.PyMPI.periodic[0]):
+            if (self.PyMPI.x1proc):
+                dem = 1./6.
+                der[0,:,:] = dem*(-11.*gval[0+npx,:,:]+18.*gval[1+npx,:,:]-
+                                  9.*gval[2+npx,:,:]+2.*gval[3+npx,:,:]  )
+                dem = 1./6.
+                der[1,:,:] = dem * (-2.*gval[0+npx,:,:]-3.*gval[1+npx,:,:]+6.*gval[2+npx,:,:]
+                                    -1.*gval[3+npx,:,:] )
+                dem = 1./12.
+                i = 2
+                der[i,:,:] = dem * ( 8.*(gval[i+1+npx,:,:] - gval[i-1+npx,:,:])
+                                     -1*(gval[i+2+npx,:,:] - gval[i-2+npx,:,:]))
+
+                #der[0,:,:] = 0.0
+                #der[1,:,:] = 0.0
+                #der[2,:,:] = 0.0
+            if (self.PyMPI.xnproc):
+                dem = 1./6.
+                i = -1 - npx
+                der[-1,:,:] = dem* (-2.*gval[i-3,:,:]+9.*gval[i-2,:,:]
+                                    -18.*gval[i-1,:,:]+11.*gval[i+0,:,:])
+
+                dem = 1./6.
+                i = -2 - npx
+                der[-2,:,:] = dem* (1.*gval[i-2,:,:]-6.*gval[i-1,:,:]
+                                    +3.*gval[i+0,:,:]+2.*gval[i+1,:,:])
+
+                dem = 1./12.
+                i = -3 - npx
+                der[-3,:,:] = dem* (1.*gval[i-2,:,:]-8.*gval[i-1,:,:]
+                                    +8.*gval[i+1,:,:]-1.*gval[i+2,:,:])
+
+        dem = 1.0/dx
+        der *= dem
+
+        #import pdb
+        #pdb.set_trace()
+
+
+        
+        return der
+
+
+    def filter_6th(self,val):
+
+        dx = self.PyMPI.dx
+
+        bx = val.shape[0]
+        by = val.shape[1]
+        bz = val.shape[2]
+
+        npx = 3
+        
+        gdata = numpy.zeros( (bx+2*npx,by,bz) )
+        gdata[npx:bx+npx,:,:] = val
+        gval = self.PyMPI.ghostx(gdata,np=npx)
+
+        #0 1 2 3 4 5 6           -6 -5 -4 -3 -2 -1 nx
+        #      x                           x
+              
+        dem = 1./64.
+        der = dem*( 1.*(gval[6:,:,:]   + gval[:-6 ,:,:] ) +
+                   -6.*(gval[5:-1,:,:] + gval[1:-5,:,:] ) +
+                   15.*(gval[4:-2,:,:] + gval[2:-4,:,:] ) +
+                   44.*gval[3:-3,:,:] )
+
+        if (not self.PyMPI.periodic[0]):
+            if (self.PyMPI.x1proc):
+
+                der[0,:,:] = gval[0+npx,:,:]
+                der[1,:,:] = gval[1+npx,:,:]
+                der[2,:,:] = gval[2+npx,:,:]
+
+            if (self.PyMPI.xnproc):
+                
+                i = -1 - npx
+                der[-1,:,:] = gval[i,:,:]
+
+                i = -2 - npx
+                der[-2,:,:] = gval[i,:,:]
+
+                i = -3 - npx
+                der[-3,:,:] = gval[i,:,:]
+                        
+        return der
+
+
+    
+    
     def dd4x(self,val):
         return self.PyMPI.der.dd4x( val )
 
@@ -723,9 +834,11 @@ class pyrandaSim:
         # Simple find/replace mappings
         sMap['div(' ] = 'self.div('
         sMap['ddx(' ] = 'self.ddx('
+        sMap['ddx6e(' ] = 'self.ddx_6th('
         sMap['ddy(' ] = 'self.ddy('
         sMap['ddz(' ] = 'self.ddz('
         sMap['fbar('] = 'self.filter('
+        sMap['fbar6e('] = 'self.filter_6th('
         sMap['gbar('] = 'self.gfilter('
         sMap['gbarx('] = 'self.gfilterx('
         sMap['gbary('] = 'self.gfiltery('
