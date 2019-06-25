@@ -29,9 +29,9 @@ ssC.addPackage( pyrandaBC(ssC) )
 # Define the equations of motion
 eom ="""
 # Primary Equations of motion here
-ddt(:rho:)  =  -ddx6e(:rho:*:u:)
-ddt(:rhou:) =  -ddx6e(:rhou:*:u: + :p: - :tau:)
-ddt(:Et:)   =  -ddx6e( (:Et: + :p: - :tau:)*:u: - :qx: )
+ddt(:rho:)  =  -ddx8e(:rho:*:u:)
+ddt(:rhou:) =  -ddx8e(:rhou:*:u: + :p: - :tau:)
+ddt(:Et:)   =  -ddx8e( (:Et: + :p: - :tau:)*:u: - :qx: )
 # Conservative filter of the EoM
 #:rho:       =  fbar6e( :rho:  )
 #:rhou:      =  fbar6e( :rhou: )
@@ -56,7 +56,7 @@ bc.const(['u'],['x1','xn'],0.0)
 
 
 eomEXP = eom.replace('CB',str(10.0)).replace('CK',str(0.5))
-eomCOM = eom.replace('6e','').replace('CB',str(1.0)).replace('CK',str(0.05))
+eomCOM = eom.replace('8e','').replace('CB',str(1.0)).replace('CK',str(0.05))
 
 
 
@@ -82,7 +82,7 @@ time = 0.0
 
 # Approx a max dt and stopping time
 v = 1.0
-dt_max = v / ss.mesh.nn[0] * 0.75
+dt_max = v / ssE.mesh.nn[0] * 0.75
 tt = L/v * .25 #dt_max
 
 # Start time loop
