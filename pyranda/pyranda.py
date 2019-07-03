@@ -725,6 +725,55 @@ class pyrandaSim:
                         
         return der
 
+    
+    def filter_8th(self,val):
+
+        dx = self.PyMPI.dx
+
+        bx = val.shape[0]
+        by = val.shape[1]
+        bz = val.shape[2]
+
+        npx = 4
+        
+        gdata = numpy.zeros( (bx+2*npx,by,bz) )
+        gdata[npx:bx+npx,:,:] = val
+        gval = self.PyMPI.ghostx(gdata,np=npx)
+
+        #0 1 2 3 4 5 6           -6 -5 -4 -3 -2 -1 nx
+        #      x                           x
+              
+        dem = 1./128.
+        der = dem*( -0.5*(gval[8:,:,:]   + gval[:-8 ,:,:] ) +
+                    4.0* (gval[7:-1,:,:] + gval[1:-7,:,:] ) +
+                    -14.*(gval[6:-2,:,:] + gval[2:-6,:,:] ) +
+                    28.* (gval[5:-3,:,:] + gval[3:-5,:,:] ) +
+                    93.*  gval[4:-4,:,:] )
+
+        if (not self.PyMPI.periodic[0]):
+            
+            if (self.PyMPI.x1proc):
+                der[0,:,:] = gval[0+npx,:,:]
+                der[1,:,:] = gval[1+npx,:,:]
+                der[2,:,:] = gval[2+npx,:,:]
+                der[3,:,:] = gval[3+npx,:,:]
+
+            if (self.PyMPI.xnproc):
+                
+                i = -1 - npx
+                der[-1,:,:] = gval[i,:,:]
+
+                i = -2 - npx
+                der[-2,:,:] = gval[i,:,:]
+
+                i = -3 - npx
+                der[-3,:,:] = gval[i,:,:]
+
+                i = -4 - npx
+                der[-4,:,:] = gval[i,:,:]
+                
+        return der
+
 
     
     
@@ -916,6 +965,7 @@ class pyrandaSim:
         sMap['ddz(' ] = 'self.ddz('
         sMap['fbar('] = 'self.filter('
         sMap['fbar6e('] = 'self.filter_6th('
+        sMap['fbar8e('] = 'self.filter_8th('
         sMap['gbar('] = 'self.gfilter('
         sMap['gbarx('] = 'self.gfilterx('
         sMap['gbary('] = 'self.gfiltery('

@@ -99,10 +99,10 @@ while tt > time:
     time    = ssC.rk4(time,dt)
 
 
-    if cnt%10 == 0:
-        ssE.parse(":rho:       =  fbar6e( :rho:  )")
-        ssE.parse(":rhou:      =  fbar6e( :rhou: )")
-        ssE.parse(":Et:        =  fbar6e( :Et:   )")
+    if cnt%1 == 0:
+        ssE.parse(":rho:       =  fbar8e( :rho:  )")
+        ssE.parse(":rhou:      =  fbar8e( :rhou: )")
+        ssE.parse(":Et:        =  fbar8e( :Et:   )")
         ssE.updateVars()
 
         ssC.parse(":rho:       =  fbar( :rho:  )")
