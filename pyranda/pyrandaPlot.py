@@ -155,15 +155,14 @@ class pyrandaPlot:
         ny = self.pyranda.ny
         nz = self.pyranda.nz
         
+        exec(slice3d, globals())
+            
         # get directions - k slice
         if 'k' in slice3d:
-            exec(slice3d)
             gdata = self.pyranda.PyMPI.getIJK(data,[0,nx],[0,ny],[k,k+1])[:,:,0]
         if 'j' in slice3d:
-            exec(slice3d)
             gdata = self.pyranda.PyMPI.getIJK(data,[0,nx],[j,j+1],[0,nz])[:,0,:]
         if 'i' in slice3d:
-            exec(slice3d)
             gdata = self.pyranda.PyMPI.getIJK(data,[i,i+1],[0,ny],[0,nz])[0,:,:]
 
         return gdata
@@ -204,15 +203,14 @@ class pyrandaPlot:
         ny = self.pyranda.ny
         nz = self.pyranda.nz
 
+        exec(slice2d, globals() )
+        
         # get directions - k slice
         if ('k' in slice2d) and ('j' in slice2d):
-            exec(slice2d)
             gdata = self.pyranda.PyMPI.getIJK(data,[0,nx],[j,j+1],[k,k+1])[:,0,0]
         if ('j' in slice2d) and ('i' in slice2d):
-            exec(slice2d)
             gdata = self.pyranda.PyMPI.getIJK(data,[i,i+1],[j,j+1],[0,nz])[0,0,:]
         if ('i' in slice2d) and ('k' in slice2d):
-            exec(slice2d)
             gdata = self.pyranda.PyMPI.getIJK(data,[i,i+1],[0,ny],[k,k+1])[0,:,0]
 
         return gdata
