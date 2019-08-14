@@ -77,28 +77,36 @@ class pyrandaIO:
         fid.write("DIMENSIONS  %s %s %s  \n" % (ax,ay,az))
         fid.write("POINTS %s float  \n" % (ax*ay*az))
 
+        fid.close()
+        fid = open(dumpFile + '.vtk','ab')
+        
         for k in range(az):
             for j in range(ay):
                 for i in range(ax):
                     fid.write(struct.pack(">f", fx[i,j,k]))
                     fid.write(struct.pack(">f", fy[i,j,k]))
                     fid.write(struct.pack(">f", fz[i,j,k]))
+        fid.close()
 
-        fid.write("POINT_DATA %s  \n" % (ax*ay*az) )
-
+        fid = open(dumpFile + '.vtk','a')
+        fid.write("\nPOINT_DATA %s  " % (ax*ay*az) )
+        fid.close()
+        
         for var in varList:
-            fid.write("SCALARS %s float \n" % var)
+            fid = open(dumpFile + '.vtk','a')
+            fid.write("\nSCALARS %s float \n" % var)
             fid.write("LOOKUP_TABLE default \n")
+            fid.close()
             if ghost:
                 gdata = self.PyMPI.ghost( variables[var].data )
             else:
                 gdata = variables[var].data
+            fid = open(dumpFile + '.vtk','ab')
             for k in range(az):
                 for j in range(ay):
                     for i in range(ax):
                         fid.write(struct.pack(">f", gdata[i,j,k]))
-        
-        fid.close()
+            fid.close()        
         
 
     def makeDumpTec(self,mesh,variables,varList,dumpFile):
