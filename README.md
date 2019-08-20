@@ -20,6 +20,9 @@ At a minimum, your system will need the following installed to run pyranda. (see
   - numpy
   - mpi4py
 
+## Tutorials
+A few tutorials are included on the [project wiki page](https://github.com/LLNL/pyranda/wiki) that cover the example below, as well as few others.  A great place to start if you want to discover what types of problems you can solve.
+
 
 ## Example Usage - Solve the 1D advection equation in less than 10 lines of code
 The one-dimensional advection equation is written as:
