@@ -6,6 +6,7 @@ PROGRAM miniApp
   USE LES_comm, ONLY : comm_type, LES_comm_world
   USE LES_mesh, ONLY : mesh_type
   USE LES_objects
+  USE LES_explicit
   USE parcop, ONLY : setup,ddx,point_to_objects,setup_mesh,grad,filter,div
   IMPLICIT NONE
   INCLUDE "mpif.h"
@@ -207,6 +208,8 @@ PROGRAM miniApp
      ! Integrate the equaions
      rho = rho - dt * RHS(:,:,:,1)
      et = et - dt * RHS(:,:,:,5)
+
+     CALL der16e(rho,tx,1.0D0,1,0,0)
 
      
      ! Filter the equations

@@ -41,7 +41,8 @@ ddt(:Et:)   =  -ddx8e( (:Et: + :p: - :tau:)*:u: - :qx: )
 :p:         =  ( :Et: - .5*:rho:*(:u:*:u:) ) * ( :gamma: - 1.0 )
 :T: = :p: / :rho:
 # Artificial bulk viscosity (old school way)
-:div:       =  ddx6e(:u:) 
+#:div:       =  ddx6e(:u:) 
+:div:       =  ddx2e(:u:) 
 :beta:      =  gbar( abs(dd4x(:div:)*gridLen**2) * :rho:) * CB
 :tau:       =  :beta:*:div:
 :tx:        =  ddx6e(:T:)
@@ -55,10 +56,12 @@ bc.const(['u'],['x1','xn'],0.0)
 """.replace("gridLen",str(Lp/Npts))
 
 
-eomEXP = eom.replace('CB',str(10.0)).replace('CK',str(0.5))
+
+#eomEXP = eom.replace('CB',str(10.0)).replace('CK',str(0.5))
+#eomCOM = eom.replace('8e','6e').replace('CB',str(1.0)).replace('CK',str(0.05))
+
+eomEXP = eom.replace('8e','6e').replace('CB',str(10.0)).replace('CK',str(0.5))
 eomCOM = eom.replace('8e','').replace('CB',str(1.0)).replace('CK',str(0.05))
-
-
 
 # Add the EOM to the solver
 ssE.EOM(eomEXP)

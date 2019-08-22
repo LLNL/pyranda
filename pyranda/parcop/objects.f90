@@ -22,7 +22,7 @@ MODULE LES_objects
   TYPE(patch_type),   TARGET  ::   patch_data(0:100,0:10) 
   TYPE(comm_type),    TARGET  ::    comm_data(0:100,0:10) 
   TYPE(compact_type), TARGET  :: compact_data(0:100,0:10) 
-  TYPE(mesh_type),    TARGET  :: mesh_data(0:100,0:10) 
+  TYPE(mesh_type),    TARGET  ::    mesh_data(0:100,0:10) 
 
   TYPE(patch_type),   POINTER :: patch_ptr                    ! Points to an element of patch_data
   TYPE(comm_type),    POINTER :: comm_ptr                     ! Points to an element of comm_data

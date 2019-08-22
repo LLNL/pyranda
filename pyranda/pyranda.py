@@ -775,7 +775,82 @@ class pyrandaSim:
         return der
 
 
-    
+    def gfilC(self,val):
+        """
+        Smaller stencil for gaussian filter
+        """
+        bx = val.shape[0]
+        by = val.shape[1]
+        bz = val.shape[2]
+
+        npx = 3
+        
+        gdata = numpy.zeros( (bx+2*npx,by,bz) )
+        gdata[npx:bx+npx,:,:] = val
+        gval = self.PyMPI.ghostx(gdata,np=npx)
+
+        #0 1 2 3 4 5 6           -6 -5 -4 -3 -2 -1 nx
+        #      x                           x
+              
+        der = ( .02364054*(gval[6:,:,:]   + gval[:-6 ,:,:] ) +
+                .06426166*(gval[5:-1,:,:] + gval[1:-5,:,:] ) +
+                .1746813 *(gval[4:-2,:,:] + gval[2:-4,:,:] ) +
+                .474833  * gval[3:-3,:,:] )
+
+        if (not self.PyMPI.periodic[0]):
+            if (self.PyMPI.x1proc):
+
+                der[0,:,:] = gval[0+npx,:,:]
+                der[1,:,:] = gval[1+npx,:,:]
+                der[2,:,:] = gval[2+npx,:,:]
+
+            if (self.PyMPI.xnproc):
+                
+                i = -1 - npx
+                der[-1,:,:] = gval[i,:,:]
+
+                i = -2 - npx
+                der[-2,:,:] = gval[i,:,:]
+
+                i = -3 - npx
+                der[-3,:,:] = gval[i,:,:]
+                        
+        return der
+        
+
+
+    def ddx_2nd(self,val):
+
+        dx = self.PyMPI.dx
+
+        bx = val.shape[0]
+        by = val.shape[1]
+        bz = val.shape[2]
+
+        npx = 1
+        
+        gdata = numpy.zeros( (bx+2*npx,by,bz) )
+        gdata[npx:bx+npx,:,:] = val
+        gval = self.PyMPI.ghostx(gdata,np=npx)
+
+        #0 1 2 3 4 5 6           -6 -5 -4 -3 -2 -1 nx
+        #      x                           x
+              
+        dem = 1./2.
+        der = dem*( gval[2:,:,:] - gval[:-2,:,:] )
+
+        if (not self.PyMPI.periodic[0]):
+            if (self.PyMPI.x1proc):
+                der[0,:,:]  = gval[1,:,:] - gval[0,:,:]
+
+                
+            if (self.PyMPI.xnproc):
+                der[-1,:,:] = gval[-1,:,:] - gval[-2,:,:]
+
+        dem = 1.0/dx
+        der *= dem
+        
+        return der
     
     def dd4x(self,val):
         return self.PyMPI.der.dd4x( val )
@@ -867,6 +942,7 @@ class pyrandaSim:
 
     def gfilter(self,val):
         return self.PyMPI.gfil.filter(val)
+        #return self.gfilC(val)
     
     def gfilterOld(self,val):
         if self.nx > 1:
@@ -959,6 +1035,7 @@ class pyrandaSim:
         # Simple find/replace mappings
         sMap['div(' ] = 'self.div('
         sMap['ddx(' ] = 'self.ddx('
+        sMap['ddx2e(' ] = 'self.ddx_2nd('
         sMap['ddx6e(' ] = 'self.ddx_6th('
         sMap['ddx8e(' ] = 'self.ddx_8th('
         sMap['ddy(' ] = 'self.ddy('
@@ -967,6 +1044,8 @@ class pyrandaSim:
         sMap['fbar6e('] = 'self.filter_6th('
         sMap['fbar8e('] = 'self.filter_8th('
         sMap['gbar('] = 'self.gfilter('
+        sMap['gbar6e('] = 'self.gfilC('
+        sMap['gbar8e('] = 'self.gfilC('
         sMap['gbarx('] = 'self.gfilterx('
         sMap['gbary('] = 'self.gfiltery('
         sMap['gbarz('] = 'self.gfilterz('
