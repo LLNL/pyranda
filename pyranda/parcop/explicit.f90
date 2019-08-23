@@ -22,10 +22,16 @@ module LES_explicit
   real(c_double), dimension(4) :: d16eb2 = [-2.0,-3.0,6.0,-1.0]/12.0D0
   real(c_double), dimension(3) :: d16eb1 = [-3.0,4.0,-1.0]/2.0
 
+
+  !  Fourth derivative, 4th order, explicit (for AFLES terms)
+  real(c_double), parameter :: ad1e4 = 28.0D0/3.0D0
+  real(c_double), parameter :: bd1e4 = -6.5D0
+  real(c_double), parameter :: cd1e4 = 2.0D0
+  real(c_double), parameter :: dd1e4 = -1.0D0/6.0D0
+  real(c_double), dimension(4) :: d4e6 = [ad1e4,bd1e4,cd1e4,dd1e4]
   
 
 contains
-  
 
   subroutine der16e(f,df,dx,direction,bc1,bc2)
     ! Assumes boundary data has been copied for periodic flow
@@ -315,5 +321,54 @@ contains
   
   end subroutine der16e
 
+
+  subroutine der4e6(f,df,dx,direction,bc1,bc2)
+    ! Assumes boundary data has been copied for periodic flow
+    real(c_double), dimension(:,:,:),intent(in)  :: f
+    real(c_double), dimension(:,:,:),intent(out) :: df
+    real(c_double), intent(in) :: dx
+    integer(c_int), intent(in) :: direction,bc1,bc2
+    
+    integer :: i,j,k
+    double precision :: invdx
+    
+    invdx = 1.0 / dx
+    
+    
+    select case(direction)
+       
+    case(1)
+
+       ! interior points
+       do i=4, size(f,1)-3
+          df(i,:,:) = ( d4e6(1)*f(i,:,:) + & 
+               d4e6(4)*( f(i+3,:,:) + f(i-3,:,:) ) + &
+               d4e6(3)*( f(i+2,:,:) + f(i-2,:,:) ) + &
+               d4e6(2)*( f(i+1,:,:) + f(i-1,:,:) ) ) * invdx
+       end do
+
+    case(2)
+
+       ! interior points
+       do j=4, size(f,2)-3
+          df(:,j,:) = ( d4e6(1)*f(:,j,:) + & 
+               d4e6(4)*( f(:,j+3,:) + f(:,j-3,:) ) + &
+               d4e6(3)*( f(:,j+2,:) + f(:,j-2,:) ) + &
+               d4e6(2)*( f(:,j+1,:) + f(:,j-1,:) ) ) * invdx
+       end do
+
+    case(3)
+       
+       ! interior points
+       do k=4, size(f,3)-3
+          df(:,:,k) = ( d4e6(1)*f(:,:,k) + & 
+               d4e6(4)*( f(:,:,k+3) + f(:,:,k-3) ) + &
+               d4e6(3)*( f(:,:,k+2) + f(:,:,k-2) ) + &
+               d4e6(2)*( f(:,:,k+1) + f(:,:,k-1) ) ) * invdx
+       end do
+    end select
+  end subroutine der4e6
+
+  
 end module LES_explicit  
   
