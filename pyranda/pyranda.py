@@ -187,12 +187,21 @@ class pyrandaSim:
         else:
             raise ValueError('No suitable equation type specified for %s' % peq.eqstr)
 
-    def EOM(self,eom):
+    def EOM(self,eom,eomDict=False):
         """
         Higher level wrapper to make equations of motion from a single string
         Will add eqautions and variables as needed.
         """
 
+        # Apply a dictionary to the string
+        if eomDict:
+            for eomd in eomDict:
+                if eomd in eom:
+                    eom = eom.replace( eomd , str( eomDict[eomd] ) )
+                else:
+                    self.iprint("Notice: Given eom dictionary value: '%s' does not exists in the eom string." % (eomd) )
+
+        
         self.eom = eom
         
         # Split up the equation lines
@@ -258,11 +267,19 @@ class pyrandaSim:
                 #pdb.set_trace()
         return svars
 
-    def setIC(self,ics):
+    def setIC(self,ics,icDict=False):
         """
         Evaluate the initial conditions and then update variables
         """
 
+        # Apply a dictionary to the string
+        if icDict:
+            for icd in icDict:
+                if icd in ics:
+                    ics = ics.replace( icd , str( icDict[icd] ) )
+                else:
+                    self.iprint("Notice: Given initial condition dictionary value: '%s' does not exists in the IC string." % (icd) )
+                    
         self.ics = ics
         
         # Split up the equation lines
@@ -755,6 +772,7 @@ class pyrandaSim:
         sMap['3d('] = 'self.emptyScalar('
         sMap['pi'] = 'numpy.pi'
         sMap['meshVar('] = 'self.PyMPI.getVar('
+        sMap['gridLen'] = 'self.mesh.GridLen'
         
         sMap['meshx']   = 'self.mesh.coords[0].data'
         sMap['meshy']   = 'self.mesh.coords[1].data'
