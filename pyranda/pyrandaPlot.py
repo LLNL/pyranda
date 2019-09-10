@@ -9,12 +9,16 @@
 # Written by: Britton J. Olson, olson45@llnl.gov
 ################################################################################
 import numpy 
+import matplotlib as mpl
 import matplotlib.pyplot as plt
+import matplotlib.style
+
 
 class pyrandaPlot:
 
     def __init__(self,pyranda):
 
+        mpl.style.use('classic')
         self.pyranda = pyranda  # point to main obj
 
         
