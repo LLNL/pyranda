@@ -178,6 +178,8 @@ while time < tt :
     # Simulation heart-beat
     ss.iprint("Cycle: %5d --- Time: %10.4e --- deltat: %10.4e" % (ss.cycle,time,dt)  )
 
+    if (ss.cycle%viz_freq == 0) :
+        #ss.write( wvars )
 
     # Constant time
     if time > viz_dump:
