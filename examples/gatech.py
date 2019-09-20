@@ -3,7 +3,7 @@ from pyranda import pyrandaSim, pyrandaBC, pyrandaTimestep
 
 
 ## Define a mesh
-problem = 'GAtechTest'              # Problem name: used for data output
+problem = 'GAtechTest2'              # Problem name: used for data output
 nx = 100                            # Points in x
 ny = 100                            # Points in y
 dim = 2                             # Dimension of the problem
@@ -155,15 +155,18 @@ time = 0.0
 viz = True
 
 # Stopping time of simulation
-tt = 20.0
+tt = 30.0
 
 # Variables to write to viz.
 wvars = ['Yh','rho','u','v','p','beta','kappa','adiff','mu']
 
 # Start time loop
-viz_freq = 10
+dump_freq = 3000
 CFL = 1.0
 dt = ss.variables['dt'].data * CFL*.01
+
+viz_freq = tt / 200.0
+viz_dump = viz_freq
 
 while time < tt :
     
@@ -175,9 +178,15 @@ while time < tt :
     # Simulation heart-beat
     ss.iprint("Cycle: %5d --- Time: %10.4e --- deltat: %10.4e" % (ss.cycle,time,dt)  )
 
-    if (ss.cycle%viz_freq == 0) :
-        #ss.write( wvars )
 
-        ss.plot.figure(1)
-        ss.plot.clf()
-        ss.plot.contourf('p',64 )    
+    # Constant time
+    if time > viz_dump:
+        ss.write( wvars )
+        viz_dump += viz_freq
+    
+    if (ss.cycle%dump_freq == 0) :
+        ss.writeRestart()
+
+        #ss.plot.figure(1)
+        #ss.plot.clf()
+        #ss.plot.contourf('p',64 )    
