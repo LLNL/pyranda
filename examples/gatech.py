@@ -16,7 +16,7 @@ mwH = 3.0                           # Molecular weight of heavy
 myGamma = 1.4                       # Gamma of gases (single gamma)
 
 # Compute max length (x-dir) based on angle/height
-L_max = 2.0 * ( L_min/2.0 + h*numpy.sin( open_angle ) )
+L_max = 2.0 * ( L_min/2.0 + h*numpy.tan( open_angle/2.0 )   )
 
 # Define a function of the mesh
 def convTube(i,j,k):
@@ -84,7 +84,7 @@ ddt(:Et:)    =  -div( (:Et: - :tauxx:)*:u: - :tauxy:*:v: - :tx:*:kappa:, (:Et: -
 :kappa:     = gbar( ring(:T:)* :rho:*:cv:/(:T: * :dt: ) ) * 1.0e-3
 # Artificial species diffusivities
 :Dsgs:      =  ring(:Yh:) * 1.0e-4
-:Ysgs:      =  1.0e2*(abs(:Yh:) - 1.0 + abs(1.0-:Yh: ) )*gridLen
+:Ysgs:      =  1.0e2*(abs(:Yh:) - 1.0 + abs(1.0-:Yh: ) )*gridLen**2
 :adiff:     =  gbar( :rho:*numpy.maximum(:Dsgs:,:Ysgs:) / :dt: )
 [:Yx:,:Yy:,:Yz:] = grad( :Yh: )
 :Jx:        =  :adiff:*:Yx:
@@ -116,8 +116,8 @@ ss.EOM(eom,{'mwH':mwH,'mwL':mwL})
 # Initial conditions of the flow
 ic = """
 # Interaface perturbations and smootings
-sinW = 5.0 + .1*sin( meshx * 4.0 )
-:Yh: = 0.5 * (1.0 - tanh( (meshy - sinW ) / .3 ) )
+sinW = height + .01*sin( (meshx+intWidth/2.0) / intWidth * 2.0 * pi * 16.0 )
+:Yh: = 0.5 * (1.0 - tanh( (meshy - sinW ) / .15 ) )
 :Yl: = 1.0 - :Yh:
 # Mixed EOS (partial pressures method)
 :gamma: = myGamma
@@ -146,6 +146,10 @@ icDict = {}
 icDict['myGamma'] = myGamma
 icDict['mwH']     = mwH
 icDict['mwL']     = mwL
+intH = .5
+icDict['height']  = h * intH
+icDict['intWidth']= L_min*intH + L_max*(1.0-intH)
+
 
 # Set the initial conditions
 ss.setIC(ic,icDict)
@@ -185,10 +189,12 @@ while time < tt :
     if time > viz_dump:
         ss.write( wvars )
         viz_dump += viz_freq
-    
+
+        ss.plot.figure(1)
+        ss.plot.clf()
+        ss.plot.contourf('p',64 )    
+
+        
     if (ss.cycle%dump_freq == 0) :
         ss.writeRestart()
 
-        #ss.plot.figure(1)
-        #ss.plot.clf()
-        #ss.plot.contourf('p',64 )    
