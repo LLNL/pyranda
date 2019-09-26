@@ -70,6 +70,15 @@ class PyrandaMakeMixin():
     def finalize_options(self):
         pass
 
+    def test(self):
+        print("running regression tests for pyranda...")
+        try:
+            os.chdir('tests')
+            subprocess.check_call(['python','run_tests.py'])
+        except:
+            print("Failed to run tests")
+            raise
+    
     def clean(self):
         print("cleaning up from {} build".format(fortran_module))
         try:
@@ -157,7 +166,15 @@ class CleanPyranda(install, PyrandaMakeMixin):
     def run(self):
         PyrandaMakeMixin.clean(self)
 
+class TestPyranda(install, PyrandaMakeMixin):
+    def initialize_options(self):
+        pass
 
+    def finalize_options(self):
+        pass
+
+    def run(self):
+        PyrandaMakeMixin.test(self)
         
 
 setup_args = dict(
@@ -169,7 +186,8 @@ setup_args = dict(
     cmdclass={
         'build': BuildPyranda,
         'install': InstallPyranda,
-        'clean': CleanPyranda
+        'clean': CleanPyranda,
+        'runtest': TestPyranda
     }
 )
 

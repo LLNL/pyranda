@@ -28,7 +28,7 @@ blueos_3_ppc64le_ib.ibm.mpif90 = /usr/tce/packages/spectrum-mpi/spectrum-mpi-201
 blueos_3_ppc64le_ib.gnu.mpif90 = /usr/tcetmp/bin/mpigfortran
 blueos_3_ppc64le_ib.python     = /usr/tcetmp/bin/python
 
-gnu.fflags   = -fPIC -ffree-form -ffree-line-length-0 -fbackslash -O3 -Ofast
+gnu.fflags   = -fPIC -ffree-form -ffree-line-length-0 -fbackslash -O3 -ffast-math
 intel.fflags = -fPIC
 # it's likely that mpiclang is using gfortran
 clang.fflags = $(gnu.fflags)
@@ -92,7 +92,7 @@ libparcop.a: $(source)
 # instead build the wrapper components using above flags
 #
 parcopmodule.c parcop-f2pywrappers2.f90: libparcop.a parcop.o
-	@$(f2py) --lower --wrap-functions -m parcop parcop.f90 --verbose
+	@$(f2py) --lower --wrap-functions -m parcop parcop.f90 --quiet #--verbose
 
 parcop.so: parcopmodule.o fortranobject.o parcop-f2pywrappers2.o
 	$(mpif90) $(lopts) $(python.Lflags) \

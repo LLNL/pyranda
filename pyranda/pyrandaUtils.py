@@ -168,6 +168,14 @@ All rights reserved.
 For details about use and distribution, please read: pyranda/LICENSE
 """
 
+def execFile(f):
+    """
+    Includes an input deck file into the current one. 
+    """
+    # add file exists check
+    exec(compile(open(f).read(), f, 'exec'))
+    globals().update(locals())
+
 
 def runCMD(command_arg_list):
     output = subprocess.Popen(command_arg_list, 
