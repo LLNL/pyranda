@@ -285,6 +285,35 @@ contains
   subroutine c10d8(d8)  ! setup compact 10th (?) order 8th derivative weights
     implicit none
     TYPE(compact_weight), intent(out) :: d8
+! Interior ---------------------------------------------------------------------
+    REAL(c_double), PARAMETER :: zeta  =    29.0D0
+    REAL(c_double), PARAMETER :: alpha =    14.0D0
+    REAL(c_double), PARAMETER :: beta  =     1.5D0
+    REAL(c_double), PARAMETER :: aa    =  4200.0D0
+    REAL(c_double), PARAMETER :: bb    = -3360.0D0
+    REAL(c_double), PARAMETER :: cc    =  1680.0D0
+    REAL(c_double), PARAMETER :: dd    =  -480.0D0
+    REAL(c_double), PARAMETER :: ee    =    60.0D0
+! Symmetry boundaries ----------------------------------------------------------
+    REAL(c_double), PARAMETER :: alpha2 =  beta + alpha
+    
+    REAL(c_double), PARAMETER :: zeta1  =  alpha + zeta
+    REAL(c_double), PARAMETER :: alpha1 =  beta + alpha
+           
+    REAL(c_double), PARAMETER :: dd4   =  ee + dd
+    
+    REAL(c_double), PARAMETER :: cc3   =  dd + cc
+    REAL(c_double), PARAMETER :: bb3   =  ee + bb
+    
+    REAL(c_double), PARAMETER :: bb2   =  cc + bb 
+    REAL(c_double), PARAMETER :: aa2   =  dd + aa
+    REAL(c_double), PARAMETER :: b22   =  ee + bb
+    
+    REAL(c_double), PARAMETER :: aa1   =  bb + aa
+    REAL(c_double), PARAMETER :: bb1   =  cc + bb 
+    REAL(c_double), PARAMETER :: cc1   =  dd + cc 
+    REAL(c_double), PARAMETER :: dd1   =  ee + dd         
+!------------------------------------------------------------------------------- 
     INTEGER(c_int), PARAMETER :: nol = 2, nor = 4, nir = 4
     INTEGER(c_int), PARAMETER :: ncl=2*nol+1, ncr=nor+nir+1, nci=2*nol
     INTEGER(c_int), PARAMETER :: nst = 0, nbc1 = 4, nbc2 = 4
@@ -311,25 +340,32 @@ contains
     if( nol == 0 ) d8%implicit_op = .false.
     d8%sh = 0.0d0  ! shift
   ! interior weights
-    d8%ali = [ 1.5D0    ,  14.0D0   , 29.0D0   ,   14.0D0   , 1.5D0 ]
-    d8%ari = [ 60.0D0   , -480.0D0  , 1680.0D0  , -3360.0D0 , 4200.0D0  , -3360.0D0 , 1680.0D0  , -480.0D0  , 60.0D0 ]
+    d8%ali = [         beta, alpha, zeta, alpha, beta         ]
+    d8%ari = [ ee, dd,   cc,    bb,   aa,    bb,   cc, dd, ee ]
   ! one-sided weights, band-diagonal style
-    d8%alb1(:,1,0) = [ 0.0D0 ,  0.0D0  , 1.0D0 ,  0.0D0 , 0.0D0 ]
-    d8%alb1(:,2,0) = [ 0.0D0 ,  0.0D0  , 1.0D0 ,  0.0D0 , 0.0D0 ]
-    d8%alb1(:,3,0) = [ 0.0D0 , -1.0D0  , 2.0D0 , -1.0D0 , 0.0D0 ]
-    d8%alb1(:,4,0) = [ 1.0D0 , -4.0D0  , 6.0D0 , -4.0D0 , 1.0D0 ]
+    d8%alb1(:,1,0) = [ 0.0D0,  0.0D0,  zeta1, alpha1, beta ]
+    d8%alb1(:,2,0) = [ 0.0D0, alpha2,   zeta,  alpha, beta ]
+    d8%alb1(:,3,0) = [  beta,  alpha,   zeta,  alpha, beta ]
+    d8%alb1(:,4,0) = [  beta,  alpha,   zeta,  alpha, beta ]
     d8%alb2(:,1,0) = d8%alb1(ncl:1:-1,4,0)
     d8%alb2(:,2,0) = d8%alb1(ncl:1:-1,3,0)
     d8%alb2(:,3,0) = d8%alb1(ncl:1:-1,2,0)
     d8%alb2(:,4,0) = d8%alb1(ncl:1:-1,1,0)
-    d8%arb1(:,1,0) = 0.0D0
-    d8%arb1(:,2,0) = 0.0D0
-    d8%arb1(:,3,0) = 0.0D0
-    d8%arb1(:,4,0) = 0.0D0
+    d8%arb1(:,1,0) = [ 0.0D0, 0.0D0, 0.0D0,  0.0D0,  aa1,  bb1, cc1, dd1, ee ]
+    d8%arb1(:,2,0) = [ 0.0D0, 0.0D0, 0.0D0,    bb2,  aa2,  b22,  cc,  dd, ee ]
+    d8%arb1(:,3,0) = [ 0.0D0, 0.0D0,   cc3,    bb3,   aa,   bb,  cc,  dd, ee ]
+    d8%arb1(:,4,0) = [ 0.0D0,   dd4,    cc,     bb,   aa,   bb,  cc,  dd, ee ]
     d8%arb2(:,1,0) = d8%arb1(ncr:1:-1,4,0)
     d8%arb2(:,2,0) = d8%arb1(ncr:1:-1,3,0)
     d8%arb2(:,3,0) = d8%arb1(ncr:1:-1,2,0)
     d8%arb2(:,4,0) = d8%arb1(ncr:1:-1,1,0)
+! DIAGNOSTICS--------
+!    WRITE(6,*) "Interior:", SUM(d8%ali        ),' - ',SUM(d8%ari        ),' = ',SUM(d8%ali)         - SUM(d8%ari)
+!    WRITE(6,*) "      j4:", SUM(d8%alb1(:,4,0)),' - ',SUM(d8%arb1(:,4,0)),' = ',SUM(d8%alb1(:,4,0)) - SUM(d8%arb1(:,4,0))
+!    WRITE(6,*) "      j3:", SUM(d8%alb1(:,3,0)),' - ',SUM(d8%arb1(:,3,0)),' = ',SUM(d8%alb1(:,3,0)) - SUM(d8%arb1(:,3,0))
+!    WRITE(6,*) "      j2:", SUM(d8%alb1(:,2,0)),' - ',SUM(d8%arb1(:,2,0)),' = ',SUM(d8%alb1(:,2,0)) - SUM(d8%arb1(:,2,0))
+!    WRITE(6,*) "      j1:", SUM(d8%alb1(:,1,0)),' - ',SUM(d8%arb1(:,1,0)),' = ',SUM(d8%alb1(:,1,0)) - SUM(d8%arb1(:,1,0))
+!--------------------
   ! symmetric weights
     call lower_symm_weights(d8%alb1(:,:,+1),d8%arb1(:,:,+1),d8%ali,d8%ari,nol,nor,0,0,+1,+1)
     call lower_symm_weights(d8%alb1(:,:,-1),d8%arb1(:,:,-1),d8%ali,d8%ari,nol,nor,0,0,-1,-1)
