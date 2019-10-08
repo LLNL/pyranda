@@ -3,17 +3,26 @@ from pyranda import pyrandaSim, pyrandaBC, pyrandaTimestep
 
 
 ## Define a mesh
-problem = 'GAtechTest2'              # Problem name: used for data output
+problem = 'GAtechTest3'              # Problem name: used for data output
 nx = 100                            # Points in x
 ny = 100                            # Points in y
 dim = 2                             # Dimension of the problem
 open_angle  = 45.0                  # Total opening angle in degrees
 open_angle *= (numpy.pi / 180.0)    # Convert to radians
-L_min = 2.0                         # Width of tube at inner radius
-h = 10.0                            # Height is y direction
+L_min = 2.62                        # Width of tube at inner radius
+h = 40.0                            # Height is y direction
+intH = 21.0                         # Height of interface
 mwL = 1.0                           # Molecular weight of light
-mwH = 3.0                           # Molecular weight of heavy
+mwH = 3.14                          # Molecular weight of heavy
 myGamma = 1.4                       # Gamma of gases (single gamma)
+
+intAmp = .01*h
+intFreq = 4.0
+
+# Farfield properties
+p0   = 1.0
+rho0 = 1.0 #* mwH/mwL
+
 
 # Compute max length (x-dir) based on angle/height
 L_max = 2.0 * ( L_min/2.0 + h*numpy.tan( open_angle/2.0 )   )
@@ -27,10 +36,23 @@ def convTube(i,j,k):
     z = 0
     return x,y,z
 
+dy0 = L_min / float(nx)
+jo = (ny-1)*(L_min/L_max)
+alpha = h / ( (ny-1 +jo)**2 - jo**2 )
+#alpha = h / ( ((ny-1)+jo)**2 - jo**2 )
+beta  = - alpha * jo**2
+def adapt(i,j,k):
+    y = alpha*(j+jo)**2 + beta
+    wgt = y/h
+    Lh  = L_min*(1.0-wgt) + L_max*wgt
+    x   = -Lh/2.0 + Lh*float(i)/(nx-1)
+    z = 0
+    return x,y,z
+
 # Define a python dictionary for the mesh/problem
 mesh_options = {}
 mesh_options['coordsys'] = 3          # This assumes curvilinear grids
-mesh_options['function'] = convTube   # Function takes (i,j,k) args and returns [x,y,z]
+mesh_options['function'] = adapt      # Function takes (i,j,k) args and returns [x,y,z]
 mesh_options['periodicGrid'] = False  # Is the grid itself periodic?  
 mesh_options['dim'] = dim             # Dimension of the problem
 mesh_options['nn'] = [ nx, ny , 1 ]   # Grid spacing
@@ -40,7 +62,8 @@ mesh_options['periodic'] = [False, False, False]
 ss = pyrandaSim(problem,mesh_options)
 
 # Add packages to simulation object
-ss.addPackage( pyrandaBC(ss) )          # BC package allows for "bc.*" functions
+pyBC = pyrandaBC(ss)
+ss.addPackage( pyBC )      # BC package allows for "bc.*" functions
 ss.addPackage( pyrandaTimestep(ss) )    # Timestep package allows for "dt.*" functions
 
 # Define the equations of motion
@@ -90,9 +113,23 @@ ddt(:Et:)    =  -div( (:Et: - :tauxx:)*:u: - :tauxy:*:v: - :tx:*:kappa:, (:Et: -
 :Jx:        =  :adiff:*:Yx:
 :Jy:        =  :adiff:*:Yy:
 # Apply boundary conditions
-bc.extrap(['rho','p'],['x1','xn','y1','yn'] ,order=1)
+bc.extrap(['rho','p'],['x1','xn','y1'] ,order=1)
 bc.extrap(['Yh'],['x1','xn','y1','yn'], order=1 )
-bc.const( ['u','v'] , ['x1','xn','y1','yn'], 0.0 )
+bc.slip( [ ['u','v'] ] , ['x1','xn','y1'] )
+# Sponge outflow
+#bc.const(['p'],['yn'],p0)
+#bc.const(['rho'],['yn'],rho0)
+#bc.const(['u','v'],['yn'],0.0)
+:wgt: = ( 1.0 + tanh( (meshy-myH*(1.0-0.025))/ (.025*myH) ) ) * 0.5
+:u: = :u:*(1-:wgt:) + gbary(:u:)*:wgt:
+:v: = :v:*(1-:wgt:) + gbary(:v:)*:wgt:
+#:w: = :w:*(1-:wgt:) + gbary(:w:)*:wgt:
+bc.extrap(['u','v','p','rho'],['yn'])
+#bc.extrap( ['u'] , ['yn'], 0.0 )
+#bc.exit( ['u'] , ['yn'] )
+#bc.exit( ['u'] , ['yn'] , True )
+#:vout: = numpy.maximum(0.0,:v:)
+#bc.field( ['v'] , ['yn'], :vout: )
 :Et:  = :p: / ( :gamma: - 1.0 )  + .5*:rho:*(:u:*:u: + :v:*:v:)
 :Yl:  = 1.0 - :Yh:
 :rhoYh: = :rho:*:Yh:
@@ -102,7 +139,7 @@ bc.const( ['u','v'] , ['x1','xn','y1','yn'], 0.0 )
 # Compute some max time steps
 :cs:  = sqrt( :p: / :rho: * :gamma: )
 :dt: = dt.courant(:u:,:v:,:w:,:cs:)
-:dtB: = 0.2* dt.diff(:beta:,:rho:)
+:dtB: = 0.1* dt.diff(:beta:,:rho:)
 :dt:  = numpy.minimum(:dt:,:dtB:)
 :dtM: = 0.2 * dt.diff(:mu:,:rho:)
 :dt: = numpy.minimum(:dt:,:dtM:)
@@ -110,14 +147,17 @@ bc.const( ['u','v'] , ['x1','xn','y1','yn'], 0.0 )
 """
 
 # Add the EOM to the solver
-ss.EOM(eom,{'mwH':mwH,'mwL':mwL})
+eomDict = {'mwH':mwH,'mwL':mwL,'myH':h}
+eomDict['p0'] = p0
+eomDict['rho0'] = rho0
+ss.EOM(eom, eomDict )
 
 
 # Initial conditions of the flow
 ic = """
 # Interaface perturbations and smootings
-sinW = height + .01*sin( (meshx+intWidth/2.0) / intWidth * 2.0 * pi * 16.0 )
-:Yh: = 0.5 * (1.0 - tanh( (meshy - sinW ) / .15 ) )
+sinW = height + AMP*sin( (meshx+intWidth/2.0) / intWidth * 2.0 * pi * FREQ )
+:Yh: = 0.5 * (1.0 - tanh( (meshy - sinW ) / thick ) )
 :Yl: = 1.0 - :Yh:
 # Mixed EOS (partial pressures method)
 :gamma: = myGamma
@@ -126,9 +166,9 @@ sinW = height + .01*sin( (meshx+intWidth/2.0) / intWidth * 2.0 * pi * 16.0 )
 :cp: = :R: / (1.0 - 1.0/:gamma: )
 :cv: = :cp: - :R:
 # Energy pill for detonation wave
-rad = sqrt( (meshx-0.0)**2  +  (meshy-1.0)**2 ) 
-:p:  =  1.0 + 10.0 * exp( - rad**2 / 0.5**2 )
-:T: = :p:
+rad = sqrt( (meshx-0.0)**2  +  (meshy-0.0)**2 ) 
+:p:  =  1.0 + 200.0 * exp( - rad**2 / 0.5**2 )
+:T:  = :p:  #**( (:gamma:-1.0) / :gamma: )
 :rho: = :p: / ( :R: * :T: ) 
 :u: = 3d()
 :v: = 3d()
@@ -146,10 +186,12 @@ icDict = {}
 icDict['myGamma'] = myGamma
 icDict['mwH']     = mwH
 icDict['mwL']     = mwL
-intH = .5
-icDict['height']  = h * intH
-icDict['intWidth']= L_min*intH + L_max*(1.0-intH)
-
+intR = intH / h
+icDict['height']  = h * intR
+icDict['intWidth']= L_min*intR + L_max*(1.0-intR)
+icDict['thick'] = h / ny * 2
+icDict['AMP'] =  intAmp
+icDict['FREQ'] = intFreq
 
 # Set the initial conditions
 ss.setIC(ic,icDict)
@@ -159,7 +201,7 @@ time = 0.0
 viz = True
 
 # Stopping time of simulation
-tt = 30.0
+tt = 100.0
 
 # Variables to write to viz.
 wvars = ['Yh','rho','u','v','p','beta','kappa','adiff','mu']
@@ -171,6 +213,11 @@ dt = ss.variables['dt'].data * CFL*.01
 
 viz_freq = tt / 200.0
 viz_dump = viz_freq
+
+ss.plot.figure(1)
+ss.plot.clf()
+ss.plot.contourf('p',64 )
+ss.write( wvars )
 
 while time < tt :
     
