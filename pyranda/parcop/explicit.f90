@@ -28,12 +28,29 @@ module LES_explicit
   real(c_double), parameter :: bd1e4 = -6.5D0
   real(c_double), parameter :: cd1e4 = 2.0D0
   real(c_double), parameter :: dd1e4 = -1.0D0/6.0D0
-  real(c_double), dimension(4) :: d4e6 = [ad1e4,bd1e4,cd1e4,dd1e4]
+  real(c_double), dimension(4) :: d4e4 = [ad1e4,bd1e4,cd1e4,dd1e4]
+  real(c_double), dimension(5) :: d4e4b3 = [1.0, -4.0, 6.0, -4.0, 1.0]
+  ! b2,b1 use values of b3
   
 
 contains
 
-  subroutine der16e(f,df,dx,direction,bc1,bc2)
+!  subroutine divVe(fx,fy,fz,df)
+!    IMPLICIT NONE
+!    DOUBLE PRECISION, DIMENSION(:,:,:), INTENT(IN) :: fx,fy,fz
+!    DOUBLE PRECISION, DIMENSION(:,:,:), INTENT(OUT) :: df
+!    DOUBLE PRECISION, DIMENSION(SIZE(df,1),SIZE(df,2),SIZE(df,3)) :: fA,fB,fC,tmp
+
+    ! Get boundary data      
+!    CALL ddx(fx,fA,patch_ptr%isymX)
+!    CALL ddy(fy,fB,patch_ptr%isymY)
+!    CALL ddz(fz,fC,patch_ptr%isymZ)
+    ! Add up directions
+!    df = fA + fB + fC       
+!  end subroutine divVe
+
+  
+  subroutine der1e6(f,df,dx,direction,bc1,bc2)
     ! Assumes boundary data has been copied for periodic flow
     real(c_double), dimension(:,:,:),intent(in)  :: f
     real(c_double), dimension(:,:,:),intent(out) :: df
@@ -111,7 +128,7 @@ contains
              end do
           end do
           
-       elseif (bc == -1) then ! anti-symmtry
+       elseif (bc1 == -1) then ! anti-symmtry
           
           
           do j=1,size(f,2)
@@ -200,7 +217,7 @@ contains
              end do
           end do
           
-       elseif (bc == -1) then ! anti-symmtry
+       elseif (bc1 == -1) then ! anti-symmtry
           
           
           do i=1,size(f,1)
@@ -290,7 +307,7 @@ contains
              end do
           end do
           
-       elseif (bc == -1) then ! anti-symmtry
+       elseif (bc1 == -1) then ! anti-symmtry
           
           
           do j=1,size(f,2)
@@ -319,20 +336,20 @@ contains
     end select
     
   
-  end subroutine der16e
+  end subroutine der1e6
 
 
-  subroutine der4e6(f,df,dx,direction,bc1,bc2)
+  subroutine der4e4(f,df,dx,direction,bc1,bc2)
     ! Assumes boundary data has been copied for periodic flow
     real(c_double), dimension(:,:,:),intent(in)  :: f
     real(c_double), dimension(:,:,:),intent(out) :: df
     real(c_double), intent(in) :: dx
     integer(c_int), intent(in) :: direction,bc1,bc2
     
-    integer :: i,j,k
+    integer :: i,j,k,n
     double precision :: invdx
     
-    invdx = 1.0 / dx
+    !invdx = 1.0 / dx ! NA
     
     
     select case(direction)
@@ -341,33 +358,71 @@ contains
 
        ! interior points
        do i=4, size(f,1)-3
-          df(i,:,:) = ( d4e6(1)*f(i,:,:) + & 
-               d4e6(4)*( f(i+3,:,:) + f(i-3,:,:) ) + &
-               d4e6(3)*( f(i+2,:,:) + f(i-2,:,:) ) + &
-               d4e6(2)*( f(i+1,:,:) + f(i-1,:,:) ) ) * invdx
+          do j=1,size(f,2)
+             do k=1,size(f,3)
+                df(i,j,k) = ( d4e4(1)*f(i,j,k) + & 
+                     d4e4(4)*( f(i+3,j,k) + f(i-3,j,k) ) + &
+                     d4e4(3)*( f(i+2,j,k) + f(i-2,j,k) ) + &
+                     d4e4(2)*( f(i+1,j,k) + f(i-1,j,k) ) )
+             end do
+          end do
        end do
 
+
+       if ( bc1 == 2 ) then
+          do j=1,size(f,2)
+             do k=1,size(f,3)
+                df(3,j,k) = ( &
+                     f(1,j,k)*d4e4b3(1) + &
+                     f(2,j,k)*d4e4b3(2) + &
+                     f(3,j,k)*d4e4b3(3) + &
+                     f(4,j,k)*d4e4b3(4) + &
+                     f(5,j,k)*d4e4b3(5) )
+                df(2,j,k) = df(3,j,k)
+                df(1,j,k) = df(3,j,k)          
+             end do
+          end do
+       endif
+
+       if ( bc2 == 2 ) then
+          n = size(f,1)
+          do j=1,size(f,2)
+             do k=1,size(f,3)
+                df(n-2,j,k) = ( &
+                     f(n,j,k)*d4e4b3(1) + &
+                     f(n-1,j,k)*d4e4b3(2) + &
+                     f(n-2,j,k)*d4e4b3(3) + &
+                     f(n-3,j,k)*d4e4b3(4) + &
+                     f(n-4,j,k)*d4e4b3(5) )
+                df(n-1,j,k) = df(n-2,j,k)
+                df(n,j,k)   = df(n-2,j,k)          
+             end do
+          end do
+       endif
+                           
+
+       
     case(2)
 
        ! interior points
        do j=4, size(f,2)-3
-          df(:,j,:) = ( d4e6(1)*f(:,j,:) + & 
-               d4e6(4)*( f(:,j+3,:) + f(:,j-3,:) ) + &
-               d4e6(3)*( f(:,j+2,:) + f(:,j-2,:) ) + &
-               d4e6(2)*( f(:,j+1,:) + f(:,j-1,:) ) ) * invdx
+          df(:,j,:) = ( d4e4(1)*f(:,j,:) + & 
+               d4e4(4)*( f(:,j+3,:) + f(:,j-3,:) ) + &
+               d4e4(3)*( f(:,j+2,:) + f(:,j-2,:) ) + &
+               d4e4(2)*( f(:,j+1,:) + f(:,j-1,:) ) ) * invdx
        end do
 
     case(3)
        
        ! interior points
        do k=4, size(f,3)-3
-          df(:,:,k) = ( d4e6(1)*f(:,:,k) + & 
-               d4e6(4)*( f(:,:,k+3) + f(:,:,k-3) ) + &
-               d4e6(3)*( f(:,:,k+2) + f(:,:,k-2) ) + &
-               d4e6(2)*( f(:,:,k+1) + f(:,:,k-1) ) ) * invdx
+          df(:,:,k) = ( d4e4(1)*f(:,:,k) + & 
+               d4e4(4)*( f(:,:,k+3) + f(:,:,k-3) ) + &
+               d4e4(3)*( f(:,:,k+2) + f(:,:,k-2) ) + &
+               d4e4(2)*( f(:,:,k+1) + f(:,:,k-1) ) ) * invdx
        end do
     end select
-  end subroutine der4e6
+  end subroutine der4e4
 
   
 end module LES_explicit  

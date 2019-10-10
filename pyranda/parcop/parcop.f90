@@ -17,7 +17,8 @@ MODULE parcop
   USE LES_operators, ONLY : curl,cross,filter,ring,ringV,filterGdir
   USE LES_operators, ONLY : get_rands_normal, filtRands
   USE LES_explicit
-
+  USE LES_ghost
+  
   CONTAINS
 
 
@@ -217,19 +218,23 @@ MODULE parcop
       real(kind=8), dimension(nx,ny,nz), intent(in) :: val
       real(kind=8), dimension(nx,ny,nz),intent(out) :: dval      
 
-      ! Bin for exp. data
-      !real(kind=8), dimension(-3:nx+3,-3:ny+3,-3:nz+3) :: gval,gdval
-
-      
+      ! Stanfard 10th order derivative
       !CALL d1x(val,dval)
 
+
+      ! Bin for exp. data
+      real(kind=8), dimension(-3:nx+3,ny,nz) :: gval,gdval
+      gval(1:nx,:,:) = val
+
       
-      ! Explicit derivative
+      ! Explicit derivative (6th order)
       ! option to handle ghost data
-      !CALL ghost(
-      CALL der16e(val,dval,compact_ptr%dx,1,0,0)
+      CALL ghostx(0,gval)
+      CALL der1e6(gval,gdval,compact_ptr%dx,1,0,0)
 
-
+      
+      gval = gdval(1:nx,:,:) 
+      
       
     END SUBROUTINE ddx
 

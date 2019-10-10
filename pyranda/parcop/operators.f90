@@ -45,7 +45,7 @@
     DOUBLE PRECISION, DIMENSION(:,:,:), INTENT(OUT) :: df
     DOUBLE PRECISION, DIMENSION(SIZE(df,1),SIZE(df,2),SIZE(df,3)) :: fA,fB,fC,tmp
      SELECT CASE(patch_ptr%coordsys)
-     CASE(0) ! Cartesian
+    CASE(0) ! Cartesian
       CALL ddx(fx,fA,patch_ptr%isymX)
       CALL ddy(fy,fB,patch_ptr%isymY)
       CALL ddz(fz,fC,patch_ptr%isymZ)

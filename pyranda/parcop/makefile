@@ -28,7 +28,7 @@ blueos_3_ppc64le_ib.ibm.mpif90 = /usr/tce/packages/spectrum-mpi/spectrum-mpi-201
 blueos_3_ppc64le_ib.gnu.mpif90 = /usr/tcetmp/bin/mpigfortran
 blueos_3_ppc64le_ib.python     = /usr/tcetmp/bin/python
 
-gnu.fflags   = -fPIC -ffree-form -ffree-line-length-0 -fbackslash
+gnu.fflags   = -fPIC -ffree-form -ffree-line-length-0 -fbackslash -ffast-math -O3
 intel.fflags = -fPIC
 # it's likely that mpiclang is using gfortran
 clang.fflags = $(gnu.fflags)
@@ -67,7 +67,7 @@ f2py.Iflags  = -I$(f2py.dir)
 # source order is important because of mod file dependencies
 #
 source = blockmath.o stencils.o patch.o pentadiagonal.o explicit.o \
-	     comm.o compact.o mesh.o objects.o compact_operators.o \
+	     comm.o compact.o mesh.o objects.o ghost.o compact_operators.o \
 			 operators.o
 
 vpath %.c $(f2py.dir)
