@@ -2,7 +2,7 @@ import numpy
 from pyranda import pyrandaSim, pyrandaBC, pyrandaTimestep
 
 ## Define a mesh
-problem = 'TriplePointGamma_test'             # Problem name: used for data output
+problem = 'TriplePointGammaSmall'             # Problem name: used for data output
 nx = 350 #700                            # Points in x
 ny = 150 #300                            # Points in y
 dim = 2                             # Dimension of the problem
@@ -16,6 +16,13 @@ myGamma = 1.4                       # Gamma of gases (single gamma)
 gammaL = 1.4
 gammaH = 1.5
 
+import sys
+try:
+    res = int( sys.argv[1] )
+    nx *= res
+    ny *= res
+except:
+    pass
 
 
 # Define a python dictionary for the mesh/problem

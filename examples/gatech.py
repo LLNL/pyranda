@@ -3,7 +3,7 @@ from pyranda import pyrandaSim, pyrandaBC, pyrandaTimestep
 
 
 ## Define a mesh
-problem = 'GAtechTest3'             # Problem name: used for data output
+problem = 'GAtechTest4'             # Problem name: used for data output
 nx = 50                             # Points in x
 ny = 100                            # Points in y
 dim = 2                             # Dimension of the problem
@@ -15,6 +15,7 @@ intH = 21.0                         # Height of interface
 mwL = 1.0                           # Molecular weight of light
 mwH = 3.14                          # Molecular weight of heavy
 myGamma = 1.4                       # Gamma of gases (single gamma)
+
 
 intAmp = .01*h
 intFreq = 4.0
@@ -28,6 +29,13 @@ try:
     res = int( sys.argv[1] )
     nx *= res
     ny *= res
+except:
+    pass
+
+try:
+    scale = int( sys.argv[2] )
+    intAmp /= scale
+    intFreq *= scale
 except:
     pass
 
@@ -251,12 +259,9 @@ while time < tt :
         stab_type = "CFL"
     else:
         stab_type = "ramp"
-        
-    ss.iprint("Cycle: %5d --- Time: %10.4e --- deltat: %10.4e ( %s )" % (ss.cycle,time,dt,stab_type)  )
-    
-    # Simulation heart-beat
-    ss.iprint("Cycle: %5d --- Time: %10.4e --- deltat: %10.4e" % (ss.cycle,time,dt)  )
 
+    # Simulation heart-beat        
+    ss.iprint("Cycle: %5d --- Time: %10.4e --- deltat: %10.4e ( %s )" % (ss.cycle,time,dt,stab_type)  )
 
     # Constant time
     if time > viz_dump:
@@ -270,4 +275,7 @@ while time < tt :
         
     if (ss.cycle%dump_freq == 0) :
         ss.writeRestart()
+
+ss.write( wvars )
+ss.writeRestart()
 
