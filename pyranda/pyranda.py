@@ -531,6 +531,11 @@ class pyrandaSim:
             return 0.0
         return self.PyMPI.der.ddx( val )
 
+    def ddx2nd(self,val):
+        if self.nx <= 1:
+            return 0.0
+        return self.PyMPI.der.ddx2nd( val )
+    
     def ddy(self,val):
         if self.ny <= 1:
             return 0.0
@@ -1035,7 +1040,7 @@ class pyrandaSim:
         # Simple find/replace mappings
         sMap['div(' ] = 'self.div('
         sMap['ddx(' ] = 'self.ddx('
-        sMap['ddx2e(' ] = 'self.ddx_2nd('
+        sMap['ddx2e(' ] = 'self.ddx2nd('
         sMap['ddx6e(' ] = 'self.ddx_6th('
         sMap['ddx8e(' ] = 'self.ddx_8th('
         sMap['ddy(' ] = 'self.ddy('
@@ -1078,6 +1083,13 @@ class pyrandaSim:
         sMap['meshx']   = 'self.mesh.coords[0].data'
         sMap['meshy']   = 'self.mesh.coords[1].data'
         sMap['meshz']   = 'self.mesh.coords[2].data'
+
+        sMap['mesh_dx']   = 'self.mesh.d1'
+        sMap['mesh_dy']   = 'self.mesh.d2'
+        sMap['mesh_dz']   = 'self.mesh.d3'
+
+
+        
         self.sMap = sMap
         
     def euler(self,time,dt):

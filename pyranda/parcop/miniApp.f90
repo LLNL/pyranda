@@ -1,12 +1,10 @@
 PROGRAM miniApp
 
   USE iso_c_binding
-  USE LES_compact, ONLY : compact_type
-  USE LES_patch, ONLY : patch_type
-  USE LES_comm, ONLY : comm_type, LES_comm_world
-  USE LES_mesh, ONLY : mesh_type
+  USE LES_comm, ONLY : LES_comm_world
   USE LES_objects
-  USE parcop, ONLY : setup,ddx,point_to_objects,setup_mesh,grad,filter,div
+  USE LES_timers
+  USE parcop, ONLY : setup,ddx,point_to_objects,setup_mesh,grad,filter,div,ddy,ddz,sfilter
   IMPLICIT NONE
   INCLUDE "mpif.h"
 
@@ -180,6 +178,7 @@ PROGRAM miniApp
   CALL SYSTEM_CLOCK( t1, clock_rate, clock_max)
   DO tt=1,iterations
 
+     !CALL startCPU()
      DO i=1,ax
         DO j=1,ay
            DO k=1,az
@@ -205,9 +204,16 @@ PROGRAM miniApp
            END DO
         END DO
         !$end omp target parallel
-        CALL div(Fx,Fy,Fz,RHS(:,:,:,4+ns))        
+        !CALL div(Fx,Fy,Fz,RHS(:,:,:,4+ns))
+        CALL ddx(Fx,Fz,ax,ay,az)
+        CALL ddy(Fy,Fx,ax,ay,az)
+        Fx = Fx + Fz
+        CALL ddz(Fz,Fy,ax,ay,az)
+        RHS(:,:,:,4+ns) = Fx + Fy
      END DO
 
+
+     
      !$omp target parallel collapse(3)
      DO i=1,ax
         DO j=1,ay
@@ -231,9 +237,27 @@ PROGRAM miniApp
      END DO
      !$omp end target parallel
      
-     CALL div(Fxx,Fxy,Fxz,Fyx,Fyy,Fyz,Fzx,Fzy,Fzz, &
-          RHS(:,:,:,1),RHS(:,:,:,2),RHS(:,:,:,3) )
+     !CALL div(Fxx,Fxy,Fxz,Fyx,Fyy,Fyz,Fzx,Fzy,Fzz, &
+     !RHS(:,:,:,1),RHS(:,:,:,2),RHS(:,:,:,3) )
+     
+     CALL ddx(Fxx,Fz,ax,ay,az)
+     CALL ddy(Fxy,Fx,ax,ay,az)
+     Fx = Fx + Fz
+     CALL ddz(Fxz,Fy,ax,ay,az)
+     RHS(:,:,:,1) = Fx + Fy
+     
+     CALL ddx(Fyx,Fz,ax,ay,az)
+     CALL ddy(Fyy,Fx,ax,ay,az)
+     Fx = Fx + Fz
+     CALL ddz(Fyz,Fy,ax,ay,az)
+     RHS(:,:,:,2) = Fx + Fy
 
+     CALL ddx(Fzx,Fz,ax,ay,az)
+     CALL ddy(Fzy,Fx,ax,ay,az)
+     Fx = Fx + Fz
+     CALL ddz(Fzz,Fy,ax,ay,az)
+     RHS(:,:,:,3) = Fx + Fy
+     
      !$omp target parallel collapse(3)
      DO i=1,ax
         DO j=1,ay
@@ -247,7 +271,10 @@ PROGRAM miniApp
      END DO
      !$end omp target parallel
      
-     CALL grad(T,tx,ty,tz)
+     !CALL grad(T,tx,ty,tz)
+     CALL ddx( T, tx, ax, ay, az )
+     CALL ddy( T, tx, ax, ay, az )
+     CALL ddz( T, tx, ax, ay, az )
 
      !$omp target parallel collapse(3)
      DO i=1,ax
@@ -261,7 +288,12 @@ PROGRAM miniApp
      END DO
      !$end omp target parallel
      
-     CALL div(Fx,Fy,Fz,RHS(:,:,:,4))
+     !CALL div(Fx,Fy,Fz,RHS(:,:,:,4))
+     CALL ddx(Fx,Fz,ax,ay,az)
+     CALL ddy(Fy,Fx,ax,ay,az)
+     Fx = Fx + Fz
+     CALL ddz(Fz,Fy,ax,ay,az)
+     RHS(:,:,:,4) = Fx + Fy
      
      ! Integrate the equaions
      if (arraySyntax) then
@@ -291,23 +323,36 @@ PROGRAM miniApp
      endif
      
      ! Filter the equations
-     tmp = rho
-     CALL filter('spectral',tmp,rho)
+     bar = 0.0
+     DO n=1,ns
+        tmp = rho*Y(:,:,:,n)
+        !CALL filter('spectral',tmp,rho)
+        CALL sFilter( tmp,RHS(:,:,:,n), ax,ay,az)                
+        
+     END DO
+     rho = sum( rhs, 4)
+     DO n=1,ns
+        Y(:,:,:,n) = rhs(:,:,:,n)/rho
+     END DO           
      
      tmp = rho*u
-     CALL filter('spectral',tmp,bar)
+     !CALL filter('spectral',tmp,bar)
+     CALL sFilter( tmp, bar, ax,ay,az)
      u = bar / rho
      
      tmp = rho*v
-     CALL filter('spectral',tmp,bar)
+     !CALL filter('spectral',tmp,bar)
+     CALL sFilter( tmp, bar, ax,ay,az)
      v = bar / rho
      
      tmp = rho*w
-     CALL filter('spectral',tmp,bar)
+     !CALL filter('spectral',tmp,bar)
+     CALL sFilter( tmp, bar, ax,ay,az)
      w = bar / rho
      
      tmp = et
-     CALL filter('spectral',tmp,et)
+     !CALL filter('spectral',tmp,et)
+     CALL sFilter( tmp, et, ax,ay,az)
 
      
   END DO
@@ -322,6 +367,20 @@ PROGRAM miniApp
      print*,'Ellapsed time = ', real(t2-t1) / real(clock_rate)
   END IF
 
+
+  IF ( rank == 0 ) THEN
+     print*,'Comm time = ', real(comm_time) / real(clock_rate)
+  END IF
+
+
+  IF ( rank == 0 ) THEN
+     print*,'COMM/CPU time = ', real(comm_time) / real(t2-t1)
+  END IF
+
+
+  
+
+  
   CALL remove_objects(0,0)
   CALL MPI_FINALIZE(mpierr)
 

@@ -30,15 +30,15 @@ ddt(:rho:)  =  -ddx(:rho:*:u:)
 ddt(:rhou:) =  -ddx(:rhou:*:u: + :p: - :tau:)
 ddt(:Et:)   =  -ddx( (:Et: + :p: - :tau:)*:u: )
 # Conservative filter of the EoM
-:rho:       =  fbar( :rho:  )
-:rhou:      =  fbar( :rhou: )
-:Et:        =  fbar( :Et:   )
+#:rho:       =  fbar( :rho:  )
+#:rhou:      =  fbar( :rhou: ) 
+#:Et:        =  fbar( :Et:   )
 # Update the primatives and enforce the EOS
 :u:         =  :rhou: / :rho:
 :p:         =  ( :Et: - .5*:rho:*(:u:*:u:) ) * ( :gamma: - 1.0 )
 # Artificial bulk viscosity (old school way)
-:div:       =  ddx(:u:) 
-:beta:      =  gbar( ring(:div:) * :rho:) * 7.0e-2
+:div:       =  ddx2e(:u:) 
+:beta:      =  gbar( abs(dd4x(:div:) * :rho:)*mesh_dx**2) * 25.0
 :tau:       =  :beta:*:div:
 # Apply constant BCs
 bc.extrap(['rho','Et'],['x1'])
@@ -79,6 +79,12 @@ while tt > time:
 
     # Update the EOM and get next dt
     time = ss.rk4(time,dt)
+
+    ss.parse(":rho:       =  fbar( :rho:  )")
+    ss.parse(":rhou:      =  fbar( :rhou: )")
+    ss.parse(":Et:        =  fbar( :Et:   )")
+    ss.updateVars()
+    
     dt = min(dt_max, (tt - time) )
     
     # Print some output

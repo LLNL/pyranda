@@ -25,7 +25,7 @@ Lp = L * (Npts-1.0) / Npts
 imesh = """
 Lp = %s
 Npts = %d
-xdom = (0.0, Lp,  Npts, periodic=True)
+xdom = (0.0, Lp,  Npts, periodic=False)
 """ % ( Lp, Npts)
 
 # Initialize a simulation object on a mesh
@@ -54,79 +54,29 @@ v = 1.0
 dt_max = v / ss.mesh.nn[0] * L * .90
 tt = L/v * 1.0 
 
-
-# Main time loop for physics
-dt = dt_max
-cnt = 1
-time = 0.0
-viz = True
-while tt > time:
+# Test constant ddx
+ss.parse(':phi: = meshx')
+ss.plot.plot('phi')
+ss.parse(':phi2: = ddx(:phi:)' )
+ss.plot.plot('phi2')
 
 
-    #raw_input('Pause...')
-    
-    time = ss.rk4(time,dt)
-    dt = min(dt_max, (tt - time) )
-
-    if not test:
-        ss.iprint("%s -- %s" % (cnt,time)  )
-
-    # Plot animation of advection
-    cnt += 1
-    if viz:
-        v = ss.PyMPI.zbar( ss.variables['phi'].data )
-        if (ss.PyMPI.master and (cnt%5 == 0)) and (not test):
-            plt.figure(1)
-            plt.clf()
-            plt.plot(xx[:,0],v[:,0] ,'k.-')
-            plt.pause(.001)
+ss.plot.figure(2)
+ss.parse(':phi: = sin( 4.0*meshx )')
+ss.plot.plot('phi')
+ss.parse(':phi2: = dd4x(:phi:)' )
+ss.plot.plot('phi2')
 
 
-phi = ss.variables['phi'].data
-phi2 = ss.variables['phi2'].data
-error = numpy.sum( (phi-phi2)**2  )
-ss.iprint( error ) 
-            
+ss.plot.figure(3)
+ss.parse(':phi: = sin( 4.0*meshx )')
+ss.plot.plot('phi')
+ss.parse(':phi2: = fbar(:phi:)' )
+ss.plot.plot('phi2','bo')
 
 
 
-if test == 0:
-    # Latex/PDF generation
-    ss.setupLatex()
-    ss.latex.tMap[":phi:"] = r'\phi'
-    ss.latex.tMap[":phi2:"] = r'\phi_2'
-
-    
-    intro = ss.latex.addSection("Introduction")
-    intro.body = """
-    This brief document shows the ability to integrate the simulation with formal 
-    documentation.  The advection equations is solved and plotted below.
-    """
-
-
-    equations = ss.latex.addSection("Equations of Motion")
-    equations.body = """
-    Pyranda solves the following equations using a 10th order compact finite difference
-    stencil and a 5 stage RK4 temporal integration scheme.
-    """
-    equations.body += ss.latex.renderEqu()
-
-
-    initial = ss.latex.addSection("Initial Conditions",1)
-    initial.body = """
-    The problem is initialized given the following formulae:
-    """
-    initial.body += ss.latex.renderEqu(kind="IC")
-
-
-    results = ss.latex.addSection("Results")
-    results.addFigure("Profiles",size=.45)
-    results.body = "Here in the figure, we see the final profile of the advection"
-
-    plt.figure()
-    plt.plot( xx[:,0], ((phi-phi2)**2)[:,0,0] )
-    results.addFigure("Error",size=.45)
-    
-    
-    ss.latex.makeDoc()
-    ss.latex.showPDF()
+ss.plot.figure(4)
+ss.plot.plot('phi')
+ss.parse(':phi2: = gbar(:phi:)' )
+ss.plot.plot('phi2','bo')

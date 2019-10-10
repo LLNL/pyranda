@@ -19,6 +19,7 @@ MODULE parcop
   USE LES_explicit
   USE LES_ghost
   
+  
   CONTAINS
 
 
@@ -223,29 +224,69 @@ MODULE parcop
 
 
       ! Bin for exp. data
-      real(kind=8), dimension(-3:nx+3,ny,nz) :: gval,gdval
+      
+      real(kind=8), dimension(-2:nx+3,ny,nz) :: gval,gdval
       gval(1:nx,:,:) = val
 
       
       ! Explicit derivative (6th order)
       ! option to handle ghost data
-      CALL ghostx(0,gval)
-      CALL der1e6(gval,gdval,compact_ptr%dx,1,0,0)
 
+      CALL ghostx(1,gval)
       
-      gval = gdval(1:nx,:,:) 
+      CALL der1e6(gval,gdval,compact_ptr%dx,1,0,0)
+      
+      dval = gdval(1:nx,:,:) 
       
       
     END SUBROUTINE ddx
 
+
+    SUBROUTINE ddx2nd(val,dval,nx,ny,nz)
+      IMPLICIT NONE
+      INTEGER,               INTENT(IN) :: nx,ny,nz
+      real(kind=8), dimension(nx,ny,nz), intent(in) :: val
+      real(kind=8), dimension(nx,ny,nz),intent(out) :: dval      
+
+      ! Stanfard 10th order derivative
+      !CALL d1x(val,dval)
+
+      ! Bin for exp. data
+      real(kind=8), dimension(0:nx+1,ny,nz) :: gval,gdval
+      gval(1:nx,:,:) = val
+
+      
+      ! Explicit derivative (6th order)
+      ! option to handle ghost data
+      CALL ghostx(1,gval)
+      CALL der1e2(gval,gdval,compact_ptr%dx,1,0,0)
+      
+      dval = gdval(1:nx,:,:) 
+      
+      
+    END SUBROUTINE ddx2nd
+
+    
     SUBROUTINE ddy(val,dval,nx,ny,nz)
       IMPLICIT NONE
       INTEGER,               INTENT(IN) :: nx,ny,nz
       real(kind=8), dimension(nx,ny,nz), intent(in) :: val
       real(kind=8), dimension(nx,ny,nz),intent(out) :: dval
       
-      CALL d1y(val,dval)
+      !CALL d1y(val,dval)
 
+      ! Bin for exp. data
+      real(kind=8), dimension(nx,-2:ny+3,nz) :: gval,gdval
+      gval(:,1:ny,:) = val
+
+      
+      ! Explicit derivative (6th order)
+      ! option to handle ghost data
+      CALL ghosty(1,gval)
+      CALL der1e6(gval,gdval,compact_ptr%dy,2,0,0)
+      
+      dval = gdval(:,1:ny,:)
+      
     END SUBROUTINE ddy
     
     SUBROUTINE ddz(val,dval,nx,ny,nz)
@@ -254,8 +295,19 @@ MODULE parcop
       real(kind=8), dimension(nx,ny,nz), intent(in) :: val
       real(kind=8), dimension(nx,ny,nz),intent(out) :: dval
       
-      CALL d1z(val,dval)
+      !CALL d1z(val,dval)
+      
+      ! Bin for exp. data
+      real(kind=8), dimension(nx,ny,-2:nz+3) :: gval,gdval
+      gval(:,:,1:nz) = val
 
+      
+      ! Explicit derivative (6th order)
+      ! option to handle ghost data
+      CALL ghosty(1,gval)
+      CALL der1e6(gval,gdval,compact_ptr%dz,3,0,0)
+      
+      dval = gdval(:,:,1:nz)
     END SUBROUTINE ddz
 
     SUBROUTINE dd4x(val,dval,nx,ny,nz)
@@ -263,15 +315,47 @@ MODULE parcop
       INTEGER,               INTENT(IN) :: nx,ny,nz
       real(kind=8), dimension(nx,ny,nz), intent(in) :: val
       real(kind=8), dimension(nx,ny,nz),intent(out) :: dval      
-      CALL d4x(val,dval)
-    END SUBROUTINE dd4x
 
+      ! This uses compact.f
+      !CALL d4x(val,dval)
+
+      ! New explicit.f method
+      ! Bin for exp. data
+      real(kind=8), dimension(-2:nx+3,ny,nz) :: gval,gdval
+      gval(1:nx,:,:) = val
+
+      
+      ! Explicit derivative (6th order)
+      ! option to handle ghost data
+      CALL ghostx(1,gval)
+      CALL der4e4(gval,gdval,compact_ptr%dx,1,0,0)
+      
+      dval = gdval(1:nx,:,:) 
+
+    END SUBROUTINE dd4x
+      
+            
     SUBROUTINE dd4y(val,dval,nx,ny,nz)
       IMPLICIT NONE
       INTEGER,               INTENT(IN) :: nx,ny,nz
       real(kind=8), dimension(nx,ny,nz), intent(in) :: val
       real(kind=8), dimension(nx,ny,nz),intent(out) :: dval      
-      CALL d4y(val,dval)
+      !CALL d4y(val,dval)
+
+      ! New explicit.f method
+      ! Bin for exp. data
+      real(kind=8), dimension(nx,-2:ny+3,nz) :: gval,gdval
+      gval(:,1:ny,:) = val
+
+      
+      ! Explicit derivative (6th order)
+      ! option to handle ghost data
+      CALL ghostx(1,gval)
+      CALL der4e4(gval,gdval,compact_ptr%dy,2,0,0)
+      
+      dval = gdval(:,1:ny,:) 
+
+      
     END SUBROUTINE dd4y
 
     SUBROUTINE dd4z(val,dval,nx,ny,nz)
@@ -279,7 +363,21 @@ MODULE parcop
       INTEGER,               INTENT(IN) :: nx,ny,nz
       real(kind=8), dimension(nx,ny,nz), intent(in) :: val
       real(kind=8), dimension(nx,ny,nz),intent(out) :: dval      
-      CALL d4z(val,dval)
+      !CALL d4z(val,dval)
+
+      ! New explicit.f method
+      ! Bin for exp. data
+      real(kind=8), dimension(nx,ny,-2:nz+3) :: gval,gdval
+      gval(:,:,1:nz) = val
+
+      
+      ! Explicit derivative (6th order)
+      ! option to handle ghost data
+      CALL ghostx(1,gval)
+      CALL der4e4(gval,gdval,compact_ptr%dz,3,0,0)
+      
+      dval = gdval(:,:,1:nz) 
+      
     END SUBROUTINE dd4z
 
     
@@ -323,8 +421,29 @@ MODULE parcop
       real(kind=8), dimension(nx,ny,nz),intent(out) :: dval
       CHARACTER(LEN=8), PARAMETER :: filtype='spectral'
 
-      CALL filter(filtype,val,dval)
+      ! This uses compact.f90
+      !CALL filter(filtype,val,dval)
 
+
+      ! Bin for exp. data
+      real(kind=8), dimension(-2:nx+3,-2:ny+3,-2:nz+3) :: gval,gdval
+      gval(1:nx,1:ny,1:nz) = val
+
+      
+      ! Explicit derivative (6th order)
+      ! option to handle ghost data
+      CALL ghostx(1,gval)
+      CALL ghosty(1,gval)
+      CALL ghostz(1,gval)
+      
+      CALL filte6(gval,gdval,compact_ptr%dx,1,0,0)
+      CALL filte6(gdval,gval,compact_ptr%dx,2,0,0)
+      CALL filte6(gval,gdval,compact_ptr%dx,3,0,0)
+      
+      
+      dval = gdval(1:nx,1:ny,1:nz) 
+
+      
     END SUBROUTINE sFilter
 
     SUBROUTINE gFilter(val,dval,nx,ny,nz)
@@ -334,8 +453,29 @@ MODULE parcop
       real(kind=8), dimension(nx,ny,nz),intent(out) :: dval
       CHARACTER(LEN=6), PARAMETER :: filtype='smooth'
 
-      CALL filter(filtype,val,dval)
 
+      ! Compact version
+      !CALL filter(filtype,val,dval)
+
+
+      ! Bin for exp. data
+      real(kind=8), dimension(-2:nx+3,-2:ny+3,-2:nz+3) :: gval,gdval
+      gval(1:nx,1:ny,1:nz) = val
+      
+      ! Explicit derivative (6th order)
+      ! option to handle ghost data
+      CALL ghostx(1,gval)
+      CALL ghosty(1,gval)
+      CALL ghostz(1,gval)
+      
+      CALL gfilt3(gval,gdval,compact_ptr%dx,1,0,0)
+      CALL gfilt3(gdval,gval,compact_ptr%dx,2,0,0)
+      CALL gfilt3(gval,gdval,compact_ptr%dx,3,0,0)
+      
+      dval = gdval(1:nx,:,:) 
+
+
+      
     END SUBROUTINE gFilter
     
     SUBROUTINE gFilterDir(val,dval,nx,ny,nz,dir)

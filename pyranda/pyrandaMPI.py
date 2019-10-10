@@ -551,27 +551,31 @@ class parcop_der:
     def ddx(self,val):        
         
         # Ghost outside of call
-        np = 3
-        gVal = self.pympi.ghost( val , np=np, clipP=False)
+        #np = 3
+        #gVal = self.pympi.ghost( val , np=np, clipP=False)
 
-        nx = self.pympi.nx
-        ny = self.pympi.ny
-        nz = self.pympi.nz
+        #nx = self.pympi.nx
+        #ny = self.pympi.ny
+        #nz = self.pympi.nz
 
-        bx = val.shape[0]
-        by = val.shape[1]
-        bz = val.shape[2]
+        #bx = val.shape[0]
+        #by = val.shape[1]
+        #bz = val.shape[2]
         
-        npx = npy = npz = 0
-        if nx > 1:
-            npx = np
-        if ny > 1:
-            npy = np
-        if nz > 1:
-            npz = np
-        return parcop.parcop.ddx( gVal )[npx:bx+npx,npy:by+npy,npz:bz+npz]
+        #npx = npy = npz = 0
+        #if nx > 1:
+        #    npx = np
+        #if ny > 1:
+        #    npy = np
+        #if nz > 1:
+        #    npz = np
+        #return parcop.parcop.ddx( gVal )[npx:bx+npx,npy:by+npy,npz:bz+npz]
+        return parcop.parcop.ddx( val )
     
 
+    def ddx2nd(self,val):
+        return parcop.parcop.ddx2nd( val )
+    
     def ddy(self,val):        
         return parcop.parcop.ddy( val )
 
