@@ -3,8 +3,8 @@ from pyranda import pyrandaSim, pyrandaBC, pyrandaTimestep
 
 
 ## Define a mesh
-problem = 'GAtechTest3'              # Problem name: used for data output
-nx = 100                            # Points in x
+problem = 'GAtechTest3'             # Problem name: used for data output
+nx = 50                             # Points in x
 ny = 100                            # Points in y
 dim = 2                             # Dimension of the problem
 open_angle  = 45.0                  # Total opening angle in degrees
@@ -22,6 +22,15 @@ intFreq = 4.0
 # Farfield properties
 p0   = 1.0
 rho0 = 1.0 #* mwH/mwL
+
+import sys
+try:
+    res = int( sys.argv[1] )
+    nx *= res
+    ny *= res
+except:
+    pass
+
 
 
 # Compute max length (x-dir) based on angle/height
@@ -123,6 +132,8 @@ bc.slip( [ ['u','v'] ] , ['x1','xn','y1'] )
 :wgt: = ( 1.0 + tanh( (meshy-myH*(1.0-0.025))/ (.025*myH) ) ) * 0.5
 :u: = :u:*(1-:wgt:) + gbary(:u:)*:wgt:
 :v: = :v:*(1-:wgt:) + gbary(:v:)*:wgt:
+:rho: = :rho:*(1-:wgt:) + gbary(:rho:)*:wgt:
+:p:   = :p:  *(1-:wgt:) + gbary(:p:)  *:wgt:
 #:w: = :w:*(1-:wgt:) + gbary(:w:)*:wgt:
 bc.extrap(['u','v','p','rho'],['yn'])
 #bc.extrap( ['u'] , ['yn'], 0.0 )
@@ -138,11 +149,13 @@ bc.extrap(['u','v','p','rho'],['yn'])
 :rhov: = :rho:*:v:
 # Compute some max time steps
 :cs:  = sqrt( :p: / :rho: * :gamma: )
-:dt: = dt.courant(:u:,:v:,:w:,:cs:)
-:dtB: = 0.1* dt.diff(:beta:,:rho:)
-:dt:  = numpy.minimum(:dt:,:dtB:)
+:dtC: = dt.courant(:u:,:v:,:w:,:cs:)
+:dtB: = 0.2* dt.diff(:beta:,:rho:)
+:dt:  = numpy.minimum(:dtC:,:dtB:)
 :dtM: = 0.2 * dt.diff(:mu:,:rho:)
 :dt: = numpy.minimum(:dt:,:dtM:)
+:dtY: = 0.2 * dt.diff(:adiff:,:rho:)
+:dt: = numpy.minimum(:dt:,:dtY:)
 :umag: = sqrt( :u:*:u: + :v:*:v: )
 """
 
@@ -201,7 +214,7 @@ time = 0.0
 viz = True
 
 # Stopping time of simulation
-tt = 100.0
+tt = 200.0
 
 # Variables to write to viz.
 wvars = ['Yh','rho','u','v','p','beta','kappa','adiff','mu']
@@ -223,14 +236,27 @@ while time < tt :
     
     # Update the EOM and get next dt
     time = ss.rk4(time,dt)
-    dt = min( ss.variables['dt'].data * CFL, dt*1.1)
+    dt = min( ss.variables['dt'].data * CFL, dt*1.01)
     dt = min(dt, (tt - time) )
+
+    stab_type = ''
+    # Simulation heart-beat
+    if dt == ss.variables['dtB'].data:
+        stab_type = 'bulk'
+    elif dt == ss.variables['dtY'].data:
+        stab_type = 'diffusion'
+    elif dt == ss.variables['dtM'].data:
+        stab_type = 'shear'
+    elif dt == ss.variables['dtC'].data:
+        stab_type = "CFL"
+    else:
+        stab_type = "ramp"
+        
+    ss.iprint("Cycle: %5d --- Time: %10.4e --- deltat: %10.4e ( %s )" % (ss.cycle,time,dt,stab_type)  )
     
     # Simulation heart-beat
     ss.iprint("Cycle: %5d --- Time: %10.4e --- deltat: %10.4e" % (ss.cycle,time,dt)  )
 
-    if (ss.cycle%viz_freq == 0) :
-        #ss.write( wvars )
 
     # Constant time
     if time > viz_dump:
