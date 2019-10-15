@@ -4,7 +4,8 @@ PROGRAM miniApp
   USE LES_comm, ONLY : LES_comm_world
   USE LES_objects
   USE LES_timers
-  USE parcop, ONLY : setup,ddx,point_to_objects,setup_mesh,grad,filter,div,ddy,ddz,sfilter
+  USE parcop, ONLY : setup,ddx,point_to_objects,setup_mesh,grad,filter,div,ddy,ddz,sfilter,gfilter,dd4x
+  USE LES_ghost, ONLY : ghostx,ghosty,ghostz
   IMPLICIT NONE
   INCLUDE "mpif.h"
 
@@ -14,16 +15,26 @@ PROGRAM miniApp
   CHARACTER(KIND=c_char,LEN=4)   :: bx1,bxn,by1,byn,bz1,bzn
   REAL(c_double)                 :: simtime
   INTEGER(c_int)                 :: world_id,world_np,mpierr
+  LOGICAL(c_bool)                :: periodic
   REAL(c_double), DIMENSION(:,:,:), ALLOCATABLE :: rho,u,v,w,et,p,rad,T,ie,Fx,Fy,Fz,tx,ty,tz,tmp,bar
   REAL(c_double), DIMENSION(:,:,:), ALLOCATABLE :: Fxx,Fyx,Fzx,Fxy,Fyy,Fzy,Fxz,Fyz,Fzz
-  REAL(c_double), DIMENSION(:,:,:,:), ALLOCATABLE :: RHS,Y
-  INTEGER :: tt,i,j,k,n
+  REAL(c_double), DIMENSION(:,:,:), ALLOCATABLE :: uxx,uyy,uzz,uxy,uxz,uyz,uyx,uzx,uzy
+  REAL(c_double), DIMENSION(:,:,:), ALLOCATABLE :: beta,mu,kappa
+  REAL(c_double), DIMENSION(:,:,:,:), ALLOCATABLE :: RHS,Y,adiff,RHSp
+
+  REAL(c_double) :: divu,txx,tyy,tzz,txy,txz,tyz
+  
+  INTEGER :: tt,i,j,k,n,eom
   INTEGER :: t1,t2,clock_rate,clock_max
+  DOUBLE PRECISION :: t1c,t2c
   CHARACTER(LEN=32) :: arg
   INTEGER :: nargs,ii,iterations
-  INTEGER :: rank,ierror
-  DOUBLE PRECISION :: dt = 0.0
+  INTEGER :: rank,ierror,procs
+  DOUBLE PRECISION :: dt = 0.0, myCommTime, myCompTime,myTime,myTimeMin,myTimeMean
   LOGICAL :: arraySyntax = .false.
+
+  LOGICAL :: uberComm = .false.
+  INTEGER :: uberGhost = 15
   
   ! MPI
   CALL MPI_INIT(mpierr)
@@ -99,14 +110,25 @@ PROGRAM miniApp
   IF (nargs >= ii) READ(arg,'(I10)') ns
 
 
+  periodic = .false.
 
-  bx1 = "NONE"
-  bxn = "NONE"
-  by1 = "NONE"
-  byn = "NONE"
-  bz1 = "NONE"
-  bzn = "NONE"
+  if (.not. periodic) then  
+     bx1 = "NONE"
+     bxn = "NONE"
+     by1 = "NONE"
+     byn = "NONE"
+     bz1 = "NONE"
+     bzn = "NONE"
+  else
+     bx1 = "PERI"
+     bxn = "PERI"
+     by1 = "PERI"
+     byn = "PERI"
+     bz1 = "PERI"
+     bzn = "PERI"
+  end if
 
+  
   simtime = 0.0D0
 
   ! Setup matrices/solvers
@@ -149,17 +171,36 @@ PROGRAM miniApp
   ALLOCATE( tx(ax,ay,az) )
   ALLOCATE( ty(ax,ay,az) )
   ALLOCATE( tz(ax,ay,az) )
+  
+  ALLOCATE(uxx(ax,ay,az) )
+  ALLOCATE(uyy(ax,ay,az) )
+  ALLOCATE(uzz(ax,ay,az) )
+  ALLOCATE(uxy(ax,ay,az) )
+  ALLOCATE(uxz(ax,ay,az) )
+  ALLOCATE(uyz(ax,ay,az) )
+  ALLOCATE(uyx(ax,ay,az) )
+  ALLOCATE(uzx(ax,ay,az) )
+  ALLOCATE(uzy(ax,ay,az) )
 
+  ALLOCATE(beta(ax,ay,az) )
+  ALLOCATE(mu(ax,ay,az) )
+  ALLOCATE(kappa(ax,ay,az) )
+  
+  
   ALLOCATE( tmp(ax,ay,az) )
   ALLOCATE( bar(ax,ay,az) )
 
   
   ALLOCATE( RHS(ax,ay,az,ns+4) )
 
+  if (uberComm) then
+     ALLOCATE( RHSp(-uberGhost+1:ax+uberGhost,-uberGhost+1:ay+uberGhost,-uberGhost+1:az+uberGhost, ns+4) )
+  end if
+
+  
   ! From is whatebver you want to come back from the device (to host)... impl. does allocate
   ! alloc is only data on the device
   
-  !$omp target data map(from:RHS,u,v,w,Y,p,rho) map(alloc:Fx,Fy,Fz,Fxx,Fxy,Fxz,Fyx,Fyy,Fyz,Fzx,Fzy,Fzz)
   
   ! Initialize some profiles
   ! rho = x
@@ -174,11 +215,24 @@ PROGRAM miniApp
   CALL EOS(ie,rho,p,t)
  
 
+  !$omp target data map(from:RHS,u,v,w,Y,p,rho,et) map(alloc:Fx,Fy,Fz,Fxx,Fxy,Fxz,Fyx,Fyy,Fyz,Fzx,Fzy,Fzz)
+
+  
   ! Time the derivatives
   CALL SYSTEM_CLOCK( t1, clock_rate, clock_max)
+  call cpu_time(t1c)
   DO tt=1,iterations
 
-     !CALL startCPU()
+
+     do eom=1,4+ns
+        CALL ghostx(1,RHSp(:,:,:,eom))
+        CALL ghosty(1,RHSp(:,:,:,eom))
+        CALL ghostz(1,RHSp(:,:,:,eom))
+     end do
+
+     
+     CALL startCPU()
+     !$omp target teams distribute parallel do collapse(3)
      DO i=1,ax
         DO j=1,ay
            DO k=1,az
@@ -187,13 +241,16 @@ PROGRAM miniApp
            END DO
         END DO
      END DO
- 
+     !$omp end target teams distribute parallel do
+     CALL endCPU()
+     
      CALL EOS(ie,rho,p,t)
      !CALL EOS_nx(ie,rho,p,t,ax,ay,az)
      
      ! Mass equation
      DO n=1,ns
-        !$omp target parallel collapse(3)
+        CALL startCPU()
+        !$omp target teams distribute parallel do collapse(3)
         DO i=1,ax
            DO j=1,ay
               DO k=1,az
@@ -203,62 +260,208 @@ PROGRAM miniApp
               END DO
            END DO
         END DO
-        !$end omp target parallel
-        !CALL div(Fx,Fy,Fz,RHS(:,:,:,4+ns))
+        !$omp end target teams distribute parallel do
+        CALL endCPU()
+
+        
         CALL ddx(Fx,Fz,ax,ay,az)
         CALL ddy(Fy,Fx,ax,ay,az)
-        Fx = Fx + Fz
+        !$omp target teams distribute parallel do collapse(3)
+        DO i=1,ax
+           DO j=1,ay
+              DO k=1,az     
+                 Fx(i,j,k) = Fx(i,j,k) + Fz(i,j,k)
+              END DO
+           END DO
+        END DO
+        !$omp end target teams distribute parallel do
         CALL ddz(Fz,Fy,ax,ay,az)
-        RHS(:,:,:,4+ns) = Fx + Fy
+        !$omp target teams distribute parallel do collapse(3)
+        DO i=1,ax
+           DO j=1,ay
+              DO k=1,az
+                 RHS(i,j,k,4+ns) = Fx(i,j,k)+ Fy(i,j,k)
+              END DO
+           END DO
+        END DO
+        !$omp end target teams distribute parallel do
      END DO
-
-
      
-     !$omp target parallel collapse(3)
+     ! Form the artificial viscosities
+     CALL ddx(u,uxx,ax,ay,az)
+     CALL ddy(v,uyy,ax,ay,az)
+     CALL ddz(w,uzz,ax,ay,az)
+     CALL ddy(u,uxy,ax,ay,az)
+     CALL ddz(u,uxz,ax,ay,az)
+     CALL ddz(v,uyz,ax,ay,az)
+     CALL ddx(v,uyx,ax,ay,az)
+     CALL ddx(w,uzx,ax,ay,az)
+     CALL ddy(w,uzy,ax,ay,az)
+
+     ! Shocks
+     !$omp target teams distribute parallel do collapse(3)
      DO i=1,ax
         DO j=1,ay
            DO k=1,az
-              ! Momentum equation (x)
-              Fxx(i,j,k) = rho(i,j,k) * u(i,j,k) * u(i,j,k) + p(i,j,k)
-              Fyx(i,j,k) = rho(i,j,k) * u(i,j,k) * v(i,j,k)
-              Fzx(i,j,k) = rho(i,j,k) * u(i,j,k) * w(i,j,k) 
-     
-              ! Momentum equation (y)
-              Fxy(i,j,k) = rho(i,j,k) * v(i,j,k) * u(i,j,k) 
-              Fyy(i,j,k) = rho(i,j,k) * v(i,j,k) * v(i,j,k) + p(i,j,k)
-              Fzy(i,j,k) = rho(i,j,k) * v(i,j,k) * w(i,j,k) 
-     
-              ! Momentum equation (z)
-              Fxz(i,j,k) = rho(i,j,k) * w(i,j,k) * u(i,j,k) 
-              Fyz(i,j,k) = rho(i,j,k) * w(i,j,k) * v(i,j,k)
-              Fzz(i,j,k) = rho(i,j,k) * w(i,j,k) * w(i,j,k) + p(i,j,k)
+              Fx(i,j,k) = uxx(i,j,k) + uyy(i,j,k) + uzz(i,j,k)
            END DO
         END DO
      END DO
-     !$omp end target parallel
+     !$omp end target teams distribute parallel do
+     
+     ! beta = Cb * rho abs( dd4( divU) * del^2 )*
+     CALL dd4x( Fx, Fy, ax,ay,az)
+
+     CALL startCPU()
+     
+     !$omp target teams distribute parallel do collapse(3)
+     DO i=1,ax
+        DO j=1,ay
+           DO k=1,az
+              Fx(i,j,k) = ABS(Fy(i,j,k)) * mesh_ptr%GridLen(i,j,k)**2
+           END DO
+        END DO
+     END DO
+     !$omp end target teams distribute parallel do
+     
+     CALL endCPU()
+     
+     CALL gFilter( Fx, Fy, ax,ay,az)
+
+     CALL startCPU()
+     
+     !$omp target teams distribute parallel do collapse(3)
+     DO i=1,ax
+        DO j=1,ay
+           DO k=1,az
+              beta(i,j,k) = rho(i,j,k) * Fy(i,j,k)
+           END DO
+        END DO
+     END DO
+     !$omp end target teams distribute parallel do
+     
+     CALL endCPU()
+     
+     CALL startCPU()
+     
+
+     !$omp target teams distribute parallel do collapse(3)
+     DO i=1,ax
+        DO j=1,ay
+           DO k=1,az
+
+              divu = uxx(i,j,k) + uyy(i,j,k) + uzz(i,j,k)
+              
+              txx = p(i,j,k) + beta(i,j,k)*divu + mu(i,j,k)*(uxx(i,j,k)+uxx(i,j,k)-2./3.*divu)
+              tyy = p(i,j,k) + beta(i,j,k)*divu + mu(i,j,k)*(uyy(i,j,k)+uyy(i,j,k)-2./3.*divu)
+              tzz = p(i,j,k) + beta(i,j,k)*divu + mu(i,j,k)*(uzz(i,j,k)+uzz(i,j,k)-2./3.*divu)
+
+              txy = mu(i,j,k)*(uxy(i,j,k)+uyx(i,j,k) )
+              tyz = mu(i,j,k)*(uyz(i,j,k)+uzy(i,j,k) )
+              txz = mu(i,j,k)*(uxz(i,j,k)+uzx(i,j,k) )              
+              
+              
+              ! Momentum equation (x)
+              Fxx(i,j,k) = rho(i,j,k) * u(i,j,k) * u(i,j,k) + txx
+              Fyx(i,j,k) = rho(i,j,k) * u(i,j,k) * v(i,j,k) + txy
+              Fzx(i,j,k) = rho(i,j,k) * u(i,j,k) * w(i,j,k) + txz
+     
+              ! Momentum equation (y)
+              Fxy(i,j,k) = rho(i,j,k) * v(i,j,k) * u(i,j,k) + txy
+              Fyy(i,j,k) = rho(i,j,k) * v(i,j,k) * v(i,j,k) + tyy
+              Fzy(i,j,k) = rho(i,j,k) * v(i,j,k) * w(i,j,k) + tyz
+     
+              ! Momentum equation (z)
+              Fxz(i,j,k) = rho(i,j,k) * w(i,j,k) * u(i,j,k) + txz
+              Fyz(i,j,k) = rho(i,j,k) * w(i,j,k) * v(i,j,k) + tyz
+              Fzz(i,j,k) = rho(i,j,k) * w(i,j,k) * w(i,j,k) + tzz
+           END DO
+        END DO
+     END DO
+     !$omp end target teams distribute parallel do
+
+     CALL endCPU()
      
      !CALL div(Fxx,Fxy,Fxz,Fyx,Fyy,Fyz,Fzx,Fzy,Fzz, &
      !RHS(:,:,:,1),RHS(:,:,:,2),RHS(:,:,:,3) )
      
      CALL ddx(Fxx,Fz,ax,ay,az)
      CALL ddy(Fxy,Fx,ax,ay,az)
-     Fx = Fx + Fz
-     CALL ddz(Fxz,Fy,ax,ay,az)
-     RHS(:,:,:,1) = Fx + Fy
+     !Fx = Fx + Fz
+     !$omp target teams distribute parallel do collapse(3)
+     DO i=1,ax
+        DO j=1,ay
+           DO k=1,az     
+              Fx(i,j,k) = Fx(i,j,k) + Fz(i,j,k)
+           END DO
+        END DO
+     END DO
+     !$omp end target teams distribute parallel do
      
+     CALL ddz(Fxz,Fy,ax,ay,az)
+     !RHS(:,:,:,1) = Fx + Fy
+     !$omp target teams distribute parallel do collapse(3)
+     DO i=1,ax
+        DO j=1,ay
+           DO k=1,az
+              RHS(i,j,k,1) = Fx(i,j,k)+ Fy(i,j,k)
+           END DO
+        END DO
+     END DO
+     !$omp end target teams distribute parallel do
+
      CALL ddx(Fyx,Fz,ax,ay,az)
      CALL ddy(Fyy,Fx,ax,ay,az)
-     Fx = Fx + Fz
+     !Fx = Fx + Fz
+     !$omp target teams distribute parallel do collapse(3)
+     DO i=1,ax
+        DO j=1,ay
+           DO k=1,az     
+              Fx(i,j,k) = Fx(i,j,k) + Fz(i,j,k)
+           END DO
+        END DO
+     END DO
+     !$omp end target teams distribute parallel do
+     
      CALL ddz(Fyz,Fy,ax,ay,az)
-     RHS(:,:,:,2) = Fx + Fy
+     !RHS(:,:,:,2) = Fx + Fy
+     !$omp target teams distribute parallel do collapse(3)
+     DO i=1,ax
+        DO j=1,ay
+           DO k=1,az
+              RHS(i,j,k,2) = Fx(i,j,k)+ Fy(i,j,k)
+           END DO
+        END DO
+     END DO
+     !$omp end target teams distribute parallel do
 
      CALL ddx(Fzx,Fz,ax,ay,az)
      CALL ddy(Fzy,Fx,ax,ay,az)
-     Fx = Fx + Fz
-     CALL ddz(Fzz,Fy,ax,ay,az)
-     RHS(:,:,:,3) = Fx + Fy
+     !Fx = Fx + Fz
+     !$omp target teams distribute parallel do collapse(3)
+     DO i=1,ax
+        DO j=1,ay
+           DO k=1,az     
+              Fx(i,j,k) = Fx(i,j,k) + Fz(i,j,k)
+           END DO
+        END DO
+     END DO
+     !$omp end target teams distribute parallel do
      
-     !$omp target parallel collapse(3)
+     CALL ddz(Fzz,Fy,ax,ay,az)
+     !RHS(:,:,:,3) = Fx + Fy
+     !$omp target teams distribute parallel do collapse(3)
+     DO i=1,ax
+        DO j=1,ay
+           DO k=1,az
+              RHS(i,j,k,3) = Fx(i,j,k)+ Fy(i,j,k)
+           END DO
+        END DO
+     END DO
+     !$omp end target teams distribute parallel do
+
+     CALL startCPU()
+     !$omp target teams distribute parallel do collapse(3)
      DO i=1,ax
         DO j=1,ay
            DO k=1,az
@@ -269,14 +472,18 @@ PROGRAM miniApp
            END DO
         END DO
      END DO
-     !$end omp target parallel
+     !$omp end target teams distribute parallel do
+     
+     CALL endCPU()
+
      
      !CALL grad(T,tx,ty,tz)
      CALL ddx( T, tx, ax, ay, az )
      CALL ddy( T, tx, ax, ay, az )
      CALL ddz( T, tx, ax, ay, az )
 
-     !$omp target parallel collapse(3)
+     CALL startCPU()
+     !$omp target teams distribute parallel do collapse(3)
      DO i=1,ax
         DO j=1,ay
            DO k=1,az
@@ -286,16 +493,37 @@ PROGRAM miniApp
            END DO
         END DO
      END DO
-     !$end omp target parallel
+     !$omp end target teams distribute parallel do
+     CALL endCPU()
      
      !CALL div(Fx,Fy,Fz,RHS(:,:,:,4))
      CALL ddx(Fx,Fz,ax,ay,az)
      CALL ddy(Fy,Fx,ax,ay,az)
-     Fx = Fx + Fz
-     CALL ddz(Fz,Fy,ax,ay,az)
-     RHS(:,:,:,4) = Fx + Fy
+     !Fx = Fx + Fz
+     !$omp target teams distribute parallel do collapse(3)
+     DO i=1,ax
+        DO j=1,ay
+           DO k=1,az     
+              Fx(i,j,k) = Fx(i,j,k) + Fz(i,j,k)
+           END DO
+        END DO
+     END DO
+     !$omp end target teams distribute parallel do
      
+     CALL ddz(Fz,Fy,ax,ay,az)
+     !RHS(:,:,:,4) = Fx + Fy
+     !$omp target teams distribute parallel do collapse(3)
+     DO i=1,ax
+        DO j=1,ay
+           DO k=1,az
+              RHS(i,j,k,4) = Fx(i,j,k)+ Fy(i,j,k)
+           END DO
+        END DO
+     END DO
+     !$omp end target teams distribute parallel do
+
      ! Integrate the equaions
+     CALL startCPU()
      if (arraySyntax) then
         do n=1,ns
            Y(:,:,:,n)  = ( rho*Y(:,:,:,n)  - dt * RHS(:,:,:,4+n)) / rho
@@ -305,7 +533,7 @@ PROGRAM miniApp
         w  = ( rho*w  - dt * RHS(:,:,:,3))/rho
         et = et - dt * RHS(:,:,:,4)
      else
-        !$omp target parallel collapse(3)
+        !$omp target teams distribute parallel do collapse(3)
         DO i=1,ax
            DO j=1,ay
               DO k=1,az
@@ -319,39 +547,109 @@ PROGRAM miniApp
               END DO
            END DO
         END DO
-        !$end omp target parallel
+        !$omp end target teams distribute parallel do
      endif
+     CALL endCPU()
      
      ! Filter the equations
      bar = 0.0
      DO n=1,ns
-        tmp = rho*Y(:,:,:,n)
-        !CALL filter('spectral',tmp,rho)
+        !$omp target teams distribute parallel do collapse(3)
+        DO i=1,ax
+           DO j=1,ay
+              DO k=1,az
+                 tmp(i,j,k) = rho(i,j,k)*Y(i,j,k,n)
+              END DO
+           END DO
+        END DO
+        !$omp end target teams distribute parallel do
+        
         CALL sFilter( tmp,RHS(:,:,:,n), ax,ay,az)                
         
      END DO
-     rho = sum( rhs, 4)
-     DO n=1,ns
-        Y(:,:,:,n) = rhs(:,:,:,n)/rho
-     END DO           
+
+     CALL startCPU()
+     !$omp target teams distribute parallel do collapse(3)
+     DO i=1,ax
+        DO j=1,ay
+           DO k=1,az
+              rho(i,j,k) = 0.0D0
+              DO n=1,ns
+                 rho(i,j,k) = rho(i,j,k) + RHS(i,j,k,n)
+              END DO
+              DO n=1,ns
+                 Y(i,j,k,n) = RHS(i,j,k,n) / rho(i,j,k)
+              END DO
+           END DO
+        END DO
+     END DO
+     !$omp end target teams distribute parallel do     
+     !DO n=1,ns
+     !   Y(:,:,:,n) = rhs(:,:,:,n)/rho
+     !END DO
+
      
-     tmp = rho*u
-     !CALL filter('spectral',tmp,bar)
+     !$omp target teams distribute parallel do collapse(3)
+     DO i=1,ax
+        DO j=1,ay
+           DO k=1,az
+              tmp(i,j,k) = rho(i,j,k)*u(i,j,k)
+           END DO
+        END DO
+     END DO
+     !$omp end target teams distribute parallel do
+        
+     CALL endCPU()
+    
+
      CALL sFilter( tmp, bar, ax,ay,az)
-     u = bar / rho
+
+     !$omp target teams distribute parallel do collapse(3)
+     DO i=1,ax
+        DO j=1,ay
+           DO k=1,az
+              u(i,j,k) = bar(i,j,k) / rho(i,j,k)
+              tmp(i,j,k) = rho(i,j,k)*v(i,j,k)
+           END DO
+        END DO
+     END DO
+     !$omp end target teams distribute parallel do    
+     !u = bar / rho
+     !tmp = rho*v
+
      
-     tmp = rho*v
-     !CALL filter('spectral',tmp,bar)
      CALL sFilter( tmp, bar, ax,ay,az)
-     v = bar / rho
      
-     tmp = rho*w
-     !CALL filter('spectral',tmp,bar)
+     !$omp target teams distribute parallel do collapse(3)
+     DO i=1,ax
+        DO j=1,ay
+           DO k=1,az
+              v(i,j,k) = bar(i,j,k) / rho(i,j,k)
+              tmp(i,j,k) = rho(i,j,k)*w(i,j,k)
+           END DO
+        END DO
+     END DO
+     !$omp end target teams distribute parallel do    
+     !v = bar / rho     
+     !tmp = rho*w
+
+
      CALL sFilter( tmp, bar, ax,ay,az)
-     w = bar / rho
+
+
+     !$omp target teams distribute parallel do collapse(3)
+     DO i=1,ax
+        DO j=1,ay
+           DO k=1,az
+              w(i,j,k) = bar(i,j,k) / rho(i,j,k)
+              tmp(i,j,k) = et(i,j,k)
+           END DO
+        END DO
+     END DO
+     !$omp end target teams distribute parallel do 
+     !w = bar / rho     
+     !tmp = et     
      
-     tmp = et
-     !CALL filter('spectral',tmp,et)
      CALL sFilter( tmp, et, ax,ay,az)
 
      
@@ -360,26 +658,49 @@ PROGRAM miniApp
   !$omp end target data
 
   
-  CALL SYSTEM_CLOCK( t2, clock_rate, clock_max)
+  !CALL SYSTEM_CLOCK( t2, clock_rate, clock_max)
+  CALL cpu_time( t2c )
 
 
   IF ( rank == 0 ) THEN
-     print*,'Ellapsed time = ', real(t2-t1) / real(clock_rate)
+     print*,'Total time = ', real(t2c-t1c)
   END IF
-
-
-  IF ( rank == 0 ) THEN
-     print*,'Comm time = ', real(comm_time) / real(clock_rate)
-  END IF
-
-
-  IF ( rank == 0 ) THEN
-     print*,'COMM/CPU time = ', real(comm_time) / real(t2-t1)
-  END IF
-
 
   
+  CALL MPI_ALLREDUCE( comm_time   , myCommTime   , 1, MPI_DOUBLE_PRECISION, MPI_MAX, MPI_COMM_WORLD, mpierr)
+  CALL MPI_ALLREDUCE( real(t2c-t1c), myCompTime, 1, MPI_DOUBLE_PRECISION, MPI_MAX, MPI_COMM_WORLD, mpierr)
 
+  myCompTime = t2c-t1c - myCommTime
+  
+  IF ( rank == 0 ) THEN
+     print*,'Comm time = ', real(myCommTime) 
+  END IF
+
+  IF ( rank == 0 ) THEN
+     print*,'CPU time = ', real(myCompTime)
+  END IF
+  
+  IF ( rank == 0 ) THEN
+     print*,'COMM/Total time = ', real( myCommTime / (t2c-t1c) )
+  END IF
+
+  IF ( rank == 0 ) THEN
+     print*,'CPU/Total time = ', real(myCompTime / (t2c-t1c) )
+  END IF
+  
+  CALL MPI_COMM_SIZE( MPI_COMM_WORLD, procs)
+
+  DO n=1,6
+     CALL MPI_ALLREDUCE( custom_time(n)   , myTime   , 1, MPI_DOUBLE_PRECISION, MPI_MAX, MPI_COMM_WORLD, mpierr)
+     CALL MPI_ALLREDUCE( custom_time(n)   , myTimeMin   , 1, MPI_DOUBLE_PRECISION, MPI_MIN, MPI_COMM_WORLD, mpierr)
+     CALL MPI_ALLREDUCE( custom_time(n)   , myTimeMean   , 1, MPI_DOUBLE_PRECISION, MPI_SUM, MPI_COMM_WORLD, mpierr)
+    
+     IF ( rank == 0 ) THEN
+        print*,'Custom = ', real(myTime), real(myTimeMin),real(myTimeMean/procs)
+     END IF
+  END DO
+  
+  
   
   CALL remove_objects(0,0)
   CALL MPI_FINALIZE(mpierr)

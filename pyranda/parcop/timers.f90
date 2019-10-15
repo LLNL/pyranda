@@ -9,7 +9,11 @@ module LES_timers
   real(c_double) :: comm_time_start
   real(c_double) :: total_time_start
   
+  real(c_double),dimension(10) :: custom_time_start
+  real(c_double),dimension(10) :: custom_time = 0.0
 
+  !custom_time = 0.0
+  
 contains
   
   subroutine startCPU()
@@ -20,7 +24,7 @@ contains
   subroutine endCPU()
     real(c_double) :: finish
     call cpu_time(finish)
-    compute_time = finish - compute_time_start    
+    compute_time = finish - compute_time_start + compute_time
   end subroutine endCPU
 
 
@@ -35,5 +39,18 @@ contains
     comm_time = finish - comm_time_start  + comm_time
   end subroutine endCOMM
 
+
+  subroutine startCUSTOM(index)
+    integer, intent(in) :: index
+    call cpu_time(custom_time_start(index)) 
+  end subroutine startCUSTOM
+
+  subroutine endCUSTOM(index)
+    integer, intent(in) :: index
+    real(c_double) :: finish
+    call cpu_time(finish)
+    custom_time(index) = finish - custom_time_start(index)  + custom_time(index)
+  end subroutine endCUSTOM
+  
 
 end module LES_timers

@@ -46,6 +46,12 @@ bc.const(['Et'],['x1'],39.166585)
 :dt: = numpy.minimum(:dt:,0.2 * dt.diff(:beta:,:rho:))
 """
 
+    eom = eom.replace('7.0e-2','15.0 * mesh_dx**2')
+    eom = eom.replace('ring','dd4x')
+    eom = eom.replace(':div:       =  ddx(:u:)',':div: = ddx2e(:u:)')
+    eom = eom.replace(":rho:       =  fbar( :rho:  )","#")
+    eom = eom.replace(":rhou:      =  fbar( :rhou: )",'#')
+    eom = eom.replace(":Et:        =  fbar( :Et:   )",'#')
     # Add the EOM to the solver
     ss.EOM(eom)
 
@@ -93,6 +99,12 @@ eps = 2.0e-1
         dt = min( dt*1.1, ss.variables['dt'].data * CFL )
         dt = min(dt, (tt - time) )
 
+        ss.parse(":rho:       =  fbar( :rho:  )")
+        ss.parse(":rhou:      =  fbar( :rhou: )")
+        ss.parse(":Et:        =  fbar( :Et:   )")
+        ss.updateVars()
+
+        
         # Print some output
         ss.iprint("%s -- %s" % (cnt,time)  )
         cnt += 1
@@ -110,6 +122,7 @@ eps = 2.0e-1
 
 
 Npts = [100,200,400,800]
+Npts = [200,400]
 solution = []
 for Npt in Npts:
     [ss,x,rho] = getShu(Npt)

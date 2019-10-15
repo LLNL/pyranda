@@ -19,6 +19,7 @@ module LES_compact
     bpentLUS3x, ppentLUS3x, bpentLUS3y, ppentLUS3y, bpentLUS3z, ppentLUS3z, &
     btrid_block4_lus, ptrid_block4_lus, btrid_block4_lud, ptrid_block4_lud
   use LES_pentadiagonal, only : bpentLUS2y
+  USE LES_timers
   IMPLICIT NONE
   INCLUDE "mpif.h"
   REAL(KIND=c_double), PARAMETER :: zero=0.0_c_double, one=1.0_c_double
@@ -276,7 +277,9 @@ contains
       end do
       if( op%lo == MPI_PROC_NULL ) rop(1:nol,:) = zero
       if( op%hi == MPI_PROC_NULL ) rop(nol+1:ni,:) = zero
+      call startCOMM();call startCustom(1)
       call mpi_allgather(rop,ni*ni,MPI_DOUBLE_PRECISION,ro,ni*ni,MPI_DOUBLE_PRECISION,op%hash,mpierr)
+      call endCOMM();call endCustom(1)
       op%aa = zero
       do j=0,np-1
         op%aa(:,nol+1:ni,1,j) = ro(:,1:nol,j)
@@ -338,12 +341,14 @@ contains
       vbs2 = v(mx-nor+1:mx,:,:)
       vbs1 = v(1:nor,:,:)
       nsr = size(vbs1)
+      CALL startCOMM()
       call MPI_Sendrecv( vbs2, nsr, MPI_DOUBLE_PRECISION, op%hi, 0, &
                          vbr1, nsr, MPI_DOUBLE_PRECISION, op%lo, 0, &
                          op%hash, mpistatus, mpierr )
       call MPI_Sendrecv( vbs1, nsr, MPI_DOUBLE_PRECISION, op%lo, 1, &
                          vbr2, nsr, MPI_DOUBLE_PRECISION, op%hi, 1, &
                          op%hash, mpistatus, mpierr )
+      CALL endCOMM()
     else if( op%periodic ) then
       vbr1 = v(mx-nor+1:mx,:,:)
       vbr2 = v(1:nor,:,:)
@@ -404,7 +409,9 @@ contains
      nsr = size(dvop)
      select case( op%directcom )
      case( 1 ) ! mpi_allgather
-       call mpi_allgather(dvop,nsr,MPI_DOUBLE_PRECISION,dvo,nsr,MPI_DOUBLE_PRECISION,op%hash,mpierr)
+        call startCOMM();call startCustom(1)
+        call mpi_allgather(dvop,nsr,MPI_DOUBLE_PRECISION,dvo,nsr,MPI_DOUBLE_PRECISION,op%hash,mpierr)
+        call endCOMM();call endCustom(1)
        if( op%periodic ) then
          call ptrid_block4_lus( op%aa, dvo, np, my, mz )
        else
@@ -412,8 +419,10 @@ contains
        endif
        if( op%lo /= MPI_PROC_NULL ) forall(i=1:mx,j=1:my,k=1:mz) dv(i,j,k) = dv(i,j,k)-sum(op%rc(i,1:nol)*dvo(nol+1:ni,j,k,op%lo))
        if( op%hi /= MPI_PROC_NULL ) forall(i=1:mx,j=1:my,k=1:mz) dv(i,j,k) = dv(i,j,k)-sum(op%rc(i,nol+1:ni)*dvo(1:nol,j,k,op%hi))
-     case( 2 ) ! mpi_gather/scatter
+    case( 2 ) ! mpi_gather/scatter
+       call startCOMM();call startCustom(1)
        call mpi_gather(dvop,nsr,MPI_DOUBLE_PRECISION,dvo,nsr,MPI_DOUBLE_PRECISION,0,op%hash,mpierr)
+       call endCOMM();call endCustom(1)
        if( id == 0 ) then  ! only master solves
          if( op%periodic ) then
            call ptrid_block4_lus( op%aa, dvo, np, my, mz )
@@ -441,9 +450,11 @@ contains
      allocate( vbr(my,mz), vbs(my,mz) )
      vbs = dv(1,:,:)
      nsr = size(vbs)
+     CALL startCOMM()
      call MPI_Sendrecv( vbs, nsr, MPI_DOUBLE_PRECISION, op%lo, 1, &
                         vbr, nsr, MPI_DOUBLE_PRECISION, op%hi, 1, &
                         op%hash, mpistatus, mpierr )
+     CALL endCOMM()
      if( op%hi /= MPI_PROC_NULL ) dv(mx+1,:,:) = vbr
      deallocate( vbr, vbs )
   end function eval_compact_cf1x
@@ -484,12 +495,14 @@ contains
      vbs2 = v(:,mx-nor+1:mx,:)
      vbs1 = v(:,1:nor,:)
      nsr = size(vbs1)
+     CALL startCOMM()
      call MPI_Sendrecv( vbs2, nsr, MPI_DOUBLE_PRECISION, op%hi, 0, &
                         vbr1, nsr, MPI_DOUBLE_PRECISION, op%lo, 0, &
                         op%hash, mpistatus, mpierr )
      call MPI_Sendrecv( vbs1, nsr, MPI_DOUBLE_PRECISION, op%lo, 1, &
                         vbr2, nsr, MPI_DOUBLE_PRECISION, op%hi, 1, &
                         op%hash, mpistatus, mpierr )
+     CALL endCOMM()
     else if( op%periodic ) then
       vbr1 = v(:,my-nor+1:my,:)
       vbr2 = v(:,1:nor,:)
@@ -550,7 +563,9 @@ contains
      nsr = size(dvop)
      select case( op%directcom )
      case( 1 ) ! mpi_allgather
-       call mpi_allgather(dvop,nsr,MPI_DOUBLE_PRECISION,dvo,nsr,MPI_DOUBLE_PRECISION,op%hash,mpierr)
+        call startCOMM();call startCustom(1)
+        call mpi_allgather(dvop,nsr,MPI_DOUBLE_PRECISION,dvo,nsr,MPI_DOUBLE_PRECISION,op%hash,mpierr)
+        call endCOMM();call endCustom(1)
        if( op%periodic ) then
          call ptrid_block4_lus( op%aa, dvo, np, mx, mz )
        else
@@ -558,8 +573,10 @@ contains
        endif
        if( op%lo /= MPI_PROC_NULL ) forall(i=1:mx,j=1:my,k=1:mz) dv(i,j,k) = dv(i,j,k)-sum(op%rc(j,1:nol)*dvo(nol+1:ni,i,k,op%lo))
        if( op%hi /= MPI_PROC_NULL ) forall(i=1:mx,j=1:my,k=1:mz) dv(i,j,k) = dv(i,j,k)-sum(op%rc(j,nol+1:ni)*dvo(1:nol,i,k,op%hi))
-     case( 2 ) ! mpi_gather/scatter
+    case( 2 ) ! mpi_gather/scatter
+       call startCOMM();call startCustom(1)
        call mpi_gather(dvop,nsr,MPI_DOUBLE_PRECISION,dvo,nsr,MPI_DOUBLE_PRECISION,0,op%hash,mpierr)
+       call endCOMM();call endCustom(1)
        if( id == 0 ) then  ! only master solves
          if( op%periodic ) then
            call ptrid_block4_lus( op%aa, dvo, np, mx, mz )
@@ -587,9 +604,11 @@ contains
      allocate( vbr(mx,mz), vbs(mx,mz) )
      vbs = dv(:,1,:)
      nsr = size(vbs)
+     CALL startCOMM()
      call MPI_Sendrecv( vbs, nsr, MPI_DOUBLE_PRECISION, op%lo, 1, &
                         vbr, nsr, MPI_DOUBLE_PRECISION, op%hi, 1, &
                         op%hash, mpistatus, mpierr )
+     CALL endCOMM()
      if( op%hi /= MPI_PROC_NULL ) dv(:,my+1,:) = vbr
      deallocate( vbr, vbs )
   end function eval_compact_cf1y
@@ -630,12 +649,14 @@ contains
      vbs2 = v(:,:,mz-nor+1:mz)
      vbs1 = v(:,:,1:nor)
      nsr = size(vbs1)
+     CALL startCOMM()
      call MPI_Sendrecv( vbs2, nsr, MPI_DOUBLE_PRECISION, op%hi, 0, &
                         vbr1, nsr, MPI_DOUBLE_PRECISION, op%lo, 0, &
                         op%hash, mpistatus, mpierr )
      call MPI_Sendrecv( vbs1, nsr, MPI_DOUBLE_PRECISION, op%lo, 1, &
                         vbr2, nsr, MPI_DOUBLE_PRECISION, op%hi, 1, &
                         op%hash, mpistatus, mpierr )
+     CALL endCOMM()
     else if( op%periodic ) then
       vbr1 = v(:,:,mz-nor+1:mz)
       vbr2 = v(:,:,1:nor)
@@ -696,7 +717,9 @@ contains
      nsr = size(dvop)
      select case( op%directcom )
      case( 1 ) ! mpi_allgather
-       call mpi_allgather(dvop,nsr,MPI_DOUBLE_PRECISION,dvo,nsr,MPI_DOUBLE_PRECISION,op%hash,mpierr)
+        call startCOMM();call startCustom(1)
+        call mpi_allgather(dvop,nsr,MPI_DOUBLE_PRECISION,dvo,nsr,MPI_DOUBLE_PRECISION,op%hash,mpierr)
+        call endCOMM();call endCustom(1)
        if( op%periodic ) then
          call ptrid_block4_lus( op%aa, dvo, np, mx, my )
        else
@@ -704,8 +727,10 @@ contains
        endif
        if( op%lo /= MPI_PROC_NULL ) forall(i=1:mx,j=1:my,k=1:mz) dv(i,j,k) = dv(i,j,k)-sum(op%rc(k,1:nol)*dvo(nol+1:ni,i,j,op%lo))
        if( op%hi /= MPI_PROC_NULL ) forall(i=1:mx,j=1:my,k=1:mz) dv(i,j,k) = dv(i,j,k)-sum(op%rc(k,nol+1:ni)*dvo(1:nol,i,j,op%hi))
-     case( 2 ) ! mpi_gather/scatter
+    case( 2 ) ! mpi_gather/scatter
+       call startCOMM();call startCustom(1)
        call mpi_gather(dvop,nsr,MPI_DOUBLE_PRECISION,dvo,nsr,MPI_DOUBLE_PRECISION,0,op%hash,mpierr)
+       call endCOMM();call endCustom(1)
        if( id == 0 ) then  ! only master solves
          if( op%periodic ) then
            call ptrid_block4_lus( op%aa, dvo, np, mx, my )
@@ -733,9 +758,11 @@ contains
      allocate( vbr(mx,my), vbs(mx,my) )
      vbs = dv(:,:,1)
      nsr = size(vbs)
+     CALL startCOMM()
      call MPI_Sendrecv( vbs, nsr, MPI_DOUBLE_PRECISION, op%lo, 1, &
                         vbr, nsr, MPI_DOUBLE_PRECISION, op%hi, 1, &
                         op%hash, mpistatus, mpierr )
+     CALL endCOMM()
      if( op%hi /= MPI_PROC_NULL ) dv(:,:,mz+1) = vbr
      deallocate( vbr, vbs )
   end function eval_compact_cf1z
@@ -774,12 +801,14 @@ contains
      vbs2 = v(mx-nor+1:mx,:,:)
      vbs1 = v(2:nor+1,:,:)
      nsr = size(vbs1)
+     CALL startCOMM()
      call MPI_Sendrecv( vbs2, nsr, MPI_DOUBLE_PRECISION, op%hi, 0, &
                         vbr1, nsr, MPI_DOUBLE_PRECISION, op%lo, 0, &
                         op%hash, mpistatus, mpierr )
      call MPI_Sendrecv( vbs1, nsr, MPI_DOUBLE_PRECISION, op%lo, 1, &
                         vbr2, nsr, MPI_DOUBLE_PRECISION, op%hi, 1, &
                         op%hash, mpistatus, mpierr )
+     CALL endCOMM()
     else if( op%periodic ) then
       vbr1 = v(mx-nor+1:mx,:,:)
       vbr2 = v(2:nor+1,:,:)
@@ -839,7 +868,9 @@ contains
      nsr = size(dvop)
      select case( op%directcom )
      case( 1 ) ! mpi_allgather
-       call mpi_allgather(dvop,nsr,MPI_DOUBLE_PRECISION,dvo,nsr,MPI_DOUBLE_PRECISION,op%hash,mpierr)
+        call startCOMM();call startCustom(1)
+        call mpi_allgather(dvop,nsr,MPI_DOUBLE_PRECISION,dvo,nsr,MPI_DOUBLE_PRECISION,op%hash,mpierr)
+        call endCOMM();call endCustom(1)
        if( op%periodic ) then
          call ptrid_block4_lus( op%aa, dvo, np, my, mz )
        else
@@ -847,8 +878,10 @@ contains
        endif
        if( op%lo /= MPI_PROC_NULL ) forall(i=1:mx,j=1:my,k=1:mz) dv(i,j,k) = dv(i,j,k)-sum(op%rc(i,1:nol)*dvo(nol+1:ni,j,k,op%lo))
        if( op%hi /= MPI_PROC_NULL ) forall(i=1:mx,j=1:my,k=1:mz) dv(i,j,k) = dv(i,j,k)-sum(op%rc(i,nol+1:ni)*dvo(1:nol,j,k,op%hi))
-     case( 2 ) ! mpi_gather/scatter
+    case( 2 ) ! mpi_gather/scatter
+       call startCOMM();call startCustom(1)
        call mpi_gather(dvop,nsr,MPI_DOUBLE_PRECISION,dvo,nsr,MPI_DOUBLE_PRECISION,0,op%hash,mpierr)
+       call endCOMM();call endCustom(1)
        if( id == 0 ) then  ! only master solves
          if( op%periodic ) then
            call ptrid_block4_lus( op%aa, dvo, np, my, mz )
@@ -909,12 +942,14 @@ contains
      vbs2 = v(:,my-nor+1:my,:)
      vbs1 = v(:,2:nor+1,:)
      nsr = size(vbs1)
+     CALL startCOMM()
      call MPI_Sendrecv( vbs2, nsr, MPI_DOUBLE_PRECISION, op%hi, 0, &
                         vbr1, nsr, MPI_DOUBLE_PRECISION, op%lo, 0, &
                         op%hash, mpistatus, mpierr )
      call MPI_Sendrecv( vbs1, nsr, MPI_DOUBLE_PRECISION, op%lo, 1, &
                         vbr2, nsr, MPI_DOUBLE_PRECISION, op%hi, 1, &
                         op%hash, mpistatus, mpierr )
+     CALL endCOMM()
     else if( op%periodic ) then
       vbr1 = v(:,my-nor+1:my,:)
       vbr2 = v(:,2:nor+1,:)
@@ -974,7 +1009,9 @@ contains
      nsr = size(dvop)
      select case( op%directcom )
      case( 1 ) ! mpi_allgather
-       call mpi_allgather(dvop,nsr,MPI_DOUBLE_PRECISION,dvo,nsr,MPI_DOUBLE_PRECISION,op%hash,mpierr)
+        call startCOMM();call startCustom(1)
+        call mpi_allgather(dvop,nsr,MPI_DOUBLE_PRECISION,dvo,nsr,MPI_DOUBLE_PRECISION,op%hash,mpierr)
+        call endCOMM();call endCustom(1)
        if( op%periodic ) then
          call ptrid_block4_lus( op%aa, dvo, np, mx, mz )
        else
@@ -982,8 +1019,10 @@ contains
        endif
        if( op%lo /= MPI_PROC_NULL ) forall(i=1:mx,j=1:my,k=1:mz) dv(i,j,k) = dv(i,j,k)-sum(op%rc(j,1:nol)*dvo(nol+1:ni,i,k,op%lo))
        if( op%hi /= MPI_PROC_NULL ) forall(i=1:mx,j=1:my,k=1:mz) dv(i,j,k) = dv(i,j,k)-sum(op%rc(j,nol+1:ni)*dvo(1:nol,i,k,op%hi))
-     case( 2 ) ! mpi_gather/scatter
+    case( 2 ) ! mpi_gather/scatter
+       call startCOMM();call startCustom(1)
        call mpi_gather(dvop,nsr,MPI_DOUBLE_PRECISION,dvo,nsr,MPI_DOUBLE_PRECISION,0,op%hash,mpierr)
+       call endCOMM();call endCustom(1)
        if( id == 0 ) then  ! only master solves
          if( op%periodic ) then
            call ptrid_block4_lus( op%aa, dvo, np, mx, mz )
@@ -1044,12 +1083,14 @@ contains
      vbs2 = v(:,:,mz-nor+1:mz)
      vbs1 = v(:,:,2:nor+1)
      nsr = size(vbs1)
+     CALL startCOMM()
      call MPI_Sendrecv( vbs2, nsr, MPI_DOUBLE_PRECISION, op%hi, 0, &
                         vbr1, nsr, MPI_DOUBLE_PRECISION, op%lo, 0, &
                         op%hash, mpistatus, mpierr )
      call MPI_Sendrecv( vbs1, nsr, MPI_DOUBLE_PRECISION, op%lo, 1, &
                         vbr2, nsr, MPI_DOUBLE_PRECISION, op%hi, 1, &
                         op%hash, mpistatus, mpierr )
+     CALL endCOMM()
     else if( op%periodic ) then
       vbr1 = v(:,:,mz-nor+1:mz)
       vbr2 = v(:,:,2:nor+1)
@@ -1109,7 +1150,9 @@ contains
      nsr = size(dvop)
      select case( op%directcom )
      case( 1 ) ! mpi_allgather
-       call mpi_allgather(dvop,nsr,MPI_DOUBLE_PRECISION,dvo,nsr,MPI_DOUBLE_PRECISION,op%hash,mpierr)
+        call startCOMM();call startCustom(1)
+        call mpi_allgather(dvop,nsr,MPI_DOUBLE_PRECISION,dvo,nsr,MPI_DOUBLE_PRECISION,op%hash,mpierr)
+        call endCOMM();call endCustom(1)
        if( op%periodic ) then
          call ptrid_block4_lus( op%aa, dvo, np, mx, my )
        else
@@ -1117,8 +1160,10 @@ contains
        endif
        if( op%lo /= MPI_PROC_NULL ) forall(i=1:mx,j=1:my,k=1:mz) dv(i,j,k) = dv(i,j,k)-sum(op%rc(k,1:nol)*dvo(nol+1:ni,i,j,op%lo))
        if( op%hi /= MPI_PROC_NULL ) forall(i=1:mx,j=1:my,k=1:mz) dv(i,j,k) = dv(i,j,k)-sum(op%rc(k,nol+1:ni)*dvo(1:nol,i,j,op%hi))
-     case( 2 ) ! mpi_gather/scatter
+    case( 2 ) ! mpi_gather/scatter
+       call startCOMM();call startCustom(1)
        call mpi_gather(dvop,nsr,MPI_DOUBLE_PRECISION,dvo,nsr,MPI_DOUBLE_PRECISION,0,op%hash,mpierr)
+       call endCOMM();call endCustom(1)
        if( id == 0 ) then  ! only master solves
          if( op%periodic ) then
            call ptrid_block4_lus( op%aa, dvo, np, mx, my )
@@ -1179,12 +1224,14 @@ contains
      vbs2 = v(mx-nor+1:mx,:,:)
      vbs1 = v(1:nor,:,:)
      nsr = size(vbs1)
+     CALL startCOMM()
      call MPI_Sendrecv( vbs2, nsr, MPI_DOUBLE_PRECISION, op%hi, 0, &
                         vbr1, nsr, MPI_DOUBLE_PRECISION, op%lo, 0, &
                         op%hash, mpistatus, mpierr )
      call MPI_Sendrecv( vbs1, nsr, MPI_DOUBLE_PRECISION, op%lo, 1, &
                         vbr2, nsr, MPI_DOUBLE_PRECISION, op%hi, 1, &
                         op%hash, mpistatus, mpierr )
+     CALL endCOMM()
     else if( op%periodic ) then
       vbr1 = v(mx-nor+1:mx,:,:)
       vbr2 = v(1:nor,:,:)
@@ -1244,7 +1291,9 @@ contains
      nsr = size(dvop)
      select case( op%directcom )
      case( 1 ) ! mpi_allgather
-       call mpi_allgather(dvop,nsr,MPI_DOUBLE_PRECISION,dvo,nsr,MPI_DOUBLE_PRECISION,op%hash,mpierr)
+        call startCOMM();call startCustom(1)
+        call mpi_allgather(dvop,nsr,MPI_DOUBLE_PRECISION,dvo,nsr,MPI_DOUBLE_PRECISION,op%hash,mpierr)
+        call endCOMM();call endCustom(1)
        if( op%periodic ) then
          call ptrid_block4_lus( op%aa, dvo, np, my, mz )
        else
@@ -1252,8 +1301,10 @@ contains
        endif
        if( op%lo /= MPI_PROC_NULL ) forall(i=1:mx,j=1:my,k=1:mz) dv(i,j,k) = dv(i,j,k)-sum(op%rc(i,1:nol)*dvo(nol+1:ni,j,k,op%lo))
        if( op%hi /= MPI_PROC_NULL ) forall(i=1:mx,j=1:my,k=1:mz) dv(i,j,k) = dv(i,j,k)-sum(op%rc(i,nol+1:ni)*dvo(1:nol,j,k,op%hi))
-     case( 2 ) ! mpi_gather/scatter
+    case( 2 ) ! mpi_gather/scatter
+       call startCOMM();call startCustom(1)
        call mpi_gather(dvop,nsr,MPI_DOUBLE_PRECISION,dvo,nsr,MPI_DOUBLE_PRECISION,0,op%hash,mpierr)
+       call endCOMM();call endCustom(1)
        if( id == 0 ) then  ! only master solves
          if( op%periodic ) then
            call ptrid_block4_lus( op%aa, dvo, np, my, mz )
@@ -1314,12 +1365,14 @@ contains
      vbs2 = v(:,my-nor+1:my,:)
      vbs1 = v(:,1:nor,:)
      nsr = size(vbs1)
+     CALL startCOMM()
      call MPI_Sendrecv( vbs2, nsr, MPI_DOUBLE_PRECISION, op%hi, 0, &
                         vbr1, nsr, MPI_DOUBLE_PRECISION, op%lo, 0, &
                         op%hash, mpistatus, mpierr )
      call MPI_Sendrecv( vbs1, nsr, MPI_DOUBLE_PRECISION, op%lo, 1, &
                         vbr2, nsr, MPI_DOUBLE_PRECISION, op%hi, 1, &
                         op%hash, mpistatus, mpierr )
+     CALL endCOMM()
     else if( op%periodic ) then
       vbr1 = v(:,my-nor+1:my,:)
       vbr2 = v(:,1:nor,:)
@@ -1379,7 +1432,9 @@ contains
      nsr = size(dvop)
      select case( op%directcom )
      case( 1 ) ! mpi_allgather
-       call mpi_allgather(dvop,nsr,MPI_DOUBLE_PRECISION,dvo,nsr,MPI_DOUBLE_PRECISION,op%hash,mpierr)
+        call startCOMM();call startCustom(1)
+        call mpi_allgather(dvop,nsr,MPI_DOUBLE_PRECISION,dvo,nsr,MPI_DOUBLE_PRECISION,op%hash,mpierr)
+        call endCOMM();call endCustom(1)
        if( op%periodic ) then
          call ptrid_block4_lus( op%aa, dvo, np, mx, mz )
        else
@@ -1387,8 +1442,10 @@ contains
        endif
        if( op%lo /= MPI_PROC_NULL ) forall(i=1:mx,j=1:my,k=1:mz) dv(i,j,k) = dv(i,j,k)-sum(op%rc(j,1:nol)*dvo(nol+1:ni,i,k,op%lo))
        if( op%hi /= MPI_PROC_NULL ) forall(i=1:mx,j=1:my,k=1:mz) dv(i,j,k) = dv(i,j,k)-sum(op%rc(j,nol+1:ni)*dvo(1:nol,i,k,op%hi))
-     case( 2 ) ! mpi_gather/scatter
+    case( 2 ) ! mpi_gather/scatter
+       call startCOMM();call startCustom(1)
        call mpi_gather(dvop,nsr,MPI_DOUBLE_PRECISION,dvo,nsr,MPI_DOUBLE_PRECISION,0,op%hash,mpierr)
+       call endCOMM();call endCustom(1)
        if( id == 0 ) then  ! only master solves
          if( op%periodic ) then
            call ptrid_block4_lus( op%aa, dvo, np, mx, mz )
@@ -1449,12 +1506,14 @@ contains
      vbs2 = v(:,:,mz-nor+1:mz)
      vbs1 = v(:,:,1:nor)
      nsr = size(vbs1)
+     CALL startCOMM()
      call MPI_Sendrecv( vbs2, nsr, MPI_DOUBLE_PRECISION, op%hi, 0, &
                         vbr1, nsr, MPI_DOUBLE_PRECISION, op%lo, 0, &
                         op%hash, mpistatus, mpierr )
      call MPI_Sendrecv( vbs1, nsr, MPI_DOUBLE_PRECISION, op%lo, 1, &
                         vbr2, nsr, MPI_DOUBLE_PRECISION, op%hi, 1, &
                         op%hash, mpistatus, mpierr )
+     CALL endCOMM()
     else if( op%periodic ) then
       vbr1 = v(:,:,mz-nor+1:mz)
       vbr2 = v(:,:,1:nor)
@@ -1514,7 +1573,9 @@ contains
      nsr = size(dvop)
      select case( op%directcom )
      case( 1 ) ! mpi_allgather
-       call mpi_allgather(dvop,nsr,MPI_DOUBLE_PRECISION,dvo,nsr,MPI_DOUBLE_PRECISION,op%hash,mpierr)
+        call startCOMM();call startCustom(1)
+        call mpi_allgather(dvop,nsr,MPI_DOUBLE_PRECISION,dvo,nsr,MPI_DOUBLE_PRECISION,op%hash,mpierr)
+        call endCOMM();call endCustom(1)
        if( op%periodic ) then
          call ptrid_block4_lus( op%aa, dvo, np, mx, my )
        else
@@ -1522,8 +1583,10 @@ contains
        endif
        if( op%lo /= MPI_PROC_NULL ) forall(i=1:mx,j=1:my,k=1:mz) dv(i,j,k) = dv(i,j,k)-sum(op%rc(k,1:nol)*dvo(nol+1:ni,i,j,op%lo))
        if( op%hi /= MPI_PROC_NULL ) forall(i=1:mx,j=1:my,k=1:mz) dv(i,j,k) = dv(i,j,k)-sum(op%rc(k,nol+1:ni)*dvo(1:nol,i,j,op%hi))
-     case( 2 ) ! mpi_gather/scatter
+    case( 2 ) ! mpi_gather/scatter
+       call startCOMM();call startCustom(1)
        call mpi_gather(dvop,nsr,MPI_DOUBLE_PRECISION,dvo,nsr,MPI_DOUBLE_PRECISION,0,op%hash,mpierr)
+       call endCOMM();call endCustom(1)
        if( id == 0 ) then  ! only master solves
          if( op%periodic ) then
            call ptrid_block4_lus( op%aa, dvo, np, mx, my )
@@ -1606,7 +1669,9 @@ contains
      nsr = size(dvop)
      select case( op%directcom )
      case( 1 ) ! mpi_allgather
-       call mpi_allgather(dvop,nsr,MPI_DOUBLE_PRECISION,dvo,nsr,MPI_DOUBLE_PRECISION,op%hash,mpierr)
+        call startCOMM();call startCustom(1)
+        call mpi_allgather(dvop,nsr,MPI_DOUBLE_PRECISION,dvo,nsr,MPI_DOUBLE_PRECISION,op%hash,mpierr)
+        call endCOMM();call endCustom(1)
        if( op%periodic ) then
          call ptrid_block4_lus( op%aa, dvo, np, my, mz )
        else
@@ -1614,8 +1679,10 @@ contains
        endif
        if( op%lo /= MPI_PROC_NULL ) forall(i=1:mx,j=1:my,k=1:mz) dv(i,j,k) = dv(i,j,k)-sum(op%rc(i,1:nol)*dvo(nol+1:ni,j,k,op%lo))
        if( op%hi /= MPI_PROC_NULL ) forall(i=1:mx,j=1:my,k=1:mz) dv(i,j,k) = dv(i,j,k)-sum(op%rc(i,nol+1:ni)*dvo(1:nol,j,k,op%hi))
-     case( 2 ) ! mpi_gather/scatter
+    case( 2 ) ! mpi_gather/scatter
+       call startCOMM();call startCustom(1)
        call mpi_gather(dvop,nsr,MPI_DOUBLE_PRECISION,dvo,nsr,MPI_DOUBLE_PRECISION,0,op%hash,mpierr)
+       call endCOMM();call endCustom(1)
        if( id == 0 ) then  ! only master solves
          if( op%periodic ) then
            call ptrid_block4_lus( op%aa, dvo, np, my, mz )
@@ -1656,12 +1723,14 @@ contains
       vbs2 = v(size(v,1)-nov+1:size(v,1),:,:)
       vbs1 = v(1:nov,:,:)
       nsr = size(vbs1)
+      CALL startCOMM()
       call MPI_Sendrecv( vbs2, nsr, MPI_DOUBLE_PRECISION, op%hi, 0, &
                          vbr1, nsr, MPI_DOUBLE_PRECISION, op%lo, 0, &
                          op%hash, mpistatus, mpierr )
       call MPI_Sendrecv( vbs1, nsr, MPI_DOUBLE_PRECISION, op%lo, 1, &
                          vbr2, nsr, MPI_DOUBLE_PRECISION, op%hi, 1, &
                          op%hash, mpistatus, mpierr )
+      CALL endCOMM()
       deallocate( vbs1,vbs2 )
     else if( op%periodic ) then
       vbr1 = v(size(v,1)-nov+1:size(v,1),:,:)
@@ -1713,12 +1782,14 @@ contains
       vbs2 = v(ax-2:ax,:,:)
       vbs1 = v(1:3,:,:)
       nsr = size(vbs1)
+      CALL startCOMM()
       call MPI_Sendrecv( vbs2, nsr, MPI_DOUBLE_PRECISION, op%hi, 0, &
                          vbr1, nsr, MPI_DOUBLE_PRECISION, op%lo, 0, &
                          op%hash, mpistatus, mpierr )
       call MPI_Sendrecv( vbs1, nsr, MPI_DOUBLE_PRECISION, op%lo, 1, &
                          vbr2, nsr, MPI_DOUBLE_PRECISION, op%hi, 1, &
                          op%hash, mpistatus, mpierr )
+      CALL endCOMM()
     else if( op%periodic ) then
       vbr1 = v(ax-2:ax,:,:)
       vbr2 = v(1:3,:,:)
@@ -1844,7 +1915,9 @@ contains
       nsr = size(dvop)
       select case( op%directcom )
       case( 1 ) ! mpi_allgather
-        call mpi_allgather(dvop,nsr,MPI_DOUBLE_PRECISION,dvo,nsr,MPI_DOUBLE_PRECISION,op%hash,mpierr)
+         call startCOMM();call startCustom(1)
+         call mpi_allgather(dvop,nsr,MPI_DOUBLE_PRECISION,dvo,nsr,MPI_DOUBLE_PRECISION,op%hash,mpierr)
+         call endCOMM();call endCustom(1)
         if( op%periodic ) then
           call ptrid_block4_lus( op%aa, dvo, np, ay, az )
         else
@@ -1876,8 +1949,10 @@ contains
            end do
            end do
         end if
-      case( 2 ) ! mpi_gather/scatter
+     case( 2 ) ! mpi_gather/scatter
+        call startCOMM();call startCustom(1)
         call mpi_gather(dvop,nsr,MPI_DOUBLE_PRECISION,dvo,nsr,MPI_DOUBLE_PRECISION,0,op%hash,mpierr)
+        call endCOMM();call endCustom(1)
         if( op%id == 0 ) then  ! only master solves
           if( op%periodic ) then
             call ptrid_block4_lus( op%aa, dvo, np, ay, az )
@@ -1945,12 +2020,14 @@ contains
       vbs2 = v(ax-2:ax,:,:)
       vbs1 = v(1:3,:,:)
       nsr = size(vbs1)
+      CALL startCOMM()
       call MPI_Sendrecv( vbs2, nsr, MPI_DOUBLE_PRECISION, op%hi, 0, &
                          vbr1, nsr, MPI_DOUBLE_PRECISION, op%lo, 0, &
                          op%hash, mpistatus, mpierr )
       call MPI_Sendrecv( vbs1, nsr, MPI_DOUBLE_PRECISION, op%lo, 1, &
                          vbr2, nsr, MPI_DOUBLE_PRECISION, op%hi, 1, &
                          op%hash, mpistatus, mpierr )
+      CALL endCOMM()
     else if( op%periodic ) then
       vbr1 = v(ax-2:ax,:,:)
       vbr2 = v(1:3,:,:)
@@ -2075,7 +2152,9 @@ contains
       nsr = size(dvop)
       select case( op%directcom )
       case( 1 ) ! mpi_allgather
-        call mpi_allgather(dvop,nsr,MPI_DOUBLE_PRECISION,dvo,nsr,MPI_DOUBLE_PRECISION,op%hash,mpierr)
+         call startCOMM();call startCustom(1)
+         call mpi_allgather(dvop,nsr,MPI_DOUBLE_PRECISION,dvo,nsr,MPI_DOUBLE_PRECISION,op%hash,mpierr)
+         call endCOMM();call endCustom(1)
         if( op%periodic ) then
           call ptrid_block4_lus( op%aa, dvo, np, ay, az )
         else
@@ -2107,8 +2186,10 @@ contains
            end do
            end do
         end if
-      case( 2 ) ! mpi_gather/scatter
+     case( 2 ) ! mpi_gather/scatter
+        call startCOMM();call startCustom(1)
         call mpi_gather(dvop,nsr,MPI_DOUBLE_PRECISION,dvo,nsr,MPI_DOUBLE_PRECISION,0,op%hash,mpierr)
+        call endCOMM();call endCustom(1)
         if( op%id == 0 ) then  ! only master solves
           if( op%periodic ) then
             call ptrid_block4_lus( op%aa, dvo, np, ay, az )
@@ -2175,12 +2256,14 @@ contains
       vbs2 = v(:,ay-2:ay,:)
       vbs1 = v(:,1:3,:)
       nsr = size(vbs1)
+      CALL startCOMM()
       call MPI_Sendrecv( vbs2, nsr, MPI_DOUBLE_PRECISION, op%hi, 0, &
                          vbr1, nsr, MPI_DOUBLE_PRECISION, op%lo, 0, &
                          op%hash, mpistatus, mpierr )
       call MPI_Sendrecv( vbs1, nsr, MPI_DOUBLE_PRECISION, op%lo, 1, &
                          vbr2, nsr, MPI_DOUBLE_PRECISION, op%hi, 1, &
                          op%hash, mpistatus, mpierr )
+      CALL endCOMM()
     else if( op%periodic ) then
       vbr1 = v(:,ay-2:ay,:)
       vbr2 = v(:,1:3,:)
@@ -2293,7 +2376,9 @@ contains
       nsr = size(dvop)
       select case( op%directcom )
       case( 1 ) ! mpi_allgather
-        call mpi_allgather(dvop,nsr,MPI_DOUBLE_PRECISION,dvo,nsr,MPI_DOUBLE_PRECISION,op%hash,mpierr)
+         call startCOMM();call startCustom(1)
+         call mpi_allgather(dvop,nsr,MPI_DOUBLE_PRECISION,dvo,nsr,MPI_DOUBLE_PRECISION,op%hash,mpierr)
+         call endCOMM();call endCustom(1)
         if( op%periodic ) then
           call ptrid_block4_lus( op%aa, dvo, op%np, ax, az )
         else
@@ -2325,8 +2410,10 @@ contains
            end do
            end do
         end if
-      case( 2 ) ! mpi_gather/scatter
+     case( 2 ) ! mpi_gather/scatter
+        call startCOMM();call startCustom(1)
         call mpi_gather(dvop,nsr,MPI_DOUBLE_PRECISION,dvo,nsr,MPI_DOUBLE_PRECISION,0,op%hash,mpierr)
+        call endCOMM();call endCustom(1)
         if( op%id == 0 ) then  ! only master solves
           if( op%periodic ) then
             call ptrid_block4_lus( op%aa, dvo, op%np, ax, az )
@@ -2393,12 +2480,14 @@ contains
       vbs2 = v(:,:,az-2:az)
       vbs1 = v(:,:,1:3)
       nsr = size(vbs1)
+      CALL startCOMM()
       call MPI_Sendrecv( vbs2, nsr, MPI_DOUBLE_PRECISION, op%hi, 0, &
                          vbr1, nsr, MPI_DOUBLE_PRECISION, op%lo, 0, &
                          op%hash, mpistatus, mpierr )
       call MPI_Sendrecv( vbs1, nsr, MPI_DOUBLE_PRECISION, op%lo, 1, &
                          vbr2, nsr, MPI_DOUBLE_PRECISION, op%hi, 1, &
                          op%hash, mpistatus, mpierr )
+      CALL endCOMM()
     else if( op%periodic ) then
       vbr1 = v(:,:,az-2:az)
       vbr2 = v(:,:,1:3)
@@ -2510,7 +2599,9 @@ contains
       nsr = size(dvop)
       select case( op%directcom )
       case( 1 ) ! mpi_allgather
-        call mpi_allgather(dvop,nsr,MPI_DOUBLE_PRECISION,dvo,nsr,MPI_DOUBLE_PRECISION,op%hash,mpierr)
+         call startCOMM();call startCustom(1)
+         call mpi_allgather(dvop,nsr,MPI_DOUBLE_PRECISION,dvo,nsr,MPI_DOUBLE_PRECISION,op%hash,mpierr)
+         call endCOMM();call endCustom(1)
         if( op%periodic ) then
           call ptrid_block4_lus( op%aa, dvo, op%np, ax, ay )
         else
@@ -2542,8 +2633,10 @@ contains
            end do
            end do
         end if
-      case( 2 ) ! mpi_gather/scatter
+     case( 2 ) ! mpi_gather/scatter
+        call startCOMM();call startCustom(1)
         call mpi_gather(dvop,nsr,MPI_DOUBLE_PRECISION,dvo,nsr,MPI_DOUBLE_PRECISION,0,op%hash,mpierr)
+        call endCOMM();call endCustom(1)
         if( op%id == 0 ) then  ! only master solves
           if( op%periodic ) then
             call ptrid_block4_lus( op%aa, dvo, op%np, ax, ay )
@@ -2611,12 +2704,14 @@ contains
       vbs2 = v(ax-2:ax,:,:)
       vbs1 = v(1:3,:,:)
       nsr = size(vbs1)
+      CALL startCOMM()
       call MPI_Sendrecv( vbs2, nsr, MPI_DOUBLE_PRECISION, op%hi, 0, &
                          vbr1, nsr, MPI_DOUBLE_PRECISION, op%lo, 0, &
                          op%hash, mpistatus, mpierr )
       call MPI_Sendrecv( vbs1, nsr, MPI_DOUBLE_PRECISION, op%lo, 1, &
                          vbr2, nsr, MPI_DOUBLE_PRECISION, op%hi, 1, &
                          op%hash, mpistatus, mpierr )
+      CALL endCOMM()
     else if( op%periodic ) then
       vbr1 = v(ax-2:ax,:,:)
       vbr2 = v(1:3,:,:)
@@ -2683,7 +2778,9 @@ contains
       nsr = size(dvop)
       select case( op%directcom )
       case( 1 ) ! mpi_allgather
-        call mpi_allgather(dvop,nsr,MPI_DOUBLE_PRECISION,dvo,nsr,MPI_DOUBLE_PRECISION,op%hash,mpierr)
+         call startCOMM();call startCustom(1)
+         call mpi_allgather(dvop,nsr,MPI_DOUBLE_PRECISION,dvo,nsr,MPI_DOUBLE_PRECISION,op%hash,mpierr)
+         call endCOMM();call endCustom(1)
         if( op%periodic ) then
           call ptrid_block4_lus( op%aa, dvo, np, ay, az )
         else
@@ -2691,8 +2788,10 @@ contains
         endif
         if( op%lo /= MPI_PROC_NULL ) forall(i=1:ax,j=1:ay,k=1:az) dv(i,j,k) = dv(i,j,k)-sum(op%rc(i,1:2)*dvo(3:4,j,k,op%lo))
         if( op%hi /= MPI_PROC_NULL ) forall(i=1:ax,j=1:ay,k=1:az) dv(i,j,k) = dv(i,j,k)-sum(op%rc(i,3:4)*dvo(1:2,j,k,op%hi))
-      case( 2 ) ! mpi_gather/scatter
+     case( 2 ) ! mpi_gather/scatter
+        call startCOMM();call startCustom(1)
         call mpi_gather(dvop,nsr,MPI_DOUBLE_PRECISION,dvo,nsr,MPI_DOUBLE_PRECISION,0,op%hash,mpierr)
+        call endCOMM();call endCustom(1)
         if( op%id == 0 ) then  ! only master solves
           if( op%periodic ) then
             call ptrid_block4_lus( op%aa, dvo, np, ay, az )
@@ -2757,12 +2856,14 @@ contains
       vbs2 = v(:,ay-2:ay,:)
       vbs1 = v(:,1:3,:)
       nsr = size(vbs1)
+      CALL startCOMM()
       call MPI_Sendrecv( vbs2, nsr, MPI_DOUBLE_PRECISION, op%hi, 0, &
                          vbr1, nsr, MPI_DOUBLE_PRECISION, op%lo, 0, &
                          op%hash, mpistatus, mpierr )
       call MPI_Sendrecv( vbs1, nsr, MPI_DOUBLE_PRECISION, op%lo, 1, &
                          vbr2, nsr, MPI_DOUBLE_PRECISION, op%hi, 1, &
                          op%hash, mpistatus, mpierr )
+      CALL endCOMM()
     else if( op%periodic ) then
       vbr1 = v(:,ay-2:ay,:)
       vbr2 = v(:,1:3,:)
@@ -2829,7 +2930,9 @@ contains
       nsr = size(dvop)
       select case( op%directcom )
       case( 1 ) ! mpi_allgather
-        call mpi_allgather(dvop,nsr,MPI_DOUBLE_PRECISION,dvo,nsr,MPI_DOUBLE_PRECISION,op%hash,mpierr)
+         call startCOMM();call startCustom(1)
+         call mpi_allgather(dvop,nsr,MPI_DOUBLE_PRECISION,dvo,nsr,MPI_DOUBLE_PRECISION,op%hash,mpierr)
+         call endCOMM();call endCustom(1)
         if( op%periodic ) then
           call ptrid_block4_lus( op%aa, dvo, np, ax, az )
         else
@@ -2837,8 +2940,10 @@ contains
         endif
         if( op%lo /= MPI_PROC_NULL ) forall(i=1:ax,j=1:ay,k=1:az) dv(i,j,k) = dv(i,j,k)-sum(op%rc(j,1:2)*dvo(3:4,i,k,op%lo))
         if( op%hi /= MPI_PROC_NULL ) forall(i=1:ax,j=1:ay,k=1:az) dv(i,j,k) = dv(i,j,k)-sum(op%rc(j,3:4)*dvo(1:2,i,k,op%hi))
-      case( 2 ) ! mpi_gather/scatter
+     case( 2 ) ! mpi_gather/scatter
+        call startCOMM();call startCustom(1)
         call mpi_gather(dvop,nsr,MPI_DOUBLE_PRECISION,dvo,nsr,MPI_DOUBLE_PRECISION,0,op%hash,mpierr)
+        call endCOMM();call endCustom(1)
         if( op%id == 0 ) then  ! only master solves
           if( op%periodic ) then
             call ptrid_block4_lus( op%aa, dvo, np, ax, az )
@@ -2903,12 +3008,14 @@ contains
       vbs2 = v(:,:,az-2:az)
       vbs1 = v(:,:,1:3)
       nsr = size(vbs1)
+      CALL startCOMM()
       call MPI_Sendrecv( vbs2, nsr, MPI_DOUBLE_PRECISION, op%hi, 0, &
                          vbr1, nsr, MPI_DOUBLE_PRECISION, op%lo, 0, &
                          op%hash, mpistatus, mpierr )
       call MPI_Sendrecv( vbs1, nsr, MPI_DOUBLE_PRECISION, op%lo, 1, &
                          vbr2, nsr, MPI_DOUBLE_PRECISION, op%hi, 1, &
                          op%hash, mpistatus, mpierr )
+      CALL endCOMM()
     else if( op%periodic ) then
       vbr1 = v(:,:,az-2:az)
       vbr2 = v(:,:,1:3)
@@ -2975,7 +3082,9 @@ contains
       nsr = size(dvop)
       select case( op%directcom )
       case( 1 ) ! mpi_allgather
-        call mpi_allgather(dvop,nsr,MPI_DOUBLE_PRECISION,dvo,nsr,MPI_DOUBLE_PRECISION,op%hash,mpierr)
+         call startCOMM();call startCustom(1)
+         call mpi_allgather(dvop,nsr,MPI_DOUBLE_PRECISION,dvo,nsr,MPI_DOUBLE_PRECISION,op%hash,mpierr)
+         call endCOMM();call endCustom(1)
         if( op%periodic ) then
           call ptrid_block4_lus( op%aa, dvo, np, ax, ay )
         else
@@ -2983,8 +3092,10 @@ contains
         endif
         if( op%lo /= MPI_PROC_NULL ) forall(i=1:ax,j=1:ay,k=1:az) dv(i,j,k) = dv(i,j,k)-sum(op%rc(k,1:2)*dvo(3:4,i,j,op%lo))
         if( op%hi /= MPI_PROC_NULL ) forall(i=1:ax,j=1:ay,k=1:az) dv(i,j,k) = dv(i,j,k)-sum(op%rc(k,3:4)*dvo(1:2,i,j,op%hi))
-      case( 2 ) ! mpi_gather/scatter
+     case( 2 ) ! mpi_gather/scatter
+        call startCOMM();call startCustom(1)
         call mpi_gather(dvop,nsr,MPI_DOUBLE_PRECISION,dvo,nsr,MPI_DOUBLE_PRECISION,0,op%hash,mpierr)
+        call endCOMM();call endCustom(1)
         if( op%id == 0 ) then  ! only master solves
           if( op%periodic ) then
             call ptrid_block4_lus( op%aa, dvo, np, ax, ay )
@@ -3051,12 +3162,14 @@ contains
       vbs2 = v(ax-3:ax,:,:)
       vbs1 = v(1:4,:,:)
       nsr = size(vbs1)
+      CALL startCOMM()
       call MPI_Sendrecv( vbs2, nsr, MPI_DOUBLE_PRECISION, op%hi, 0, &
                          vbr1, nsr, MPI_DOUBLE_PRECISION, op%lo, 0, &
                          op%hash, mpistatus, mpierr )
       call MPI_Sendrecv( vbs1, nsr, MPI_DOUBLE_PRECISION, op%lo, 1, &
                          vbr2, nsr, MPI_DOUBLE_PRECISION, op%hi, 1, &
                          op%hash, mpistatus, mpierr )
+      CALL endCOMM()
     else if( op%periodic ) then
       vbr1 = v(ax-3:ax,:,:)
       vbr2 = v(1:4,:,:)
@@ -3125,7 +3238,9 @@ contains
       nsr = size(dvop)
       select case( op%directcom )
       case( 1 ) ! mpi_allgather
-        call mpi_allgather(dvop,nsr,MPI_DOUBLE_PRECISION,dvo,nsr,MPI_DOUBLE_PRECISION,op%hash,mpierr)
+         call startCOMM();call startCustom(1)
+         call mpi_allgather(dvop,nsr,MPI_DOUBLE_PRECISION,dvo,nsr,MPI_DOUBLE_PRECISION,op%hash,mpierr)
+         call endCOMM();call endCustom(1)
         if( op%periodic ) then
           call ptrid_block4_lus( op%aa, dvo, np, ay, az )
         else
@@ -3133,8 +3248,10 @@ contains
         endif
         if( op%lo /= MPI_PROC_NULL ) forall(i=1:ax,j=1:ay,k=1:az) dv(i,j,k) = dv(i,j,k)-sum(op%rc(i,1:2)*dvo(3:4,j,k,op%lo))
         if( op%hi /= MPI_PROC_NULL ) forall(i=1:ax,j=1:ay,k=1:az) dv(i,j,k) = dv(i,j,k)-sum(op%rc(i,3:4)*dvo(1:2,j,k,op%hi))
-      case( 2 ) ! mpi_gather/scatter
+     case( 2 ) ! mpi_gather/scatter
+        call startCOMM();call startCustom(1)
         call mpi_gather(dvop,nsr,MPI_DOUBLE_PRECISION,dvo,nsr,MPI_DOUBLE_PRECISION,0,op%hash,mpierr)
+        call endCOMM();call endCustom(1)
         if( op%id == 0 ) then  ! only master solves
           if( op%periodic ) then
             call ptrid_block4_lus( op%aa, dvo, np, ay, az )
@@ -3199,12 +3316,14 @@ contains
       vbs2 = v(:,ay-3:ay,:)
       vbs1 = v(:,1:4,:)
       nsr = size(vbs1)
+      CALL startCOMM()
       call MPI_Sendrecv( vbs2, nsr, MPI_DOUBLE_PRECISION, op%hi, 0, &
                          vbr1, nsr, MPI_DOUBLE_PRECISION, op%lo, 0, &
                          op%hash, mpistatus, mpierr )
       call MPI_Sendrecv( vbs1, nsr, MPI_DOUBLE_PRECISION, op%lo, 1, &
                          vbr2, nsr, MPI_DOUBLE_PRECISION, op%hi, 1, &
                          op%hash, mpistatus, mpierr )
+      CALL endCOMM()
     else if( op%periodic ) then
       vbr1 = v(:,ay-3:ay,:)
       vbr2 = v(:,1:4,:)
@@ -3273,7 +3392,9 @@ contains
       nsr = size(dvop)
       select case( op%directcom )
       case( 1 ) ! mpi_allgather
-        call mpi_allgather(dvop,nsr,MPI_DOUBLE_PRECISION,dvo,nsr,MPI_DOUBLE_PRECISION,op%hash,mpierr)
+         call startCOMM();call startCustom(1)
+         call mpi_allgather(dvop,nsr,MPI_DOUBLE_PRECISION,dvo,nsr,MPI_DOUBLE_PRECISION,op%hash,mpierr)
+         call endCOMM();call endCustom(1)
         if( op%periodic ) then
           call ptrid_block4_lus( op%aa, dvo, np, ax, az )
         else
@@ -3281,8 +3402,10 @@ contains
         endif
         if( op%lo /= MPI_PROC_NULL ) forall(i=1:ax,j=1:ay,k=1:az) dv(i,j,k) = dv(i,j,k)-sum(op%rc(j,1:2)*dvo(3:4,i,k,op%lo))
         if( op%hi /= MPI_PROC_NULL ) forall(i=1:ax,j=1:ay,k=1:az) dv(i,j,k) = dv(i,j,k)-sum(op%rc(j,3:4)*dvo(1:2,i,k,op%hi))
-      case( 2 ) ! mpi_gather/scatter
+     case( 2 ) ! mpi_gather/scatter
+        call startCOMM();call startCustom(1)
         call mpi_gather(dvop,nsr,MPI_DOUBLE_PRECISION,dvo,nsr,MPI_DOUBLE_PRECISION,0,op%hash,mpierr)
+        call endCOMM();call endCustom(1)
         if( op%id == 0 ) then  ! only master solves
           if( op%periodic ) then
             call ptrid_block4_lus( op%aa, dvo, np, ax, az )
@@ -3347,12 +3470,14 @@ contains
       vbs2 = v(:,:,az-3:az)
       vbs1 = v(:,:,1:4)
       nsr = size(vbs1)
+      CALL startCOMM()
       call MPI_Sendrecv( vbs2, nsr, MPI_DOUBLE_PRECISION, op%hi, 0, &
                          vbr1, nsr, MPI_DOUBLE_PRECISION, op%lo, 0, &
                          op%hash, mpistatus, mpierr )
       call MPI_Sendrecv( vbs1, nsr, MPI_DOUBLE_PRECISION, op%lo, 1, &
                          vbr2, nsr, MPI_DOUBLE_PRECISION, op%hi, 1, &
                          op%hash, mpistatus, mpierr )
+      CALL endCOMM()
     else if( op%periodic ) then
       vbr1 = v(:,:,az-3:az)
       vbr2 = v(:,:,1:4)
@@ -3421,7 +3546,9 @@ contains
       nsr = size(dvop)
       select case( op%directcom )
       case( 1 ) ! mpi_allgather
-        call mpi_allgather(dvop,nsr,MPI_DOUBLE_PRECISION,dvo,nsr,MPI_DOUBLE_PRECISION,op%hash,mpierr)
+         call startCOMM();call startCustom(1)
+         call mpi_allgather(dvop,nsr,MPI_DOUBLE_PRECISION,dvo,nsr,MPI_DOUBLE_PRECISION,op%hash,mpierr)
+         call endCOMM();call endCustom(1)
         if( op%periodic ) then
           call ptrid_block4_lus( op%aa, dvo, np, ax, ay )
         else
@@ -3429,8 +3556,10 @@ contains
         endif
         if( op%lo /= MPI_PROC_NULL ) forall(i=1:ax,j=1:ay,k=1:az) dv(i,j,k) = dv(i,j,k)-sum(op%rc(k,1:2)*dvo(3:4,i,j,op%lo))
         if( op%hi /= MPI_PROC_NULL ) forall(i=1:ax,j=1:ay,k=1:az) dv(i,j,k) = dv(i,j,k)-sum(op%rc(k,3:4)*dvo(1:2,i,j,op%hi))
-      case( 2 ) ! mpi_gather/scatter
+     case( 2 ) ! mpi_gather/scatter
+        call startCOMM();call startCustom(1)
         call mpi_gather(dvop,nsr,MPI_DOUBLE_PRECISION,dvo,nsr,MPI_DOUBLE_PRECISION,0,op%hash,mpierr)
+        call endCOMM();call endCustom(1)
         if( op%id == 0 ) then  ! only master solves
           if( op%periodic ) then
             call ptrid_block4_lus( op%aa, dvo, np, ax, ay )

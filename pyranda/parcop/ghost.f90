@@ -69,15 +69,22 @@
        RETURN
      END SELECT
      n = np*by*bz
+     CALL startCUSTOM(4)
+     CALL MPI_BARRIER(comm_ptr%xcom,mpierr)
+     CALL startCUSTOM(1)
      CALL MPI_SENDRECV(a(   np+1:2*np,:,:),n,MPI_DOUBLE_PRECISION,comm_ptr%xcom_lo,0, &
                      & a(bx-np+1:bx  ,:,:),n,MPI_DOUBLE_PRECISION,comm_ptr%xcom_hi,0, &
                      & comm_ptr%xcom,mpistatus,mpierr)
      CALL MPI_SENDRECV(a(bx-2*np+1:bx-np,:,:),n,MPI_DOUBLE_PRECISION,comm_ptr%xcom_hi,1, &
                      & a(1:np,:,:)           ,n,MPI_DOUBLE_PRECISION,comm_ptr%xcom_lo,1, &
                      & comm_ptr%xcom,mpistatus,mpierr)
-           
-     IF (patch_ptr%periodicx) RETURN
-
+     CALL endCUSTOM(1)
+     CALL endCUSTOM(4)
+     IF (patch_ptr%periodicx) THEN
+        CALL endCOMM()
+        RETURN
+     END IF
+     
      gstx = gstext
      if( patch_ptr%nx == 1 ) gstx = 0
    
@@ -146,15 +153,22 @@
        RETURN
      END SELECT
      n = np*bx*bz
+     CALL startCUSTOM(5)
+     CALL MPI_BARRIER(comm_ptr%ycom,mpierr)
+     CALL startCUSTOM(2)
      CALL MPI_SENDRECV(a(:,   np+1:2*np,:),n,MPI_DOUBLE_PRECISION,comm_ptr%ycom_lo,0, &
                      & a(:,by-np+1:by  ,:),n,MPI_DOUBLE_PRECISION,comm_ptr%ycom_hi,0, &
                      & comm_ptr%ycom,mpistatus,mpierr)
      CALL MPI_SENDRECV(a(:,by-2*np+1:by-np,:),n,MPI_DOUBLE_PRECISION,comm_ptr%ycom_hi,1, &
                      & a(:,1:np,:)           ,n,MPI_DOUBLE_PRECISION,comm_ptr%ycom_lo,1, &
                      & comm_ptr%ycom,mpistatus,mpierr)
-           
-     IF (patch_ptr%periodicy) return
-
+     CALL endCUSTOM(2)
+     CALL endCUSTOM(5)
+     IF (patch_ptr%periodicy) THEN
+        CALL endCOMM()
+        return
+     END IF
+     
      gstx = gstext
      if( patch_ptr%ny == 1 ) gstx = 0
    
@@ -222,15 +236,22 @@
        RETURN
      END SELECT
      n = np*bx*by
+     CALL startCUSTOM(6)
+     CALL MPI_BARRIER(comm_ptr%zcom,mpierr)
+     CALL startCUSTOM(3)
      CALL MPI_SENDRECV(a(:,:,   np+1:2*np),n,MPI_DOUBLE_PRECISION,comm_ptr%zcom_lo,0, &
                      & a(:,:,bz-np+1:bz  ),n,MPI_DOUBLE_PRECISION,comm_ptr%zcom_hi,0, &
                      & comm_ptr%zcom,mpistatus,mpierr)
      CALL MPI_SENDRECV(a(:,:,bz-2*np+1:bz-np),n,MPI_DOUBLE_PRECISION,comm_ptr%zcom_hi,1, &
                      & a(:,:,1:np)           ,n,MPI_DOUBLE_PRECISION,comm_ptr%zcom_lo,1, &
                      & comm_ptr%zcom,mpistatus,mpierr)
-           
-     IF (patch_ptr%periodicz) return
-
+     CALL endCUSTOM(3)
+     CALL endCUSTOM(6)
+     IF (patch_ptr%periodicz) then
+        CALL endCOMM()
+        return
+     end IF
+     
      gstx = gstext
      if( patch_ptr%nz == 1 ) gstx = 0
    

@@ -83,6 +83,7 @@ contains
     case(1)
 
        ! interior points
+       !$omp target teams distribute parallel do collapse(3)
        do i=2, size(f,1)-1
           do j=1,size(f,2)
              do k=1,size(f,3)                
@@ -90,10 +91,11 @@ contains
              end do
           end do
        end do
-
+       !$omp end target teams distribute parallel do
     case(2)
 
        ! interior points
+       !$omp target teams distribute parallel do collapse(3)
        do j=2, size(f,2)-1
           do i=1,size(f,1)
              do k=1,size(f,3)                
@@ -101,16 +103,18 @@ contains
              end do
           end do
        end do
-
+       !$omp end target teams distribute parallel do
     case(3)
        ! interior points
+       !$omp target teams distribute parallel do collapse(3)
        do k=4, size(f,3)-3
           do j=1,size(f,2)
              do i=1,size(f,1)                
                 df(i,j,k) = ( f(i,j,k+1) - f(i,j,k-1) ) * invdx
              end do
           end do
-       end do                   
+       end do
+       !$omp end target teams distribute parallel do
     end select
 
     CALL endCPU()
@@ -137,10 +141,10 @@ contains
     case(1)
 
        ! interior points
+       !$omp target teams distribute parallel do collapse(3)
        do i=4, size(f,1)-3
           do j=1,size(f,2)
-             do k=1,size(f,3)
-                
+             do k=1,size(f,3)                
                 df(i,j,k) = ( & 
                      d16e(3)*( f(i+3,j,k) - f(i-3,j,k) ) + &
                      d16e(2)*( f(i+2,j,k) - f(i-2,j,k) ) + &
@@ -148,6 +152,7 @@ contains
              end do
           end do
        end do
+       !$omp end target teams distribute parallel do
        
        ! bcs, 0-skip
        !      1-sym
@@ -155,6 +160,7 @@ contains
        !     -1-antisym
        
        if ( bc1 == 2 ) then ! standard telescoped
+          !$omp target teams distribute parallel do collapse(2)
           do j=1,size(f,2)
              do k=1,size(f,3)
                 df(1,j,k) = ( &
@@ -176,9 +182,10 @@ contains
                      f(5,j,k)*d16eb3(5) ) * invdx
              end do
           end do
+          !$omp end target teams distribute parallel do
           
        elseif (bc1 == 1) then ! symmetry
-          
+          !$omp target teams distribute parallel do collapse(2)
           do j=1,size(f,2)
              do k=1,size(f,3)
                 
@@ -196,10 +203,10 @@ contains
                 
              end do
           end do
-          
+          !$omp end target teams distribute parallel do
        elseif (bc1 == -1) then ! anti-symmtry
           
-          
+          !$omp target teams distribute parallel do collapse(2)
           do j=1,size(f,2)
              do k=1,size(f,3)
                 
@@ -220,12 +227,13 @@ contains
                 
              end do
           end do
-          
+          !$omp end target teams distribute parallel do
        end if
                    
     case(2)
 
        ! interior points
+       !$omp target teams distribute parallel do collapse(3)
        do j=4, size(f,2)-3
           do i=1,size(f,1)
              do k=1,size(f,3)
@@ -237,13 +245,14 @@ contains
              end do
           end do
        end do
-       
+       !$omp end target teams distribute parallel do
        ! bcs, 0-skip
        !      1-sym
        !      2-telescoped
        !     -1-antisym
        
        if ( bc1 == 2 ) then ! standard telescoped
+          !$omp target teams distribute parallel do collapse(2)
           do i=1,size(f,1)
              do k=1,size(f,3)
                 df(i,1,k) = ( &
@@ -265,9 +274,10 @@ contains
                      f(i,5,k)*d16eb3(5) ) * invdx
              end do
           end do
-          
+          !$omp end target teams distribute parallel do
        elseif (bc1 == 1) then ! symmetry
-          
+
+          !$omp target teams distribute parallel do collapse(2)
           do i=1,size(f,1)
              do k=1,size(f,3)
                 
@@ -284,11 +294,11 @@ contains
                      d16e(1)*( f(i,4,k) - f(i,2,k) ) ) * invdx
                 
              end do
-          end do
-          
+          end do          
+          !$omp end target teams distribute parallel do
        elseif (bc1 == -1) then ! anti-symmtry
           
-          
+          !$omp target teams distribute parallel do collapse(2)
           do i=1,size(f,1)
              do k=1,size(f,3)
                 
@@ -309,13 +319,14 @@ contains
                 
              end do
           end do
-          
+          !$omp end target teams distribute parallel do
        end if            
        
     case(3)
 
        
        ! interior points
+       !$omp target teams distribute parallel do collapse(3)
        do k=4, size(f,3)-3
           do j=1,size(f,2)
              do i=1,size(f,1)
@@ -327,6 +338,7 @@ contains
              end do
           end do
        end do
+       !$omp end target teams distribute parallel do
        
        ! bcs, 0-skip
        !      1-sym
@@ -334,6 +346,7 @@ contains
        !     -1-antisym
        
        if ( bc1 == 2 ) then ! standard telescoped
+          !$omp target teams distribute parallel do collapse(2)
           do j=1,size(f,2)
              do i=1,size(f,1)
                 df(i,j,1) = ( &
@@ -355,9 +368,10 @@ contains
                      f(i,j,5)*d16eb3(5) ) * invdx
              end do
           end do
+          !$omp end target teams distribute parallel do
           
        elseif (bc1 == 1) then ! symmetry
-          
+          !$omp target teams distribute parallel do collapse(2)
           do j=1,size(f,2)
              do i=1,size(f,1)
                 
@@ -375,10 +389,11 @@ contains
                 
              end do
           end do
+          !$omp end target teams distribute parallel do
           
        elseif (bc1 == -1) then ! anti-symmtry
           
-          
+          !$omp target teams distribute parallel do collapse(2)
           do j=1,size(f,2)
              do i=1,size(f,1)
                 
@@ -399,6 +414,7 @@ contains
                 
              end do
           end do
+          !$omp end target teams distribute parallel do
           
        end if
        
@@ -429,6 +445,7 @@ contains
     case(1)
 
        ! interior points
+       !$omp target teams distribute parallel do collapse(3)
        do i=4, size(f,1)-3
           do j=1,size(f,2)
              do k=1,size(f,3)
@@ -439,60 +456,73 @@ contains
              end do
           end do
        end do
+       !$omp end target teams distribute parallel do
 
-
-       if ( bc1 == 2 ) then
-          do j=1,size(f,2)
-             do k=1,size(f,3)
-                df(3,j,k) = ( &
-                     f(1,j,k)*d4e4b3(1) + &
-                     f(2,j,k)*d4e4b3(2) + &
-                     f(3,j,k)*d4e4b3(3) + &
-                     f(4,j,k)*d4e4b3(4) + &
-                     f(5,j,k)*d4e4b3(5) )
-                df(2,j,k) = df(3,j,k)
-                df(1,j,k) = df(3,j,k)          
-             end do
-          end do
-       endif
-
-       if ( bc2 == 2 ) then
-          n = size(f,1)
-          do j=1,size(f,2)
-             do k=1,size(f,3)
-                df(n-2,j,k) = ( &
-                     f(n,j,k)*d4e4b3(1) + &
-                     f(n-1,j,k)*d4e4b3(2) + &
-                     f(n-2,j,k)*d4e4b3(3) + &
-                     f(n-3,j,k)*d4e4b3(4) + &
-                     f(n-4,j,k)*d4e4b3(5) )
-                df(n-1,j,k) = df(n-2,j,k)
-                df(n,j,k)   = df(n-2,j,k)          
-             end do
-          end do
-       endif
+!!$       if ( bc1 == 2 ) then
+!!$          do j=1,size(f,2)
+!!$             do k=1,size(f,3)
+!!$                df(3,j,k) = ( &
+!!$                     f(1,j,k)*d4e4b3(1) + &
+!!$                     f(2,j,k)*d4e4b3(2) + &
+!!$                     f(3,j,k)*d4e4b3(3) + &
+!!$                     f(4,j,k)*d4e4b3(4) + &
+!!$                     f(5,j,k)*d4e4b3(5) )
+!!$                df(2,j,k) = df(3,j,k)
+!!$                df(1,j,k) = df(3,j,k)          
+!!$             end do
+!!$          end do
+!!$       endif
+!!$
+!!$       if ( bc2 == 2 ) then
+!!$          n = size(f,1)
+!!$          do j=1,size(f,2)
+!!$             do k=1,size(f,3)
+!!$                df(n-2,j,k) = ( &
+!!$                     f(n,j,k)*d4e4b3(1) + &
+!!$                     f(n-1,j,k)*d4e4b3(2) + &
+!!$                     f(n-2,j,k)*d4e4b3(3) + &
+!!$                     f(n-3,j,k)*d4e4b3(4) + &
+!!$                     f(n-4,j,k)*d4e4b3(5) )
+!!$                df(n-1,j,k) = df(n-2,j,k)
+!!$                df(n,j,k)   = df(n-2,j,k)          
+!!$             end do
+!!$          end do
+!!$       endif
                            
 
        
     case(2)
 
        ! interior points
+       !$omp target teams distribute parallel do collapse(3)
        do j=4, size(f,2)-3
-          df(:,j,:) = ( d4e4(1)*f(:,j,:) + & 
-               d4e4(4)*( f(:,j+3,:) + f(:,j-3,:) ) + &
-               d4e4(3)*( f(:,j+2,:) + f(:,j-2,:) ) + &
-               d4e4(2)*( f(:,j+1,:) + f(:,j-1,:) ) ) * invdx
+          do i=1,size(f,1)
+             do k=1,size(f,3)
+                df(i,j,k) = ( d4e4(1)*f(i,j,k) + & 
+                     d4e4(4)*( f(i,j+3,k) + f(i,j-3,k) ) + &
+                     d4e4(3)*( f(i,j+2,k) + f(i,j-2,k) ) + &
+                     d4e4(2)*( f(i,j+1,k) + f(i,j-1,k) ) ) * invdx
+             end do
+          end do
        end do
-
+       !$omp end target teams distribute parallel do
+       
     case(3)
        
        ! interior points
+       !$omp target teams distribute parallel do collapse(3)
        do k=4, size(f,3)-3
-          df(:,:,k) = ( d4e4(1)*f(:,:,k) + & 
-               d4e4(4)*( f(:,:,k+3) + f(:,:,k-3) ) + &
-               d4e4(3)*( f(:,:,k+2) + f(:,:,k-2) ) + &
-               d4e4(2)*( f(:,:,k+1) + f(:,:,k-1) ) ) * invdx
+          do i=1,size(f,1)
+             do j=1,size(f,2)
+                df(i,j,k) = ( d4e4(1)*f(i,j,k) + & 
+                     d4e4(4)*( f(i,j,k+3) + f(i,j,k-3) ) + &
+                     d4e4(3)*( f(i,j,k+2) + f(i,j,k-2) ) + &
+                     d4e4(2)*( f(i,j,k+1) + f(i,j,k-1) ) ) * invdx
+             end do
+          end do
        end do
+       !$omp end target teams distribute parallel do
+       
     end select
 
     CALL endCPU()
@@ -523,6 +553,7 @@ contains
     case(1)
 
        ! interior points
+       !$omp target teams distribute parallel do collapse(3)
        do i=4, size(f,1)-3
           do j=1,size(f,2)
              do k=1,size(f,3)
@@ -533,26 +564,38 @@ contains
              end do
           end do
        end do
-                               
+       !$omp end target teams distribute parallel do                 
     case(2)
 
        ! interior points
+       !$omp target teams distribute parallel do collapse(3)
        do j=4, size(f,2)-3
-          df(:,j,:) = ( fe6(1)*f(:,j,:) + & 
-               fe6(4)*( f(:,j+3,:) + f(:,j-3,:) ) + &
-               fe6(3)*( f(:,j+2,:) + f(:,j-2,:) ) + &
-               fe6(2)*( f(:,j+1,:) + f(:,j-1,:) ) ) 
+          do i=1,size(f,1)
+             do k=1,size(f,3)
+                df(i,j,k) = ( fe6(1)*f(i,j,k) + & 
+                     fe6(4)*( f(i,j+3,k) + f(i,j-3,k) ) + &
+                     fe6(3)*( f(i,j+2,k) + f(i,j-2,k) ) + &
+                     fe6(2)*( f(i,j+1,k) + f(i,j-1,k) ) ) 
+             end do
+          end do
        end do
-
+       !$omp end target teams distribute parallel do
+       
     case(3)
        
        ! interior points
+       !$omp target teams distribute parallel do collapse(3)
        do k=4, size(f,3)-3
-          df(:,:,k) = ( fe6(1)*f(:,:,k) + & 
-               fe6(4)*( f(:,:,k+3) + f(:,:,k-3) ) + &
-               fe6(3)*( f(:,:,k+2) + f(:,:,k-2) ) + &
-               fe6(2)*( f(:,:,k+1) + f(:,:,k-1) ) ) 
+          do i=1,size(f,1)
+             do j=1,size(f,2)
+                df(i,j,k) = ( fe6(1)*f(i,j,k) + & 
+                     fe6(4)*( f(i,j,k+3) + f(i,j,k-3) ) + &
+                     fe6(3)*( f(i,j,k+2) + f(i,j,k-2) ) + &
+                     fe6(2)*( f(i,j,k+1) + f(i,j,k-1) ) ) 
+             end do
+          end do
        end do
+       !$omp end target teams distribute parallel do
     end select
 
     CALL endCPU()
@@ -580,6 +623,7 @@ contains
     case(1)
 
        ! interior points
+       !$omp target teams distribute parallel do collapse(3)
        do i=4, size(f,1)-3
           do j=1,size(f,2)
              do k=1,size(f,3)
@@ -590,26 +634,39 @@ contains
              end do
           end do
        end do
-                               
+       !$omp end target teams distribute parallel do                     
     case(2)
 
        ! interior points
+       !$omp target teams distribute parallel do collapse(3)
        do j=4, size(f,2)-3
-          df(:,j,:) = ( gf3(1)*f(:,j,:) + & 
-               gf3(4)*( f(:,j+3,:) + f(:,j-3,:) ) + &
-               gf3(3)*( f(:,j+2,:) + f(:,j-2,:) ) + &
-               gf3(2)*( f(:,j+1,:) + f(:,j-1,:) ) ) 
+          do i=1,size(f,1)
+             do k=1,size(f,3)               
+                df(i,j,k) = ( gf3(1)*f(i,j,k) + & 
+                     gf3(4)*( f(i,j+3,k) + f(i,j-3,k) ) + &
+                     gf3(3)*( f(i,j+2,k) + f(i,j-2,k) ) + &
+                     gf3(2)*( f(i,j+1,k) + f(i,j-1,k) ) ) 
+             end do
+          end do
        end do
-
+       !$omp end target teams distribute parallel do
+       
     case(3)
        
        ! interior points
+       !$omp target teams distribute parallel do collapse(3)
        do k=4, size(f,3)-3
-          df(:,:,k) = ( gf3(1)*f(:,:,k) + & 
-               gf3(4)*( f(:,:,k+3) + f(:,:,k-3) ) + &
-               gf3(3)*( f(:,:,k+2) + f(:,:,k-2) ) + &
-               gf3(2)*( f(:,:,k+1) + f(:,:,k-1) ) ) 
+          do i=1,size(f,1)
+             do j=1,size(f,2)
+                df(i,j,k) = ( gf3(1)*f(i,j,k) + & 
+                     gf3(4)*( f(i,j,k+3) + f(i,j,k-3) ) + &
+                     gf3(3)*( f(i,j,k+2) + f(i,j,k-2) ) + &
+                     gf3(2)*( f(i,j,k+1) + f(i,j,k-1) ) ) 
+             end do
+          end do
        end do
+       !$omp end target teams distribute parallel do
+       
     end select
 
     CALL endCPU()

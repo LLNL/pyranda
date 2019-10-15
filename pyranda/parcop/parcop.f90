@@ -12,13 +12,16 @@ MODULE parcop
 
   USE LES_objects
   USE LES_comm, ONLY : LES_comm_world
-  USE LES_compact_operators, ONLY : d1x,d1y,d1z,d4x,d4y,d4z
+  USE LES_compact_operators, ONLY : d1x,d1y,d1z,d4x,d4y,d4z,d8x,d8y,d8z
   USE LES_operators, ONLY : div,grad,Laplacian
   USE LES_operators, ONLY : curl,cross,filter,ring,ringV,filterGdir
   USE LES_operators, ONLY : get_rands_normal, filtRands
   USE LES_explicit
   USE LES_ghost
+  USE LES_timers
   
+  LOGICAL :: use_explicit = .True.    ! Use new exp. der routines?
+  LOGICAL :: ghost_explicit = .True.  ! Do ghost comm for exp. routines?
   
   CONTAINS
 
@@ -218,26 +221,25 @@ MODULE parcop
       INTEGER,               INTENT(IN) :: nx,ny,nz
       real(kind=8), dimension(nx,ny,nz), intent(in) :: val
       real(kind=8), dimension(nx,ny,nz),intent(out) :: dval      
-
-      ! Stanfard 10th order derivative
-      !CALL d1x(val,dval)
-
-
-      ! Bin for exp. data
-      
       real(kind=8), dimension(-2:nx+3,ny,nz) :: gval,gdval
-      gval(1:nx,:,:) = val
+      
+      ! Stanfard 10th order derivative
+      if ( .not. use_explicit ) then
+         CALL d1x(val,dval)
+      else
 
+         ! Bin for exp. data      
+         gval(1:nx,:,:) = val
       
-      ! Explicit derivative (6th order)
-      ! option to handle ghost data
-
-      CALL ghostx(1,gval)
-      
-      CALL der1e6(gval,gdval,compact_ptr%dx,1,0,0)
-      
-      dval = gdval(1:nx,:,:) 
-      
+         ! Explicit derivative (6th order)
+         ! option to handle ghost data
+         if (ghost_explicit) then
+            CALL ghostx(1,gval)
+         end if
+         CALL der1e6(gval,gdval,compact_ptr%dx,1,0,0)        
+         dval = gdval(1:nx,:,:)
+         
+      end if
       
     END SUBROUTINE ddx
 
@@ -258,7 +260,9 @@ MODULE parcop
       
       ! Explicit derivative (6th order)
       ! option to handle ghost data
-      CALL ghostx(1,gval)
+      if (ghost_explicit) then
+         CALL ghostx(1,gval)
+      end if
       CALL der1e2(gval,gdval,compact_ptr%dx,1,0,0)
       
       dval = gdval(1:nx,:,:) 
@@ -272,20 +276,23 @@ MODULE parcop
       INTEGER,               INTENT(IN) :: nx,ny,nz
       real(kind=8), dimension(nx,ny,nz), intent(in) :: val
       real(kind=8), dimension(nx,ny,nz),intent(out) :: dval
-      
-      !CALL d1y(val,dval)
-
-      ! Bin for exp. data
       real(kind=8), dimension(nx,-2:ny+3,nz) :: gval,gdval
-      gval(:,1:ny,:) = val
+      
+      if ( .not. use_explicit ) then
+         CALL d1y(val,dval)
+      else
+         ! Bin for exp. data
+         gval(:,1:ny,:) = val
+      
+         ! Explicit derivative (6th order)
+         ! option to handle ghost data
+         if (ghost_explicit) then
+            CALL ghosty(1,gval)
+         end if
+         CALL der1e6(gval,gdval,compact_ptr%dy,2,0,0)     
+         dval = gdval(:,1:ny,:)
 
-      
-      ! Explicit derivative (6th order)
-      ! option to handle ghost data
-      CALL ghosty(1,gval)
-      CALL der1e6(gval,gdval,compact_ptr%dy,2,0,0)
-      
-      dval = gdval(:,1:ny,:)
+      end if
       
     END SUBROUTINE ddy
     
@@ -294,20 +301,24 @@ MODULE parcop
       INTEGER,               INTENT(IN) :: nx,ny,nz
       real(kind=8), dimension(nx,ny,nz), intent(in) :: val
       real(kind=8), dimension(nx,ny,nz),intent(out) :: dval
-      
-      !CALL d1z(val,dval)
-      
-      ! Bin for exp. data
       real(kind=8), dimension(nx,ny,-2:nz+3) :: gval,gdval
-      gval(:,:,1:nz) = val
+      
+      if ( .not. use_explicit ) then
+         CALL d1z(val,dval)
+      else
+         ! Bin for exp. data
 
+         gval(:,:,1:nz) = val
       
-      ! Explicit derivative (6th order)
-      ! option to handle ghost data
-      CALL ghosty(1,gval)
-      CALL der1e6(gval,gdval,compact_ptr%dz,3,0,0)
+         ! Explicit derivative (6th order)
+         ! option to handle ghost data
+         if (ghost_explicit) then
+            CALL ghostz(1,gval)
+         end if
+         CALL der1e6(gval,gdval,compact_ptr%dz,3,0,0)
+         dval = gdval(:,:,1:nz)
+      end if
       
-      dval = gdval(:,:,1:nz)
     END SUBROUTINE ddz
 
     SUBROUTINE dd4x(val,dval,nx,ny,nz)
@@ -315,23 +326,27 @@ MODULE parcop
       INTEGER,               INTENT(IN) :: nx,ny,nz
       real(kind=8), dimension(nx,ny,nz), intent(in) :: val
       real(kind=8), dimension(nx,ny,nz),intent(out) :: dval      
-
-      ! This uses compact.f
-      !CALL d4x(val,dval)
-
-      ! New explicit.f method
-      ! Bin for exp. data
       real(kind=8), dimension(-2:nx+3,ny,nz) :: gval,gdval
-      gval(1:nx,:,:) = val
-
       
-      ! Explicit derivative (6th order)
-      ! option to handle ghost data
-      CALL ghostx(1,gval)
-      CALL der4e4(gval,gdval,compact_ptr%dx,1,0,0)
+      if ( .not. use_explicit ) then
+         ! This uses compact.f
+         !CALL d4x(val,dval)
+         CALL d8x(val,dval)
+      else
+         
+         ! New explicit.f method
+         ! Bin for exp. data
+         gval(1:nx,:,:) = val
       
-      dval = gdval(1:nx,:,:) 
-
+         ! Explicit derivative (6th order)
+         ! option to handle ghost data
+         if (ghost_explicit) then
+            CALL ghostx(1,gval)
+         end if
+         CALL der4e4(gval,gdval,compact_ptr%dx,1,0,0)         
+         dval = gdval(1:nx,:,:) 
+      end if
+         
     END SUBROUTINE dd4x
       
             
@@ -340,21 +355,26 @@ MODULE parcop
       INTEGER,               INTENT(IN) :: nx,ny,nz
       real(kind=8), dimension(nx,ny,nz), intent(in) :: val
       real(kind=8), dimension(nx,ny,nz),intent(out) :: dval      
-      !CALL d4y(val,dval)
-
-      ! New explicit.f method
-      ! Bin for exp. data
       real(kind=8), dimension(nx,-2:ny+3,nz) :: gval,gdval
-      gval(:,1:ny,:) = val
-
       
-      ! Explicit derivative (6th order)
-      ! option to handle ghost data
-      CALL ghostx(1,gval)
-      CALL der4e4(gval,gdval,compact_ptr%dy,2,0,0)
-      
-      dval = gdval(:,1:ny,:) 
+      if ( .not. use_explicit ) then
+         !CALL d4y(val,dval)
+         CALL d8y(val,dval)
+      else
 
+         ! New explicit.f method
+         ! Bin for exp. data
+         gval(:,1:ny,:) = val
+         
+         ! Explicit derivative (6th order)
+         ! option to handle ghost data
+         if (ghost_explicit) then
+            CALL ghosty(1,gval)
+         end if
+         CALL der4e4(gval,gdval,compact_ptr%dy,2,0,0)        
+         dval = gdval(:,1:ny,:) 
+      end if
+      
       
     END SUBROUTINE dd4y
 
@@ -363,20 +383,26 @@ MODULE parcop
       INTEGER,               INTENT(IN) :: nx,ny,nz
       real(kind=8), dimension(nx,ny,nz), intent(in) :: val
       real(kind=8), dimension(nx,ny,nz),intent(out) :: dval      
-      !CALL d4z(val,dval)
-
-      ! New explicit.f method
-      ! Bin for exp. data
       real(kind=8), dimension(nx,ny,-2:nz+3) :: gval,gdval
-      gval(:,:,1:nz) = val
-
       
-      ! Explicit derivative (6th order)
-      ! option to handle ghost data
-      CALL ghostx(1,gval)
-      CALL der4e4(gval,gdval,compact_ptr%dz,3,0,0)
+      if ( .not. use_explicit ) then
+         !CALL d4z(val,dval)
+         CALL d8z(val,dval)
+      else
+         
+         ! New explicit.f method
+         ! Bin for exp. data
+         gval(:,:,1:nz) = val         
       
-      dval = gdval(:,:,1:nz) 
+         ! Explicit derivative (6th order)
+         ! option to handle ghost data
+         if (ghost_explicit) then
+            CALL ghostz(1,gval)
+         end if
+         CALL der4e4(gval,gdval,compact_ptr%dz,3,0,0)      
+         dval = gdval(:,:,1:nz)
+         
+      end if
       
     END SUBROUTINE dd4z
 
@@ -420,29 +446,30 @@ MODULE parcop
       real(kind=8), dimension(nx,ny,nz), intent(in) :: val
       real(kind=8), dimension(nx,ny,nz),intent(out) :: dval
       CHARACTER(LEN=8), PARAMETER :: filtype='spectral'
-
-      ! This uses compact.f90
-      !CALL filter(filtype,val,dval)
-
-
-      ! Bin for exp. data
       real(kind=8), dimension(-2:nx+3,-2:ny+3,-2:nz+3) :: gval,gdval
-      gval(1:nx,1:ny,1:nz) = val
+      
+      ! This uses compact.f90
+      if ( .not. use_explicit ) then
+         CALL filter(filtype,val,dval)
+      else
 
-      
-      ! Explicit derivative (6th order)
-      ! option to handle ghost data
-      CALL ghostx(1,gval)
-      CALL ghosty(1,gval)
-      CALL ghostz(1,gval)
-      
-      CALL filte6(gval,gdval,compact_ptr%dx,1,0,0)
-      CALL filte6(gdval,gval,compact_ptr%dx,2,0,0)
-      CALL filte6(gval,gdval,compact_ptr%dx,3,0,0)
-      
-      
-      dval = gdval(1:nx,1:ny,1:nz) 
-
+         ! Bin for exp. data
+         gval(1:nx,1:ny,1:nz) = val
+               
+         ! Explicit derivative (6th order)
+         ! option to handle ghost data
+         if (ghost_explicit) then
+            CALL ghostx(1,gval)
+            CALL ghosty(1,gval)
+            CALL ghostz(1,gval)
+         end if
+         
+         CALL filte6(gval,gdval,compact_ptr%dx,1,0,0)
+         CALL filte6(gdval,gval,compact_ptr%dx,2,0,0)
+         CALL filte6(gval,gdval,compact_ptr%dx,3,0,0)
+                  
+         dval = gdval(1:nx,1:ny,1:nz) 
+      end if
       
     END SUBROUTINE sFilter
 
@@ -452,28 +479,30 @@ MODULE parcop
       real(kind=8), dimension(nx,ny,nz), intent(in) :: val
       real(kind=8), dimension(nx,ny,nz),intent(out) :: dval
       CHARACTER(LEN=6), PARAMETER :: filtype='smooth'
-
-
-      ! Compact version
-      !CALL filter(filtype,val,dval)
-
-
-      ! Bin for exp. data
       real(kind=8), dimension(-2:nx+3,-2:ny+3,-2:nz+3) :: gval,gdval
-      gval(1:nx,1:ny,1:nz) = val
       
-      ! Explicit derivative (6th order)
-      ! option to handle ghost data
-      CALL ghostx(1,gval)
-      CALL ghosty(1,gval)
-      CALL ghostz(1,gval)
-      
-      CALL gfilt3(gval,gdval,compact_ptr%dx,1,0,0)
-      CALL gfilt3(gdval,gval,compact_ptr%dx,2,0,0)
-      CALL gfilt3(gval,gdval,compact_ptr%dx,3,0,0)
-      
-      dval = gdval(1:nx,:,:) 
+      if ( .not. use_explicit ) then
+         ! Compact version
+         CALL filter(filtype,val,dval)
+      else
 
+         ! Bin for exp. data
+         gval(1:nx,1:ny,1:nz) = val
+      
+         ! Explicit derivative (6th order)
+         ! option to handle ghost data
+         if (ghost_explicit) then
+            CALL ghostx(1,gval)
+            CALL ghosty(1,gval)
+            CALL ghostz(1,gval)
+         end if
+            
+         CALL gfilt3(gval,gdval,compact_ptr%dx,1,0,0)
+         CALL gfilt3(gdval,gval,compact_ptr%dx,2,0,0)
+         CALL gfilt3(gval,gdval,compact_ptr%dx,3,0,0)
+         
+         dval = gdval(1:nx,:,:) 
+      end if
 
       
     END SUBROUTINE gFilter
