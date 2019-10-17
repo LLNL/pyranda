@@ -29,7 +29,7 @@ blueos_3_ppc64le_ib.gnu.mpif90 = /usr/tcetmp/bin/mpigfortran
 blueos_3_ppc64le_ib.python     = /usr/tcetmp/bin/python
 
 gnu.fflags   = -fPIC -ffree-form -ffree-line-length-0 -fbackslash
-intel.fflags = -fPIC
+intel.fflags = -fPIC -O3
 # it's likely that mpiclang is using gfortran
 clang.fflags = $(gnu.fflags)
 ibm.fflags   = -fPIC -qxlf2003=polymorphic
