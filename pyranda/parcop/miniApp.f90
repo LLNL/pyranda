@@ -1,5 +1,4 @@
 PROGRAM miniApp
-
   USE iso_c_binding
   USE LES_comm, ONLY : LES_comm_world
   USE LES_objects
@@ -8,7 +7,6 @@ PROGRAM miniApp
   USE LES_ghost, ONLY : ghostx,ghosty,ghostz
   IMPLICIT NONE
   INCLUDE "mpif.h"
-
   
   INTEGER(c_int)                 :: nx,ny,nz,px,py,pz,ax,ay,az,ns
   REAL(c_double)                 :: x1,xn,y1,yn,z1,zn
@@ -213,10 +211,14 @@ PROGRAM miniApp
   Y = 1.0
 
   CALL EOS(ie,rho,p,t)
- 
-
-  !$omp target data map(from:RHS,u,v,w,Y,p,rho,et) map(alloc:Fx,Fy,Fz,Fxx,Fxy,Fxz,Fyx,Fyy,Fyz,Fzx,Fzy,Fzz)
-
+  
+  ! From(device to host) To(host to device)
+  !$omp target data map(to:RHS,u,v,w,Y,p,rho,et,ie,T) &
+  !$omp             map(to:mesh_ptr%GridLen) &
+  !$omp             map(alloc:Fx,Fy,Fz,Fxx,Fxy,Fxz,Fyx,Fyy,Fyz,Fzx,Fzy,Fzz,tmp,bar) &
+  !$omp             map(alloc:uxx,uyy,uzz,uxy,uxz,uyz,uyx,uzx,uzy) &
+  !$omp             map(alloc:beta,mu,kappa,tx,ty,tz)
+  
   
   ! Time the derivatives
   CALL SYSTEM_CLOCK( t1, clock_rate, clock_max)
@@ -224,18 +226,20 @@ PROGRAM miniApp
   DO tt=1,iterations
 
 
-     do eom=1,4+ns
-        CALL ghostx(1,RHSp(:,:,:,eom))
-        CALL ghosty(1,RHSp(:,:,:,eom))
-        CALL ghostz(1,RHSp(:,:,:,eom))
-     end do
-
+     if (uberComm) then
+        do eom=1,4+ns
+           CALL ghostx(1,RHSp(:,:,:,eom))
+           CALL ghosty(1,RHSp(:,:,:,eom))
+           CALL ghostz(1,RHSp(:,:,:,eom))
+        end do
+     end if
+        
      
      CALL startCPU()
      !$omp target teams distribute parallel do collapse(3)
-     DO i=1,ax
-        DO j=1,ay
-           DO k=1,az
+     DO j=1,ay
+        DO k=1,az
+           DO i=1,ax
               ie(i,j,k) = et(i,j,k) - .5 * rho(i,j,k) * &
                    (u(i,j,k)*u(i,j,k) + v(i,j,k)*v(i,j,k) + w(i,j,k)*w(i,j,k) )
            END DO
@@ -251,9 +255,9 @@ PROGRAM miniApp
      DO n=1,ns
         CALL startCPU()
         !$omp target teams distribute parallel do collapse(3)
-        DO i=1,ax
+        DO k=1,az           
            DO j=1,ay
-              DO k=1,az
+              DO i=1,ax
                  Fx(i,j,k) = Y(i,j,k,ns) * rho(i,j,k) * u(i,j,k)
                  Fy(i,j,k) = Y(i,j,k,ns) * rho(i,j,k) * v(i,j,k)
                  Fz(i,j,k) = Y(i,j,k,ns) * rho(i,j,k) * w(i,j,k)
@@ -264,22 +268,22 @@ PROGRAM miniApp
         CALL endCPU()
 
         
-        CALL ddx(Fx,Fz,ax,ay,az)
+        CALL ddx(Fx,tmp,ax,ay,az)
         CALL ddy(Fy,Fx,ax,ay,az)
         !$omp target teams distribute parallel do collapse(3)
-        DO i=1,ax
+        DO k=1,az     
            DO j=1,ay
-              DO k=1,az     
-                 Fx(i,j,k) = Fx(i,j,k) + Fz(i,j,k)
+              DO i=1,ax
+                 Fx(i,j,k) = Fx(i,j,k) + tmp(i,j,k)
               END DO
            END DO
         END DO
         !$omp end target teams distribute parallel do
         CALL ddz(Fz,Fy,ax,ay,az)
         !$omp target teams distribute parallel do collapse(3)
-        DO i=1,ax
+        DO k=1,az
            DO j=1,ay
-              DO k=1,az
+              DO i=1,ax
                  RHS(i,j,k,4+ns) = Fx(i,j,k)+ Fy(i,j,k)
               END DO
            END DO
@@ -300,9 +304,9 @@ PROGRAM miniApp
 
      ! Shocks
      !$omp target teams distribute parallel do collapse(3)
-     DO i=1,ax
+     DO k=1,az
         DO j=1,ay
-           DO k=1,az
+           DO i=1,ax
               Fx(i,j,k) = uxx(i,j,k) + uyy(i,j,k) + uzz(i,j,k)
            END DO
         END DO
@@ -315,9 +319,9 @@ PROGRAM miniApp
      CALL startCPU()
      
      !$omp target teams distribute parallel do collapse(3)
-     DO i=1,ax
+     DO k=1,az
         DO j=1,ay
-           DO k=1,az
+           DO i=1,ax
               Fx(i,j,k) = ABS(Fy(i,j,k)) * mesh_ptr%GridLen(i,j,k)**2
            END DO
         END DO
@@ -331,9 +335,9 @@ PROGRAM miniApp
      CALL startCPU()
      
      !$omp target teams distribute parallel do collapse(3)
-     DO i=1,ax
+     DO k=1,az
         DO j=1,ay
-           DO k=1,az
+           DO i=1,ax
               beta(i,j,k) = rho(i,j,k) * Fy(i,j,k)
            END DO
         END DO
@@ -345,10 +349,11 @@ PROGRAM miniApp
      CALL startCPU()
      
 
-     !$omp target teams distribute parallel do collapse(3)
-     DO i=1,ax
+     !$omp target teams distribute parallel do collapse(3) &
+     !$omp       private(divu,txx,tyy,tzz,txy,tyz,txz)
+     DO k=1,az
         DO j=1,ay
-           DO k=1,az
+           DO i=1,ax
 
               divu = uxx(i,j,k) + uyy(i,j,k) + uzz(i,j,k)
               
@@ -385,14 +390,14 @@ PROGRAM miniApp
      !CALL div(Fxx,Fxy,Fxz,Fyx,Fyy,Fyz,Fzx,Fzy,Fzz, &
      !RHS(:,:,:,1),RHS(:,:,:,2),RHS(:,:,:,3) )
      
-     CALL ddx(Fxx,Fz,ax,ay,az)
+     CALL ddx(Fxx,tmp,ax,ay,az)
      CALL ddy(Fxy,Fx,ax,ay,az)
      !Fx = Fx + Fz
      !$omp target teams distribute parallel do collapse(3)
-     DO i=1,ax
+     DO k=1,az     
         DO j=1,ay
-           DO k=1,az     
-              Fx(i,j,k) = Fx(i,j,k) + Fz(i,j,k)
+           DO i=1,ax
+              Fx(i,j,k) = Fx(i,j,k) + tmp(i,j,k)
            END DO
         END DO
      END DO
@@ -401,23 +406,23 @@ PROGRAM miniApp
      CALL ddz(Fxz,Fy,ax,ay,az)
      !RHS(:,:,:,1) = Fx + Fy
      !$omp target teams distribute parallel do collapse(3)
-     DO i=1,ax
+     DO k=1,az
         DO j=1,ay
-           DO k=1,az
+           DO i=1,ax
               RHS(i,j,k,1) = Fx(i,j,k)+ Fy(i,j,k)
            END DO
         END DO
      END DO
      !$omp end target teams distribute parallel do
 
-     CALL ddx(Fyx,Fz,ax,ay,az)
+     CALL ddx(Fyx,tmp,ax,ay,az)
      CALL ddy(Fyy,Fx,ax,ay,az)
      !Fx = Fx + Fz
      !$omp target teams distribute parallel do collapse(3)
-     DO i=1,ax
+     DO k=1,az     
         DO j=1,ay
-           DO k=1,az     
-              Fx(i,j,k) = Fx(i,j,k) + Fz(i,j,k)
+           DO i=1,ax
+              Fx(i,j,k) = Fx(i,j,k) + tmp(i,j,k)
            END DO
         END DO
      END DO
@@ -426,23 +431,23 @@ PROGRAM miniApp
      CALL ddz(Fyz,Fy,ax,ay,az)
      !RHS(:,:,:,2) = Fx + Fy
      !$omp target teams distribute parallel do collapse(3)
-     DO i=1,ax
+     DO k=1,az
         DO j=1,ay
-           DO k=1,az
+           DO i=1,ax
               RHS(i,j,k,2) = Fx(i,j,k)+ Fy(i,j,k)
            END DO
         END DO
      END DO
      !$omp end target teams distribute parallel do
 
-     CALL ddx(Fzx,Fz,ax,ay,az)
+     CALL ddx(Fzx,tmp,ax,ay,az)
      CALL ddy(Fzy,Fx,ax,ay,az)
      !Fx = Fx + Fz
      !$omp target teams distribute parallel do collapse(3)
-     DO i=1,ax
+     DO k=1,az     
         DO j=1,ay
-           DO k=1,az     
-              Fx(i,j,k) = Fx(i,j,k) + Fz(i,j,k)
+           DO i=1,ax
+              Fx(i,j,k) = Fx(i,j,k) + tmp(i,j,k)
            END DO
         END DO
      END DO
@@ -451,9 +456,9 @@ PROGRAM miniApp
      CALL ddz(Fzz,Fy,ax,ay,az)
      !RHS(:,:,:,3) = Fx + Fy
      !$omp target teams distribute parallel do collapse(3)
-     DO i=1,ax
+     DO k=1,az
         DO j=1,ay
-           DO k=1,az
+           DO i=1,ax
               RHS(i,j,k,3) = Fx(i,j,k)+ Fy(i,j,k)
            END DO
         END DO
@@ -462,9 +467,9 @@ PROGRAM miniApp
 
      CALL startCPU()
      !$omp target teams distribute parallel do collapse(3)
-     DO i=1,ax
+     DO k=1,az
         DO j=1,ay
-           DO k=1,az
+           DO i=1,ax
               ! Energy equation
               et(i,j,k) = ie(i,j,k) + .5 * rho(i,j,k) * &
                    & (u(i,j,k)*u(i,j,k) + v(i,j,k)*v(i,j,k) + w(i,j,k)*w(i,j,k) )
@@ -484,9 +489,9 @@ PROGRAM miniApp
 
      CALL startCPU()
      !$omp target teams distribute parallel do collapse(3)
-     DO i=1,ax
+     DO k=1,az
         DO j=1,ay
-           DO k=1,az
+           DO i=1,ax
               Fx(i,j,k) = et(i,j,k) * u(i,j,k) - tx(i,j,k)
               Fy(i,j,k) = et(i,j,k) * v(i,j,k) - ty(i,j,k)
               Fz(i,j,k) = et(i,j,k) * w(i,j,k) - tz(i,j,k)
@@ -497,14 +502,14 @@ PROGRAM miniApp
      CALL endCPU()
      
      !CALL div(Fx,Fy,Fz,RHS(:,:,:,4))
-     CALL ddx(Fx,Fz,ax,ay,az)
+     CALL ddx(Fx,tmp,ax,ay,az)
      CALL ddy(Fy,Fx,ax,ay,az)
      !Fx = Fx + Fz
      !$omp target teams distribute parallel do collapse(3)
-     DO i=1,ax
+     DO k=1,az     
         DO j=1,ay
-           DO k=1,az     
-              Fx(i,j,k) = Fx(i,j,k) + Fz(i,j,k)
+           DO i=1,ax
+              Fx(i,j,k) = Fx(i,j,k) + tmp(i,j,k)
            END DO
         END DO
      END DO
@@ -533,17 +538,17 @@ PROGRAM miniApp
         w  = ( rho*w  - dt * RHS(:,:,:,3))/rho
         et = et - dt * RHS(:,:,:,4)
      else
-        !$omp target teams distribute parallel do collapse(3)
-        DO i=1,ax
+        !$omp target teams distribute parallel do collapse(3) 
+        DO k=1,az
            DO j=1,ay
-              DO k=1,az
+              DO i=1,ax
                  DO n=1,ns
-                    Y(i,j,k,ns) = ( Y(i,j,k,n)*rho(i,j,k) - dt * RHS(i,j,k,1))/rho(i,j,k)
+                    Y(i,j,k,n) = ( Y(i,j,k,n)*rho(i,j,k) - dt * RHS(i,j,k,4+n))/rho(i,j,k)
                  END DO
-                 et(i,j,k) = et(i,j,k) - dt * RHS(i,j,k,5)
-                 u(i,j,k)  = ( rho(i,j,k)*u(i,j,k)  - dt * RHS(i,j,k,2))/rho(i,j,k)
+                 et(i,j,k) = et(i,j,k) - dt * RHS(i,j,k,4)
+                 u(i,j,k)  = ( rho(i,j,k)*u(i,j,k)  - dt * RHS(i,j,k,1))/rho(i,j,k)
                  v(i,j,k)  = ( rho(i,j,k)*v(i,j,k)  - dt * RHS(i,j,k,2))/rho(i,j,k)
-                 w(i,j,k)  = ( rho(i,j,k)*w(i,j,k)  - dt * RHS(i,j,k,2))/rho(i,j,k)
+                 w(i,j,k)  = ( rho(i,j,k)*w(i,j,k)  - dt * RHS(i,j,k,3))/rho(i,j,k)
               END DO
            END DO
         END DO
@@ -555,9 +560,9 @@ PROGRAM miniApp
      bar = 0.0
      DO n=1,ns
         !$omp target teams distribute parallel do collapse(3)
-        DO i=1,ax
+        DO k=1,az
            DO j=1,ay
-              DO k=1,az
+              DO i=1,ax
                  tmp(i,j,k) = rho(i,j,k)*Y(i,j,k,n)
               END DO
            END DO
@@ -570,9 +575,9 @@ PROGRAM miniApp
 
      CALL startCPU()
      !$omp target teams distribute parallel do collapse(3)
-     DO i=1,ax
+     DO k=1,az
         DO j=1,ay
-           DO k=1,az
+           DO i=1,ax
               rho(i,j,k) = 0.0D0
               DO n=1,ns
                  rho(i,j,k) = rho(i,j,k) + RHS(i,j,k,n)
@@ -590,9 +595,9 @@ PROGRAM miniApp
 
      
      !$omp target teams distribute parallel do collapse(3)
-     DO i=1,ax
+     DO k=1,az
         DO j=1,ay
-           DO k=1,az
+           DO i=1,ax
               tmp(i,j,k) = rho(i,j,k)*u(i,j,k)
            END DO
         END DO
@@ -605,9 +610,9 @@ PROGRAM miniApp
      CALL sFilter( tmp, bar, ax,ay,az)
 
      !$omp target teams distribute parallel do collapse(3)
-     DO i=1,ax
+     DO k=1,az
         DO j=1,ay
-           DO k=1,az
+           DO i=1,ax
               u(i,j,k) = bar(i,j,k) / rho(i,j,k)
               tmp(i,j,k) = rho(i,j,k)*v(i,j,k)
            END DO
@@ -621,9 +626,9 @@ PROGRAM miniApp
      CALL sFilter( tmp, bar, ax,ay,az)
      
      !$omp target teams distribute parallel do collapse(3)
-     DO i=1,ax
+     DO k=1,az
         DO j=1,ay
-           DO k=1,az
+           DO i=1,ax
               v(i,j,k) = bar(i,j,k) / rho(i,j,k)
               tmp(i,j,k) = rho(i,j,k)*w(i,j,k)
            END DO
@@ -638,9 +643,9 @@ PROGRAM miniApp
 
 
      !$omp target teams distribute parallel do collapse(3)
-     DO i=1,ax
+     DO k=1,az
         DO j=1,ay
-           DO k=1,az
+           DO i=1,ax
               w(i,j,k) = bar(i,j,k) / rho(i,j,k)
               tmp(i,j,k) = et(i,j,k)
            END DO
@@ -725,7 +730,7 @@ SUBROUTINE EOS(ie,rho,p,T)
   DOUBLE PRECISION :: gamma = 1.4
   INTEGER :: i,j,k
 
-  !$omp target parallel collapse(3)
+  !$omp target teams distribute parallel do collapse(3) private(gamma)
   DO i=1,size(p,1)
      DO j=1,size(p,2)
         DO k=1,size(p,3)
@@ -734,7 +739,7 @@ SUBROUTINE EOS(ie,rho,p,T)
         END DO
      END DO
   END DO
-  !$end omp
+  !$omp end target teams distribute parallel do
   
 END SUBROUTINE EOS
 

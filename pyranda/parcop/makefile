@@ -29,10 +29,11 @@ blueos_3_ppc64le_ib.gnu.mpif90 = /usr/tcetmp/bin/mpigfortran
 blueos_3_ppc64le_ib.python     = /usr/tcetmp/bin/python
 
 gnu.fflags   = -fPIC -ffree-form -ffree-line-length-0 -fbackslash -ffast-math -O3
-intel.fflags = -fPIC -O3
+intel.fflags = -fPIC #-O3
 # it's likely that mpiclang is using gfortran
 clang.fflags = $(gnu.fflags)
-ibm.fflags   = -fPIC -qxlf2003=polymorphic
+ibm.linkflags = -qoffload -W@,-v -qsmp=omp 
+ibm.fflags   = -fPIC -qxlf2003=polymorphic $(ibm.linkflags)
 ibm.lopts    = -qmkshrobj
 pgi.fflags   = -fPIC
 
@@ -103,7 +104,7 @@ test_pent: libparcop.a parcop.o test_pent.o
 	$(mpif90) test_pent.o parcop.o libparcop.a -o $@
 
 miniApp: libparcop.a parcop.o miniApp.o
-	$(mpif90) miniApp.o parcop.o libparcop.a -o $@
+	$(mpif90) $(ibm.linkflags) miniApp.o parcop.o libparcop.a -o $@
 
 info:
 	@echo "sys_type:  $(sys_type)"
