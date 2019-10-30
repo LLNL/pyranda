@@ -49,7 +49,7 @@ module LES_explicit
   real(c_double), parameter :: dgf = .02364054
   real(c_double), dimension(4) :: gf3 = [agf,bgf,cgf,dgf]
 
-  !$omp declare target(afe6,bfe6,cfe6,dfe6,fe6)
+  !$omp declare target(d16e,d16eb3,d16eb2,d15eb1,d4e4,d4e4b3,fe6,gf6)
   
 
 contains
@@ -622,8 +622,8 @@ contains
        ! interior points
        !$omp target teams distribute parallel do collapse(3)
        do k=4, size(f,3)-3
-          do i=1,size(f,1)
-             do j=1,size(f,2)
+          do j=1,size(f,2)
+             do i=1,size(f,1)
                 df(i,j,k) = ( gf3(1)*f(i,j,k) + & 
                      gf3(4)*( f(i,j,k+3) + f(i,j,k-3) ) + &
                      gf3(3)*( f(i,j,k+2) + f(i,j,k-2) ) + &

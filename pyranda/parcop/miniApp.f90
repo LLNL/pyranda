@@ -518,9 +518,9 @@ PROGRAM miniApp
      CALL ddz(Fz,Fy,ax,ay,az)
      !RHS(:,:,:,4) = Fx + Fy
      !$omp target teams distribute parallel do collapse(3)
-     DO i=1,ax
+     DO k=1,az
         DO j=1,ay
-           DO k=1,az
+           DO i=1,ax
               RHS(i,j,k,4) = Fx(i,j,k)+ Fy(i,j,k)
            END DO
         END DO
@@ -538,17 +538,34 @@ PROGRAM miniApp
         w  = ( rho*w  - dt * RHS(:,:,:,3))/rho
         et = et - dt * RHS(:,:,:,4)
      else
-        !$omp target teams distribute parallel do collapse(3) 
+
+        !$omp target teams distribute parallel do collapse(4) 
+        DO n=1,ns
+           DO k=1,az
+              DO j=1,ay
+                 DO i=1,ax                    
+                    Y(i,j,k,n) = ( Y(i,j,k,n)*rho(i,j,k) - dt * RHS(i,j,k,4+n))/rho(i,j,k)
+                 END DO
+              END DO
+           END DO
+        END DO
+        !$omp end target teams distribute parallel do
+        
+        !$omp target teams distribute parallel do collapse(3) private(txx)
         DO k=1,az
            DO j=1,ay
               DO i=1,ax
-                 DO n=1,ns
-                    Y(i,j,k,n) = ( Y(i,j,k,n)*rho(i,j,k) - dt * RHS(i,j,k,4+n))/rho(i,j,k)
-                 END DO
+                 !DO n=1,ns
+                 !   Y(i,j,k,n) = ( Y(i,j,k,n)*rho(i,j,k) - dt * RHS(i,j,k,4+n))/rho(i,j,k)
+                 !END DO
+                 txx = rho(i,j,k)
                  et(i,j,k) = et(i,j,k) - dt * RHS(i,j,k,4)
-                 u(i,j,k)  = ( rho(i,j,k)*u(i,j,k)  - dt * RHS(i,j,k,1))/rho(i,j,k)
-                 v(i,j,k)  = ( rho(i,j,k)*v(i,j,k)  - dt * RHS(i,j,k,2))/rho(i,j,k)
-                 w(i,j,k)  = ( rho(i,j,k)*w(i,j,k)  - dt * RHS(i,j,k,3))/rho(i,j,k)
+                 !u(i,j,k)  = ( rho(i,j,k)*u(i,j,k)  - dt * RHS(i,j,k,1))/rho(i,j,k)
+                 !v(i,j,k)  = ( rho(i,j,k)*v(i,j,k)  - dt * RHS(i,j,k,2))/rho(i,j,k)
+                 !w(i,j,k)  = ( rho(i,j,k)*w(i,j,k)  - dt * RHS(i,j,k,3))/rho(i,j,k)
+                 u(i,j,k)  = ( txx*u(i,j,k)  - dt * RHS(i,j,k,1))/txx
+                 v(i,j,k)  = ( txx*v(i,j,k)  - dt * RHS(i,j,k,2))/txx
+                 w(i,j,k)  = ( txx*w(i,j,k)  - dt * RHS(i,j,k,3))/txx
               END DO
            END DO
         END DO
@@ -557,7 +574,6 @@ PROGRAM miniApp
      CALL endCPU()
      
      ! Filter the equations
-     bar = 0.0
      DO n=1,ns
         !$omp target teams distribute parallel do collapse(3)
         DO k=1,az
@@ -731,9 +747,9 @@ SUBROUTINE EOS(ie,rho,p,T)
   INTEGER :: i,j,k
 
   !$omp target teams distribute parallel do collapse(3) private(gamma)
-  DO i=1,size(p,1)
+  DO k=1,size(p,3)
      DO j=1,size(p,2)
-        DO k=1,size(p,3)
+        DO i=1,size(p,1)
            p(i,j,k)  = ie(i,j,k)  / rho(i,j,k)  * (gamma - 1.0 )
            t(i,j,k)  = ie(i,j,k)  * (gamma )
         END DO
