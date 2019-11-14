@@ -52,9 +52,9 @@ ddt(:Et:)   =  -ddx( (:Et: + :p: - :tau:)*:u: )
 :div:       =  ddx(:u:) 
 :beta:      =  gbar( ring(:div:) * :rho:) * 7.0e-2
 :tau:       =  :beta:*:div:
-:beta:      =  :mlbeta: * 1.0
-:mlbeta:    =  :beta: * 0.0
-:tmp:       =  :beta: * 0.0
+#:beta:      =  :mlbeta: * 1.0
+#:mlbeta:    =  :beta: * 0.0
+#:tmp:       =  :beta: * 0.0
 # Apply constant BCs
 bc.extrap(['rho','Et'],['x1'])
 bc.const(['u'],['x1','xn'],0.0)
@@ -69,6 +69,8 @@ ic = """
 :gamma: = 1.4
 :Et:  = gbar( where( meshx < pi, 1.0/(:gamma:-1.0) , .1 /(:gamma:-1.0) ) )
 :rho: = gbar( where( meshx < pi, 1.0    , .125 ) )
+:mlbeta:    =  :beta: * 0.0
+:tmp:       =  :beta: * 0.0
 """
 
 # Set the initial conditions
@@ -138,7 +140,7 @@ while tt > time:
         ml_beta[3:-3,0,0] = new_model.predict( p_data )[:,0]
             
         ss.var('mlbeta').data = ml_beta * ss.var('tmp').data
-
+        ss.parse(":tau:       =  :mlbeta:*:div:")
         # Print some output
     ss.iprint("%s -- %s" % (cnt,time)  )
 
@@ -154,10 +156,14 @@ while tt > time:
             plt.clf()
             ss.plot.plot('u','b.-')
 
+            ss.plot.figure(3)
+            plt.clf()
+            ss.plot.plot('rho','b.-')
+
 ML_data_trim = ML_data[:,:mlcnt]
             
 if teach:
-    numpy.savetxt("bulk_sod.txt",ML_data_trim.T,fmt="%.4e",newline="\n",delimiter=" ")
+    numpy.savetxt("bulk_sod2.txt",ML_data_trim.T,fmt="%.4e",newline="\n",delimiter=" ")
         
 ss.writeGrid()
 ss.write()
