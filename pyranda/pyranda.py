@@ -773,6 +773,7 @@ class pyrandaSim:
         sMap['pi'] = 'numpy.pi'
         sMap['meshVar('] = 'self.PyMPI.getVar('
         sMap['gridLen'] = 'self.mesh.GridLen'
+        sMap['random3D()'] = 'numpy.random.random( self.mesh.coords[0].data.shape) '
         
         sMap['meshx']   = 'self.mesh.coords[0].data'
         sMap['meshy']   = 'self.mesh.coords[1].data'
