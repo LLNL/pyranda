@@ -16,12 +16,31 @@ from functools import reduce
 from . import parcop
 
 # Global patch/levels to create new instances
+
 GLOBAL_PATCH = 0
 GLOBAL_LEVEL = 0
 LAST_PATCH = -1
 LAST_LEVEL = 0
 PATCH_MAX = 100
 LEVEL_MAX = 10
+
+def getPatchLevel():
+
+        # Set at unique patch/level for each instance
+        global GLOBAL_PATCH
+        global LAST_PATCH
+        global GLOBAL_LEVEL
+        global LAST_LEVEL
+
+        GLOBAL_PATCH = LAST_PATCH + 1
+        if GLOBAL_PATCH >= PATCH_MAX:
+            LAST_LEVEL = LAST_LEVEL + 1
+            GLOBAL_PATCH = 0
+        LAST_PATCH = GLOBAL_PATCH
+        
+        GLOBAL_LEVEL = int(LAST_LEVEL)
+
+        return GLOBAL_PATCH,GLOBAL_LEVEL
 
 class pyrandaMPI():
 
@@ -95,21 +114,11 @@ class pyrandaMPI():
         if periodic[2]:
             bz1 = "PERI"
             bzn = "PERI"
-        
-        # Set at unique patch/level for each instance
-        global GLOBAL_PATCH
-        global LAST_PATCH
-        global GLOBAL_LEVEL
-        global LAST_LEVEL
-        
-        GLOBAL_PATCH = LAST_PATCH + 1
-        if GLOBAL_PATCH >= PATCH_MAX:
-            LAST_LEVEL = LAST_LEVEL + 1
-            GLOBAL_PATCH = 0
-            
-        GLOBAL_LEVEL = int(LAST_LEVEL)
-        self.patch = int(GLOBAL_PATCH)
-        self.level = int(GLOBAL_LEVEL)
+
+        # Global function to get patch/level
+        patch,level = getPatchLevel()
+        self.patch = patch 
+        self.level = level 
 
         parcop.parcop.setup( self.patch, self.level , self.fcomm,
                              self.nx,self.ny,self.nz, 

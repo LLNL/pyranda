@@ -150,9 +150,9 @@ while tFinal > time:
         ss.write( wvars )
         viz_dump += viz_freq
 
-        #ss.plot.figure(1)
-        #ss.plot.clf()
-        #ss.plot.contourf('rho',64 ) 
+        ss.plot.figure(1)
+        ss.plot.clf()
+        ss.plot.contourf('rho',64 ) 
 
 ss.write( wvars )
 ss.plot.figure(1)

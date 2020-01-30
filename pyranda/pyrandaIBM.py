@@ -27,6 +27,7 @@ class pyrandaIBM(pyrandaPackage):
         sMap = {}
         sMap['ibmV('] = "self.packages['IBM'].ibmVel("
         sMap['ibmS('] = "self.packages['IBM'].ibmS("
+        sMap['ibmC('] = "self.packages['IBM'].ibmC("
         self.sMap = sMap
         
                  
@@ -55,6 +56,28 @@ class pyrandaIBM(pyrandaPackage):
     
         return self.smooth_terrain( phi, phix, phiy, phiz,
                                     scalar,epsi)
+
+    def ibmC(self,scalar,SDF,gphi,Cval):
+
+        SS = scalar - Cval
+        lens = self.pyranda.mesh.GridLen * immersed_EPS
+        gDx = gphi[0]
+        gDy = gphi[1]
+        gDz = gphi[2]
+        
+        #vn =  numpy.where( SDF < lens, SS, 0.0 )
+        tmp = numpy.where( SDF < lens, 0.0 , SS/SDF )            
+        #tmp = numpy.where( SDF > -lens, tmp , SS/SDF ) ## CYL
+        tmp = numpy.where( SDF > -lens, tmp , SS ) ## CYL
+        #tmp = numpy.where( SDF == 0.0, 0.0,SS/SDF)
+        
+        
+        # Compute linear velocity through zero level
+        #lens = 0.0
+        tmp = self.smooth_terrain(SDF,gDx,gDy,gDz,tmp,lens)
+        vn = numpy.where( SDF < lens, tmp*SDF + Cval, scalar )
+
+        return vn
     
         
 
