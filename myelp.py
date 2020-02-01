@@ -37,7 +37,10 @@ eom = """
 :wx: = meshx * ( 2.0 * pi - meshx )
 :wy: = meshy * ( 2.0 * pi - meshy )
 :phi: =  cos( meshx ) * :wy: + cos( meshy ) * :wx:
-Delta(:ff:) = cos( meshx ) * :wy: + cos( meshy ) * :wx:
+Delta(:ff:) = :phi:
+:ff: = gbar(:ff:)
+:gg: = ddx(ddx(:ff:)) + ddy(ddy(:ff:))
+:kk: = ddx(:ff:) + ddy(:ff:)
 """
 ss.EOM(eom)
 
@@ -60,6 +63,12 @@ ss.plot.contourf('ff',32)
 plt.pause(.001)
 
 
-
+ss.plot.figure(3)
+ss.plot.clf()
+ss.plot.contourf('gg',32)
+ss.plot.figure(4)
+ss.plot.clf()
+ss.plot.contourf('kk',32)
+plt.pause(.001)
             
 

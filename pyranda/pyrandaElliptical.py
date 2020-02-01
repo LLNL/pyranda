@@ -9,7 +9,7 @@
 ################################################################################
 import numpy
 import scipy.sparse
-from scipy.sparse.linalg import factorized
+from scipy.sparse.linalg import factorized,bicgstab,cg
 
 
 class pyrandaPoisson:
@@ -43,20 +43,22 @@ class pyrandaPoisson:
         dnx_upper = dnx_lower.copy()
             
         # Try to set both sides as Nuemann
-        d1_upper[nx-1::nx] = 0
-        d1_upper[::nx]     = 2
+        d1_upper[nx-1::nx] = 0.
+        d1_upper[::nx]     = 2.
         
-        d1_lower[nx-1::nx] = 0 
-        d1_lower[nx-2::nx] = 2
+        d1_lower[nx-1::nx] = 0.
+        d1_lower[nx-2::nx] = 2.
     
-        dnx_upper[0:nx]    = 2
-        dnx_lower[-nx:]    = 2 
+        dnx_upper[0:nx]    = 2.
+        dnx_lower[-nx:]    = 2.
 
         # Avoid singular point
-        #d0[0] = 1.0
-        #d1_upper[0] = 0.0
-        #dnx_upper[0] = 0.0
-
+        #d0[nx+1] = 1.0
+        #d1_upper[n/2] = 0.0
+        #dnx_upper[n/2] = 0.0
+        #d1_lower[nx] = 0.0
+        #dnx_lower[1] = 0.0
+        
         d0 /= (dx*dx)
         d1_upper /= (dx*dx)
         d1_lower /= (dx*dx)
@@ -65,7 +67,8 @@ class pyrandaPoisson:
         A = scipy.sparse.diags([d0, d1_upper, d1_lower, dnx_upper, dnx_lower], [0, 1, -1, nx, -nx], format='csc')
 
         self.solver = factorized(A)
-
+        self.A = A
+        
 
     def solve(self,rhs):
 
@@ -74,8 +77,14 @@ class pyrandaPoisson:
             for i in range(0, self.nx):
                 b[j + i*self.ny] = rhs[i,j,0]
 
+        #b[0] = 0.0
         sol = self.solver( b )
+        #sol = bicgstab(self.A, b )[0]
+        #sol = cg(self.A, b )[0]
         mysol = rhs * 0.0
+
+        #import pdb
+        #pdb.set_trace()
         
         for j in range(0,self.ny):
             for i in range(0, self.nx):
