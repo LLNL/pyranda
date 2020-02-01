@@ -42,3 +42,8 @@ class pyrandaEq:
         # Check to see if this is conserved PDE
         if ( 'ddt(' in eqstr ):
             self.kind = 'PDE'
+
+        # Check to see if this is an elliptic equation
+        if ( 'Delta(' in eqstr ):
+            self.kind = 'ELP'
+            self.solver = None

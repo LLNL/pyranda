@@ -25,6 +25,7 @@ from .pyrandaIO    import pyrandaIO
 from .pyrandaPlot  import pyrandaPlot
 from .pyrandaUtils import *
 from .pyrandaTex   import pyrandaTex
+from .pyrandaElliptical import pyrandaPoisson
                                               
 class pyrandaSim:
 
@@ -76,6 +77,7 @@ class pyrandaSim:
         self.initial_conditions = []
         self.nPDE = 0
         self.nALG = 0
+        self.nELP = 0
         
         self.mesh.options = meshOptions
         self.mesh.dims  = meshOptions['dim']
@@ -184,6 +186,8 @@ class pyrandaSim:
                 exit()
         elif peq.kind == 'ALG':
             self.nALG += 1
+        elif peq.kind == 'ELP':
+            self.nELP += 1
         else:
             raise ValueError('No suitable equation type specified for %s' % peq.eqstr)
 
@@ -365,7 +369,17 @@ class pyrandaSim:
                         #import pdb
                         #pdb.set_trace()
                         self.variables[eq.LHS[ii]].data = rhs[ii]
-       
+
+            # Solve an elliptical PDE
+            if ( eq.kind == 'ELP'):
+
+                # Setup solver
+                if not eq.solver:
+                    eq.solver = pyrandaPoisson(None,self)
+                
+                # \Delta \phi = rhs
+                rhs = eq.RHS(self)
+                self.variables[eq.LHS[0]].data = eq.solver.solve(rhs)
 
         
         
