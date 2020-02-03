@@ -53,11 +53,11 @@ class pyrandaPoisson:
         dnx_lower[-nx:]    = 2.
 
         # Avoid singular point
-        #d0[nx+1] = 1.0
-        #d1_upper[n/2] = 0.0
-        #dnx_upper[n/2] = 0.0
-        #d1_lower[nx] = 0.0
-        #dnx_lower[1] = 0.0
+        d0[nx+1] = 1.0
+        d1_upper[nx+1] = 0.0
+        dnx_upper[nx+1] = 0.0
+        d1_lower[nx] = 0.0
+        dnx_lower[1] = 0.0
         
         d0 /= (dx*dx)
         d1_upper /= (dx*dx)
@@ -77,20 +77,17 @@ class pyrandaPoisson:
             for i in range(0, self.nx):
                 b[j + i*self.ny] = rhs[i,j,0]
 
-        #b[0] = 0.0
+
         sol = self.solver( b )
         #sol = bicgstab(self.A, b )[0]
         #sol = cg(self.A, b )[0]
         mysol = rhs * 0.0
 
-        #import pdb
-        #pdb.set_trace()
-        
         for j in range(0,self.ny):
             for i in range(0, self.nx):
                 mysol[i,j,0] = sol[j + i*self.ny]
 
-        mysol -= mysol.mean()
+        #mysol -= mysol.mean()
         return mysol
                 
                 

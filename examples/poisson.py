@@ -18,7 +18,6 @@ except:
 
 ## Define a mesh
 L = numpy.pi * 2.0  
-Lp = L * (Npts-1.0) / Npts
 
 
 # Define the domain/mesh
@@ -27,7 +26,7 @@ Lp = %s
 Npts = %d
 xdom = (0.0, Lp,  Npts, periodic=False)
 ydom = (0.0, Lp,  Npts, periodic=False)
-""" % ( Lp, Npts)
+""" % ( L, Npts)
 
 # Initialize a simulation object on a mesh
 ss = pyrandaSim('Poisson',imesh)
@@ -38,37 +37,27 @@ eom = """
 :wy: = meshy * ( 2.0 * pi - meshy )
 :phi: =  cos( meshx ) * :wy: + cos( meshy ) * :wx:
 Delta(:ff:) = :phi:
-:ff: = gbar(:ff:)
-:gg: = ddx(ddx(:ff:)) + ddy(ddy(:ff:))
-:kk: = ddx(:ff:) + ddy(:ff:)
+:gg: = lap(:ff:)
 """
 ss.EOM(eom)
 
-
-# Initialize variables
-ic = """
-#r   = sqrt( (meshx-pi)**2 ) #  + (meshy-pi)**2 )
-#:phi: = 0.1 * exp( -(r/(pi/4.0))**2 )
-"""
-ss.setIC(ic)
-
+# Perform the solve at update
 ss.updateVars()
 
-ss.plot.figure(1)
-ss.plot.clf()
-ss.plot.contourf('phi',32)
-ss.plot.figure(2)
-ss.plot.clf()
-ss.plot.contourf('ff',32)
-plt.pause(.001)
+
+if not test:
+    ss.plot.figure(1)
+    ss.plot.clf()
+    ss.plot.contourf('phi',32)
+    ss.plot.figure(2)
+    ss.plot.clf()
+    ss.plot.contourf('ff',32)
+    plt.pause(.001)
 
 
-ss.plot.figure(3)
-ss.plot.clf()
-ss.plot.contourf('gg',32)
-ss.plot.figure(4)
-ss.plot.clf()
-ss.plot.contourf('kk',32)
-plt.pause(.001)
+    ss.plot.figure(3)
+    ss.plot.clf()
+    ss.plot.contourf('gg',32)
+    plt.pause(.001)
             
 
