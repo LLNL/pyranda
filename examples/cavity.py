@@ -75,6 +75,9 @@ time = 0.0
 tt = 5.0
 cyc = 1
 
+if test:
+    tt = 2.0
+
 while tt > time:
 
     # Simple euler - No RK4 (steady state solution)
@@ -101,12 +104,13 @@ while tt > time:
 
 # Plot final solution
 ioff = int(Npts/2)
-pysim.plot.figure(2)
-pysim.plot.plot('u',slice2d="i=%s;k=0" % ioff )
-        
 uF = pysim.var('u')[ioff,:,0]
 yF = pysim.mesh.coords[1][ioff,:,0]
-plt.plot(yF,uF,'ko')
+
+if not test:
+    pysim.plot.figure(2)
+    pysim.plot.plot('u',slice2d="i=%s;k=0" % ioff ) 
+    plt.plot(yF,uF,'ko')
 
 # Save file for regression testing
 if test:
