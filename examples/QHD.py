@@ -5,12 +5,10 @@ import matplotlib.pyplot as plt
 from pyranda import pyrandaSim, pyrandaBC, pyrandaTimestep
 
 
-Npts = 100
+Npts = 64
 
 ## Define a mesh
 L    = 1.0
-
-
 
 mesh_options = {}
 mesh_options['coordsys'] = 0
@@ -58,7 +56,7 @@ ic = """
 :hbar: = 1.0
 rad = sqrt( (meshx-.5)**2 + (meshy-.5)**2 )
 thick = .05
-:n: += 1.0 + 1.0e-2 * exp( -rad/thick )
+:n: += 1.0 + 1.0 * exp( -rad/thick )
 :u: += 0.0
 :v: += 0.0
 :nu: = :n:*:u: 
@@ -74,14 +72,14 @@ wvars = ['n','u','v','Pe','Q','phi']
 tFinal = 1.0
 time = 0.0
 dt = 1.0e-5
-cyc = 0
+cyc = -1
 while tFinal > time:
     cyc += 1
     time = pysim.rk4(time,dt)
     
     print("Cycle: %s" % cyc)
     
-    if (cyc%50 == 0):
+    if (cyc%25 == 0):
         pysim.plot.figure(1)
         pysim.plot.clf()
         pysim.plot.contourf('n',32)
