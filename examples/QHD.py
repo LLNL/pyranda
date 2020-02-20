@@ -79,8 +79,11 @@ while tFinal > time:
     
     print("Cycle: %s" % cyc)
     
-    if (cyc%25 == 0):
+    if (cyc%50 == 0):
         pysim.plot.figure(1)
         pysim.plot.clf()
         pysim.plot.contourf('n',32)
     
+
+    if (cyc>1000):
+        break
