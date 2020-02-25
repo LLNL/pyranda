@@ -58,7 +58,7 @@ ss = pyrandaSim('sodMM',imesh)
 ss.addPackage( pyrandaBC(ss) )
 ss.addPackage( pyrandaIBM(ss) )
 
-deltaPhi = 2.0 * L / float(Npts)
+deltaPhi = 1.0 * L / float(Npts)
 # Define the equations of motion
 eom ="""
 # Primary Equations of motion here
@@ -69,7 +69,6 @@ ddt(:rhouB:) =  -ddx(:rhouB:*:uB: + :pB: - :tauB:) - :FB:
 ddt(:EtA:)   =  -ddx( (:EtA: + :pA: - :tauA:)*:uA: ) - :FA:*:uA:
 ddt(:EtB:)   =  -ddx( (:EtB: + :pB: - :tauB:)*:uB: ) - :FB:*:uB:
 ddt(:phi:)   = -:gx:*:uphi: - .1 * sign(:phi:)*(:mgp:-1.0) * deltaPhi / (deltat+1.0e-10)
-#ddt(:uphi:)  =  -ddx( :uphi:*:uphi: - :tauphi:) - :Fphi:/(:rhoA: + :rhoB:)
 # Conservative filter of the EoM
 :rhoA:       =  fbar( :rhoA:  )
 :rhoB:       =  fbar( :rhoB:  )
@@ -77,7 +76,6 @@ ddt(:phi:)   = -:gx:*:uphi: - .1 * sign(:phi:)*(:mgp:-1.0) * deltaPhi / (deltat+
 :rhouB:      =  fbar( :rhouB: )
 :EtA:        =  fbar( :EtA:   )
 :EtB:        =  fbar( :EtB:   )
-#:phi:        =  .1 * gbar( :phi: ) + :phi: * .9
 # Phi gradient
 [:gx:,:gy:,:gz:] = grad( :phi: )
 # Update the primatives and enforce the EOS
@@ -87,36 +85,17 @@ ddt(:phi:)   = -:gx:*:uphi: - .1 * sign(:phi:)*(:mgp:-1.0) * deltaPhi / (deltat+
 :pB:         =  ( :EtB: - .5*:rhoB:*(:uB:*:uB:) ) * ( :gamma: - 1.0 )
 :wgt:        = (1.0-tanh(:phi:/deltaPhi)**2)
 :dphi:       = :wgt:*.5/ deltaPhi
-:Fphi:       = 1.0*:dphi:*:gx:*(:pA:-:pB:)
+:Fphi:       = 2.0*:dphi:*:gx:*((:rhouA:*(:uA:-:uphi:) + :pA:)-(:rhouB:*(:uB:-:uphi:) + :pB:))
 :mgp:        =  sqrt( :gx:**2 + :gy:**2 )
 :rhophi: = where(:phi: > 0.0, :rhoA:, :rhoB:)
 :rhophi:         = ibmS( :rhophi: , :phi:, [:gx:,:gy:,:gz:] )
 :rhophi:         = ibmS( :rhophi: , -:phi:, [-:gx:,-:gy:,-:gz:] )
-:FA: = :Fphi: * :rhophi: / :rhoA:
-:FB: = :Fphi: * :rhophi: / :rhoB:
+:FA: = :Fphi: #* :rhophi: / :rhoA:
+:FB: = :Fphi: #* :rhophi: / :rhoB:
 # Close level set velocity
-#:uphi: = (:rhouA: + :rhouB:) / (:rhoA: + :rhoB:)
-#:uphi: = where(abs(:phi:) < deltaPhi, (:rhouA: + :rhouB:) / (:rhoA: + :rhoB:), :uphi: )
-#:rhouphi: = where(:phi: > 0.0, :rhouA:, :rhouB:)
-#:rhouphi:         = ibmS( :rhouphi: , :phi:, [:gx:,:gy:,:gz:] )
-#:rhouphi:         = ibmS( :rhouphi: , -:phi:, [-:gx:,-:gy:,-:gz:] )
-#:uphi: = :rhouphi: / :rhophi:
 :uphi: = where(:phi: > 0.0, :uA:, :uB:)
 :uphi:         = ibmS( :uphi: , :phi:, [:gx:,:gy:,:gz:] )
 :uphi:         = ibmS( :uphi: , -:phi:, [-:gx:,-:gy:,-:gz:] )
-#:uphi:  = gbar( gbar( gbar( :uphi: ) ) )
-#:uphi:  = gbar( gbar( gbar( :uphi: ) ) )
-#:uphi:  = gbar( gbar( gbar( :uphi: ) ) )
-#:uphi:  = gbar( gbar( gbar( :uphi: ) ) )
-#:uphi: = :wgt:*:uphi: #+ gbar(:uphi:)*(1.0-:wgt:**2)
-#:uphi: = max(:uphi:) + :uphi:*0.0
-#:uphi: = where( abs(:phi:) < deltaPhi, :uphi:, gbar(:uphi:) )
-#:uphi: = where( abs(:phi:) < deltaPhi, :uphi:, gbar(:uphi:) )
-#:uphi: = where( abs(:phi:) < deltaPhi, :uphi:, gbar(:uphi:) )
-#:wgt: = .5*(1.0 - tanh( (:phi: - 8.0*deltaPhi)/(deltaPhi) ))
-#:wgt2: = .5*(1.0 - tanh( (-:phi: - 8.0*deltaPhi)/(deltaPhi) ))
-#:wgt3: = numpy.minimum( :wgt:, :wgt2: )
-#:uphi: = gbar( :uphi:*:wgt3: )
 # Apply constant BCs
 bc.extrap(['rhoA','EtA'],['x1'])
 bc.extrap(['rhoB','EtB'],['xn'])
@@ -137,13 +116,11 @@ bc.const(['uB'],['xn'],0.0)
 # Artificial bulk viscosity (old school way)
 :divA:       =  ddx(:uA:) 
 :divB:       =  ddx(:uB:) 
-#:divphi:     =  ddx(:uphi:)
 :betaA:      =  gbar( ring(:divA:) * :rhoA:) * 7.0e-2
 :betaB:      =  gbar( ring(:divB:) * :rhoB:) * 7.0e-2
-#:betaphi:      =  gbar( ring(:divphi:)) * 7.0e-2
 :tauA:       =  :betaA:*:divA:
 :tauB:       =  :betaB:*:divB:
-#:tauphi:       =  :betaphi:*:divphi:
+# Artificial thermal
 """.replace('deltaPhi',str(deltaPhi))
 
 # Add the EOM to the solver
@@ -187,8 +164,8 @@ viz_freq = 30
 pvar = 'rhoA'
 viz = True
 
-import pdb
-pdb.set_trace()
+#import pdb
+#pdb.set_trace()
 
 def updatePlots():
     rhoA = ss.PyMPI.zbar( ss.variables['rhoA'].data )
@@ -254,7 +231,7 @@ while tt > time:
     if viz:
 
         if (ss.PyMPI.master and (cnt%viz_freq == 0)) and True:
-            poo = raw_input('fff')
+            #poo = raw_input('fff')
             updatePlots()
 
 
