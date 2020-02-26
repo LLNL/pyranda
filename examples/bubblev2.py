@@ -75,9 +75,6 @@ ddt(:rhovB:) =  -ddx(:rhovB:*:uB:) - ddy(:rhovB:*:vB: + :pB: - :tauB:) - :FBy:
 ddt(:EtA:)   =  -ddx( (:EtA: + :pA: - :tauA:)*:uA: ) - ddy( (:EtA: + :pA: - :tauA:)*:vA: ) - :FAx:*:uA: - :FAy:*:vA:
 ddt(:EtB:)   =  -ddx( (:EtB: + :pB: - :tauB:)*:uB: ) - ddy( (:EtB: + :pB: - :tauB:)*:vB: ) - :FBx:*:uB: - :FBy:*:vB:
 ddt(:phi:)   = -:gx:*:uphi: -:gy:*:vphi: + sign(:phi:) * where(abs(:phi:)>4.*deltaPhi,1.0,0.0)*( .01*(1.0-:mgp:) * deltaPhi / (deltat+1.0e-10))     #+ 1.0e-4 * :artPhi: * :curv: * deltaPhi**2 / (deltat) ) 
-#ddt(:uphi:)  =  -ddx( :uphi:*:uphi: - :tauphi:) - :Fphi:/(:rhoA: + :rhoB:)
-ddt(:uphi:)  =   - :Fphix:/:rhophi:
-ddt(:vphi:)  =   - :Fphiy:/:rhophi:
 # Conservative filter of the EoM
 :rhoA:       =  fbar( :rhoA:  )
 :rhoB:       =  fbar( :rhoB:  )
@@ -88,19 +85,16 @@ ddt(:vphi:)  =   - :Fphiy:/:rhophi:
 :EtA:        =  fbar( :EtA:   )
 :EtB:        =  fbar( :EtB:   )
 # Phi gradient
-#:phi: = ibmRD( :phi: )
 :phi: = where( :phi: < -2*deltaPhi, gbar(:phi:),:phi:)
 [:gx:,:gy:,:gz:] = grad( :phi: )
-#:gx: = gbar(:gx:)
-#:gy: = gbar(:gy:)
 :curv: = abs(div(:gx:,:gy:))  
 :mgp:        =   sqrt( :gx:**2 + :gy:**2 )
-:uphimag: = sqrt( :uphi:*:uphi: + :vphi:*:vphi: )
+#:uphimag: = sqrt( :uphi:*:uphi: + :vphi:*:vphi: )
 #:artPhi: = gbar( abs( ring(:mgp:) ) ) / (deltat+1.0e-10)  # need 1/t left over
-:artPhi: = gbar( where( :curv: > .2/deltaPhi , 1.0, 0.0 ) )
-:wgt: = .5*(1.0 - tanh( (:phi: - 2.0*deltaPhi)/(deltaPhi) ))
-:wgt2: = .5*(1.0 - tanh( (-:phi: - 2.0*deltaPhi)/(deltaPhi) ))
-:wgt3: = 1.0 - numpy.minimum( :wgt:, :wgt2: )
+#:artPhi: = gbar( where( :curv: > .2/deltaPhi , 1.0, 0.0 ) )
+#:wgt: = .5*(1.0 - tanh( (:phi: - 2.0*deltaPhi)/(deltaPhi) ))
+#:wgt2: = .5*(1.0 - tanh( (-:phi: - 2.0*deltaPhi)/(deltaPhi) ))
+#:wgt3: = 1.0 - numpy.minimum( :wgt:, :wgt2: )
 #:artPhi: = :artPhi: #*:wgt3:
 #:tphi: = .01*gbar(:phi:)   +    :phi:*.99
 #:phi: = :tphi:*:wgt3:   +    :phi:*(1.0 - :wgt3:)
@@ -116,12 +110,16 @@ ddt(:vphi:)  =   - :Fphiy:/:rhophi:
 :Fphix:      = 1.0*:dphi:*:gx:*(:pA:-:pB:)
 :Fphiy:      = 1.0*:dphi:*:gy:*(:pA:-:pB:)
 :wgt2:       = .5*(1.0 - tanh( :phi:/deltaPhi ))
-:rhophi:     = :rhoA: + :wgt2:*(:rhoB:-:rhoA:)
-:rhophi:         = ibmS( :rhophi: , :phi:, [:gx:,:gy:,:gz:] )
-:rhophi:         = ibmS( :rhophi: , -:phi:, [-:gx:,-:gy:,-:gz:] )
+#:rhophi:     = :rhoA: + :wgt2:*(:rhoB:-:rhoA:)
+#:rhophi:         = ibmS( :rhophi: , :phi:, [:gx:,:gy:,:gz:] )
+#:rhophi:         = ibmS( :rhophi: , -:phi:, [-:gx:,-:gy:,-:gz:] )
 # Close level set velocity
+:uphi: = where(:phi: > 0.0, :uA:, :uB:)
 :uphi:         = ibmS( :uphi: , :phi:, [:gx:,:gy:,:gz:] )
 :uphi:         = ibmS( :uphi: , -:phi:, [-:gx:,-:gy:,-:gz:] )
+:vphi: = where(:phi: > 0.0, :vA:, :vB:)
+:vphi:         = ibmS( :vphi: , :phi:, [:gx:,:gy:,:gz:] )
+:vphi:         = ibmS( :vphi: , -:phi:, [-:gx:,-:gy:,-:gz:] )
 # Apply constant BCs
 bc.extrap(['rhoA','EtA'],['x1'])
 bc.extrap(['rhoB','EtB'],['xn'])

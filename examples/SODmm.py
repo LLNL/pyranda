@@ -87,9 +87,9 @@ ddt(:phi:)   = -:gx:*:uphi: - .1 * sign(:phi:)*(:mgp:-1.0) * deltaPhi / (deltat+
 :dphi:       = :wgt:*.5/ deltaPhi
 :Fphi:       = 2.0*:dphi:*:gx:*((:rhouA:*(:uA:-:uphi:) + :pA:)-(:rhouB:*(:uB:-:uphi:) + :pB:))
 :mgp:        =  sqrt( :gx:**2 + :gy:**2 )
-:rhophi: = where(:phi: > 0.0, :rhoA:, :rhoB:)
-:rhophi:         = ibmS( :rhophi: , :phi:, [:gx:,:gy:,:gz:] )
-:rhophi:         = ibmS( :rhophi: , -:phi:, [-:gx:,-:gy:,-:gz:] )
+#:rhophi: = where(:phi: > 0.0, :rhoA:, :rhoB:)
+#:rhophi:         = ibmS( :rhophi: , :phi:, [:gx:,:gy:,:gz:] )
+#:rhophi:         = ibmS( :rhophi: , -:phi:, [-:gx:,-:gy:,-:gz:] )
 :FA: = :Fphi: #* :rhophi: / :rhoA:
 :FB: = :Fphi: #* :rhophi: / :rhoB:
 # Close level set velocity
