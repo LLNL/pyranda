@@ -45,6 +45,7 @@ eom ="""
 # Primary Equations of motion here
 :us: = :u: +  :dt: * ( - :u: * ddx( :u: ) - :v: * ddy( :u: ) + lap(:u:)*:nu:  )
 :vs: = :v: +  :dt: * ( - :u: * ddx( :v: ) - :v: * ddy( :v: ) + lap(:v:)*:nu:  )
+:rhs: = 1.0/:dt: * ( ddx(:us:) + ddy(:vs:) )
 Delta(:ps:) = 1.0/:dt: * ( ddx(:us:) + ddy(:vs:) )
 :u: = :us: - :dt: * ddx(:ps:)
 :v: = :vs: - :dt: * ddy(:ps:)
@@ -88,19 +89,29 @@ while tt > time:
         pysim.plot.clf()
         pysim.plot.contourf('umag',32)
 
-        X = pysim.mesh.coords[0].data[::2, ::2 , 0]
-        Y = pysim.mesh.coords[1].data[::2, ::2, 0]
-        u = pysim.var('u').data[::2, ::2, 0]
-        v = pysim.var('v').data[::2, ::2, 0]
-        plt.quiver(X, Y, u, v )
-        plt.pause(.01)
+        #pysim.plot.figure(2)
+        #pysim.plot.clf()
+        #pysim.plot.contourf('rhs',32)
+
+        #pysim.plot.figure(3)
+        #pysim.plot.clf()
+        #pysim.plot.contourf('ps',32)
+
+        #X = pysim.mesh.coords[0].data[::2, ::2 , 0]
+        #Y = pysim.mesh.coords[1].data[::2, ::2, 0]
+        #u = pysim.var('u').data[::2, ::2, 0]
+        #v = pysim.var('v').data[::2, ::2, 0]
+        pysim.plot.figure(1)
+        pysim.plot.quiver('u','v',skip=3)
+        #plt.quiver(X, Y, u, v )
+        #plt.pause(.01)
         
         
     dt = pysim.var("dt").data
     time += dt
     cyc  += 1
 
-    print("Cycle: %s ---  Time: %f ---  dt:  %f " % (cyc,time,dt) )
+    pysim.iprint("Cycle: %s ---  Time: %f ---  dt:  %f " % (cyc,time,dt) )
 
 # Plot final solution
 ioff = int(Npts/2)

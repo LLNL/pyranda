@@ -375,11 +375,14 @@ class pyrandaSim:
 
                 # Setup solver
                 if not eq.solver:
-                    eq.solver = pyrandaPoisson(None,self)
+                    #eq.solver = pyrandaPoisson(None,self)
+                    eq.solver = pyrandaPoisson(None,self,method='gauss',itermax=100)
+                    
                 
                 # \Delta \phi = rhs
                 rhs = eq.RHS(self)
-                self.variables[eq.LHS[0]].data = eq.solver.solve(rhs)
+                lhs = self.variables[eq.LHS[0]].data
+                self.variables[eq.LHS[0]].data = eq.solver.solve(rhs,guess=lhs)
 
         
         

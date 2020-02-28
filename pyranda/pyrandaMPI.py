@@ -392,7 +392,7 @@ class pyrandaMPI():
         return gdata
 
     
-    def ghost(self,data,np=1):
+    def ghost(self,data,np=1,clip=True):
 
         bx = data.shape[0]
         by = data.shape[1]
@@ -418,23 +418,24 @@ class pyrandaMPI():
 
         
         # For periodic data, clip sides
-        if self.nx > 1:
-            if self.x1proc:
-                gdata = gdata[np:,:,:]
-            if self.xnproc:
-                gdata = gdata[:-np,:,:]
+        if clip:
+            if self.nx > 1:
+                if self.x1proc:
+                    gdata = gdata[np:,:,:]
+                if self.xnproc:
+                    gdata = gdata[:-np,:,:]
 
-        if self.ny > 1:
-            if self.y1proc:
-                gdata = gdata[:,np:,:]
-            if self.ynproc:
-                gdata = gdata[:,:-np,:]
+            if self.ny > 1:
+                if self.y1proc:
+                    gdata = gdata[:,np:,:]
+                if self.ynproc:
+                    gdata = gdata[:,:-np,:]
 
-        if self.nz > 1 :
-            if self.z1proc:
-                gdata = gdata[:,:,np:]
-            if self.znproc:
-                gdata = gdata[:,:,:-np]
+            if self.nz > 1 :
+                if self.z1proc:
+                    gdata = gdata[:,:,np:]
+                if self.znproc:
+                    gdata = gdata[:,:,:-np]
             
         return gdata
 

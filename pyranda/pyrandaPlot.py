@@ -109,6 +109,42 @@ class pyrandaPlot:
             plt.axis('equal')
             plt.pause(.01)
 
+    def quiver(self,velx,vely,skip=4,slice3d='k=0',**kwargs):
+        """
+        Plots 2d quiver plot.  Only works for 2d and 3d problems.
+        2d - figure our directions and plot
+        3d - assumes slice at k=0 unless specified
+        """
+        nx = self.pyranda.nx
+        ny = self.pyranda.ny
+        nz = self.pyranda.nz
+        # 1D - Reject
+        if (ny == nz == 1) or (nx == nz == 1) or (ny == nx == 1):
+            self.pyranda.iprint("pyranda contourf only works for 2D & 3D problems")
+        
+        # 2D - figure out directions
+        if (nz == 1):
+            slice3d = "k=0"
+        if (ny == 1):
+            slice3d = "j=0"
+        if (nx == 1):
+            slice3d = "i=0"
+
+        # Get the sliced data
+        u = self.pyranda.variables[velx].data
+        v = self.pyranda.variables[vely].data
+        udata = self.getSlice( u, slice3d )
+        vdata = self.getSlice( v, slice3d )
+        [xdata,ydata] = self.getGrid2d(slice3d)
+
+        sub = numpy.index_exp[::skip,::skip]
+        
+        if self.pyranda.PyMPI.master:        
+            plt.quiver(xdata[sub],ydata[sub],
+                       udata[sub],vdata[sub],**kwargs)
+            plt.axis('equal')
+            plt.pause(.01)
+
             
     def showGrid(self, slice3d='k=0'):
         
