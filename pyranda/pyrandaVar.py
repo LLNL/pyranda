@@ -22,9 +22,14 @@ class pyrandaVar:
         self.dt  = None   # dt for temporal integration
 
         self.data = None  # Need to allocate
+        self.allocated = False
         self.PyMPI = None
 
     def __allocate__(self,pympi):  # Make this private
+
+
+        if self.allocated:
+            return
         
         self.PyMPI = pympi
 
@@ -36,6 +41,7 @@ class pyrandaVar:
         else:
             raise ValueError('Error: rank: %s not recognized' % self.rank)
 
+        self.allocated = True
 
 
     def sum(self):
