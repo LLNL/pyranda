@@ -301,13 +301,21 @@ class pyrandaSim:
 
         var_names = list(set(var_names))
 
+        #import pdb
+        #pdb.set_trace()
         for evar in var_names:
             self.addVar(evar,kind='conserved')   # Todo: classify variables
-        
+        self.allocate()
+            
         # Actually compute the Initial Conditions
         for ic in ic_lines:
             ic_mod = ic #+ '+self.emptyScalar()'
-            exec(fortran3d(ic_mod,self.sMap))
+            try:
+                exec(fortran3d(ic_mod,self.sMap))
+            except:
+                self.iprint("Error: cant parse following string from ICs")
+                self.iprint(ic_mod)
+                exit()
         
         for ic in ic_lines:
             self.initial_conditions.append( ic )

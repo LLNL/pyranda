@@ -10,6 +10,7 @@
 ################################################################################
 import ransbox
 from ransbox import *
+from .pyrandaPackage import pyrandaPackage
 
 class pyrandaRANSBOX(pyrandaPackage):
     """
@@ -27,6 +28,18 @@ class pyrandaRANSBOX(pyrandaPackage):
         self.ny = pysim.PyMPI.ay
         self.nz = pysim.PyMPI.az
 
+        # Inputs - auto from ransbox api
+        inputs = ransbox.TurbSrcInputs()
+        self.inputList = [i for i in dir(inputs) if "__" not in i]
+        for ii in self.inputList:
+            exec("self.%s = None" % ii)
+
+        # Outputs - auto from ransbox api
+        outputs = ransbox.TurbSrcTerms()
+        self.outputList = [i for i in dir(outputs) if "__" not in i]
+        for ii in self.outputList:
+            exec("self.%s = None" % ii)
+        
         
     def get_sMap(self):
         """
@@ -34,7 +47,7 @@ class pyrandaRANSBOX(pyrandaPackage):
         pyranda object will check this map
         """
         sMap = {}
-        sMap = ['RANS.eval()'] = "self.packages['RANSBOX'].evaluate()"
+        sMap['RANS.eval()'] = "self.packages['RANSBOX'].evaluate()"
         self.sMap = sMap
 
     # May require nothing for this stage
@@ -52,22 +65,29 @@ class pyrandaRANSBOX(pyrandaPackage):
 
         # Setup inputs (if direct pointer, only do once?)
         inputs = ransbox.TurbSrcInputs()
-        inputs.den = self.toC( pysim.variables[ self.varMap['den'] ].data )
-        inputs.tke = self.toC( pysim.variables[ self.varMap['tke'] ].data )
-        inputs.Lt = self.toC( pysim.variables[ self.varMap['Lt'] ].data )
-        inputs.nu = self.toC( pysim.variables[ self.varMap['nu'] ].data )
+        
+        for ii in self.inputList:
+            exec("val = self.%s" % ii )
+            if val:
+                exec("inputs.%s = self.toC( self.pysim.variables[ self.%s ].data )" % (ii,ii) )
 
+            
         # Setup outputs
         outputs = ransbox.TurbSrcTerms()
-        outputs.vmut  = self.toC( pysim.variables[ self.varMap['vmut'] ].data )
-        outputs.src_k = self.toC( pysim.variables[ self.varMap['src_k'] ].data )
-        
+        for ii in self.outputList:
+            exec("val = self.%s" % ii )
+            if val:
+                exec("outputs.%s = self.toC( self.pysim.variables[ self.%s ].data )" % (ii,ii) )
+
         # Evaluate model
         a = RANSBox_EvaluateModel(self.model, inputs, outputs, 1, "cpu")
 
-        # Reorder arrays (is this needed?)
-        pysim.variables[ self.varMap['vmut'] ].data  = self.toF( outputs.vmut )
-        pysim.variables[ self.varMap['src_k'] ].data = self.toF( outputs.src_k )
+
+        for ii in self.outputList:
+            exec("val = self.%s" % ii )
+            if val:                    
+                exec("self.pysim.variables[ self.%s ].data  = self.toF( outputs.%s )" % (ii,ii) )
+                     
         
         
         
