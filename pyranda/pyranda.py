@@ -16,6 +16,7 @@ import sys,os
 import time,random
 import glob
 import inspect
+import scipy
 
 from .pyrandaMPI   import pyrandaMPI
 from .pyrandaVar   import pyrandaVar
@@ -312,9 +313,10 @@ class pyrandaSim:
             ic_mod = ic #+ '+self.emptyScalar()'
             try:
                 exec(fortran3d(ic_mod,self.sMap))
-            except:
+            except Exception as e:
                 self.iprint("Error: cant parse following string from ICs")
                 self.iprint(ic_mod)
+                self.iprint("Error message: %s" % e )
                 exit()
         
         for ic in ic_lines:
@@ -796,6 +798,7 @@ class pyrandaSim:
         sMap['meshVar('] = 'self.PyMPI.getVar('
         sMap['gridLen'] = 'self.mesh.GridLen'
         sMap['random3D()'] = 'numpy.random.random( self.mesh.coords[0].data.shape) '
+        sMap['erf('] = "scipy.special.erf("
         
         sMap['meshx']   = 'self.mesh.coords[0].data'
         sMap['meshy']   = 'self.mesh.coords[1].data'
