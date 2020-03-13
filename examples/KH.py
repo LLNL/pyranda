@@ -1,6 +1,6 @@
 # KH.py - Kelvin-Helmholtz paper of McNally et. al.
 from pyranda import *
-import sys
+import sys,numpy
 
 problem = "KelvinHelmholtz"
 
@@ -15,7 +15,7 @@ L     = 0.025  # Length scale of transition
 Vmean = 0.0    # Convective offset
 tFinal = 1.5   # Final time
 R      = 1.0   # Gas constant
-
+test   = False # Run in test mode?
 
 cp = R / (1.0 - 1.0/gamma )
 cv = cp - R
@@ -39,6 +39,11 @@ try:
     problem += sys.argv[3]
 except:
     pass
+try:
+    test = bool(int(sys.argv[4]))
+except:
+    pass
+
 
 # Make a mesh and a pyrandaSim object
 mesh = """
@@ -133,8 +138,11 @@ wvars = ['rho','u','v','p','beta','kappa','mu','enst']
 
 time = 0.0
 dt = ss.var('dt').data
-ss.write( wvars )
 viz_dump = viz_freq
+
+if not test:
+    ss.write( wvars )
+
 while tFinal > time:
 
     time = ss.rk4(time,dt)
@@ -146,16 +154,27 @@ while tFinal > time:
     ss.iprint("Cycle: %5d --- Time: %10.4e --- deltat: %10.4e" % (ss.cycle,time,dt)  )
 
     # Constant time
-    if time > viz_dump:
+    if (time > viz_dump) and (not test):
         ss.write( wvars )
         viz_dump += viz_freq
 
         #ss.plot.figure(1)
         #ss.plot.clf()
         #ss.plot.contourf('rho',64 ) 
+if not test:
+    ss.write( wvars )
+    ss.plot.figure(1)
+    ss.plot.clf()
+    ss.plot.contourf('rho',64 )
 
-ss.write( wvars )
-ss.plot.figure(1)
-ss.plot.clf()
-ss.plot.contourf('rho',64 )
-
+# Curve test.  Write file and print its name at the end
+if test:
+    ny = ss.PyMPI.ny
+    x = ss.mesh.coords[0]
+    rho = ss.variables['rho']
+    islice = "j=%s;k=0" % (int(3*ny/4))
+    x1d = ss.plot.getLine( x.data  , islice )
+    v1d = ss.plot.getLine( rho.data, islice )
+    fname = problem + '.dat'
+    numpy.savetxt( fname  , (x1d,v1d) )
+    print(fname)

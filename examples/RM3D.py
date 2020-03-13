@@ -12,22 +12,33 @@ from pyranda import pyrandaSim, pyrandaBC, pyrandaTimestep
 try:
     Npts = int(sys.argv[1])
 except:
-    Npts = 32
+    Npts = 64
 
 try:
-    test = bool(int(sys.argv[2]))
+    is2D = bool(int(sys.argv[2]))
 except:
-    test = False
+    is2D = True
 
-problem = 'RM_theta'
+
 
 ## Define a mesh
-Npts = 64
-imesh = """
-xdom = (0.0, 2.8*pi , int(Npts*1.4), periodic=False) 
-ydom = (0.0, 2*pi*FF,  Npts, periodic=True)
-zdom = (0.0, 2*pi*FF,  1, periodic=True)
-""".replace('Npts',str(Npts)).replace('pi',str(numpy.pi)).replace('FF',str( float(Npts-1)/Npts ) )
+if is2D:
+    problem = 'RM_2D'
+    imesh = """
+    xdom = (0.0, 2.8*pi , int(Npts*1.4), periodic=False) 
+    ydom = (0.0, 2*pi*FF,  Npts, periodic=True)
+    zdom = (0.0, 2*pi*FF,  1, periodic=True)
+    """.replace('Npts',str(Npts)).replace('pi',str(numpy.pi)).replace('FF',str( float(Npts-1)/Npts ) )
+    waveLength = 4
+else:
+    problem = 'RM_3D'
+    imesh = """
+    xdom = (0.0, 3.0*pi , int(Npts*1.5), periodic=False) 
+    ydom = (0.0, 2*pi*FF,  Npts, periodic=True)
+    zdom = (0.0, 2*pi*FF,  Npts, periodic=True)
+    """.replace('Npts',str(Npts)).replace('pi',str(numpy.pi)).replace('FF',str( float(Npts-1)/Npts ) )
+    waveLength = 4
+    
 
     
 # Initialize a simulation object on a mesh
@@ -81,8 +92,8 @@ ddt(:Et:)     =  -ddx( (:Et: - :tauxx:)*:u: - :tauxy:*:v: - :tauxz:*:w: ) - ddy(
 :beta:      =  gbar( abs(ring(:div:)) * :rho: )  * 7.0e-3
 # Artificial species diffusivities
 :Dsgs:      =  ring(:Yh:) * 1.0e-4
-:Ysgs:      =  1.0e2*(abs(:Yh:) - 1.0 + abs(1.0-:Yh: ) )*:dx:**2
-:adiff:     =  gbar( :rho:*max(:Dsgs:,:Ysgs:) / :dt: )
+:Ysgs:      =  1.0e2*(abs(:Yh:) - 1.0 + abs(1.0-:Yh: ) )*gridLen**2
+:adiff:     =  gbar( :rho:*numpy.maximum(:Dsgs:,:Ysgs:) / :dt: )
 :Jx:        =  :adiff:*:Yx:
 :Jy:        =  :adiff:*:Yy:
 :Jz:        =  :adiff:*:Yz:
@@ -110,7 +121,7 @@ bc.const(['v','w'],['x1','xn'],0.0)
 # Sponge BCs
 :leftBC:  = 1.0 - 0.5 * (1.0 + tanh( (meshx-1.0) / .1 ) )
 :rightBC: = 0.5 * (1.0 + tanh( (meshx-8.0) / .1 ) )
-:BC: = max(:leftBC:,:rightBC:)
+:BC: = numpy.maximum(:leftBC:,:rightBC:)
 :u: = gbar(:u:)*:BC: + :u:*(1.0 - :BC:)
 :rho: = gbar(:rho:)*:BC: + :rho:*(1.0 - :BC:)
 :Et: = gbar(:Et:)*:BC: + :Et:*(1.0 - :BC:)
@@ -127,8 +138,7 @@ ss.EOM(eom)
 # Initialize variables
 ic = """
 :gamma:= 5./3.
-L      =  6.0
-delta  = 2.0*numpy.pi / 32.0  * 2 
+L      =  waveLength
 u0     = -291.575
 p0     = 100000.0
 rho0_h = 3.0
@@ -136,11 +146,11 @@ rho0_l = 1.0
 rhoS   = 6.37497
 uS     = -61.48754
 pS     = 399995.9 
-:dx: = 0.0
+#:dx: = 0.0
 
 # Add perturbation
-Amp = 3.5 + .05*(sin(meshy*L) ) #+cos(meshz*L))
-:Yh: = .5 * (1.0-tanh( sqrt(numpy.pi)*( meshx - Amp) / delta ))
+Amp = 3.5 + .05*(sin(meshy*L) + cos(meshz*L) ) + .25*gbar( random3D() - .5 )
+:Yh: = .5 * (1.0-tanh( sqrt(pi)*( meshx - Amp) / delta ))
 :Yl: = 1.0 - :Yh:
 :p:  += p0 
 
@@ -163,13 +173,11 @@ Amp = 3.5 + .05*(sin(meshy*L) ) #+cos(meshz*L))
 :tke: = :rho:*(:u:*:u: + :v:*:v: + :w:*:w:)
 :dt: = dt.courant(:u:,:v:,:w:,:cs:)
 """
-
-#import pdb
-#pdb.set_trace()
-
+ic_dict = {'waveLength':waveLength}
+ic_dict['delta'] = 2.0* numpy.pi / Npts * 4  
 
 # Set the initial conditions
-ss.setIC(ic)
+ss.setIC(ic,ic_dict)
     
 # Length scale for art. viscosity
 # Initialize variables
@@ -177,53 +185,31 @@ x = ss.mesh.coords[0].data
 y = ss.mesh.coords[1].data
 z = ss.mesh.coords[2].data
 
-# Set the value for dx
-dx = x[1,0,0] - x[0,0,0]
-ss.variables['dx'].data = dx
-
-
 # Write a time loop
 time = 0.0
-viz = True
-
-# Approx a max dt and stopping time
-
-
-# Mesh for viz on master
-xx   =  ss.PyMPI.zbar( x ) / Npts
-yy   =  ss.PyMPI.zbar( y ) / Npts
-#xx   =   x[:,:,16] / Npts
-#yy   =   y[:,:,16] / Npts
-ny = ss.PyMPI.ny
 
 # Start time loop
 CFL = 1.0
 dt = ss.variables['dt'].data * CFL
 
-# Viz
-cnt = 1
-viz_freq = 10
-pvar = 'Yh'
+# Viz/IO
+viz_freq = 20
+dmp_freq = 100
 
 tke0 = ss.var('tke').sum()
-#enst0 = ss.var('enst').sum()
 TKE = []
-#ENST = []
 TIME = []
 
 tstop = 1.0
-if test:
-    tstop = .1
 
 leftOn = False
 rightOn = False
 
-v   = ss.variables['v'].data
-plt.contourf( v[:,:,0] )
-
-#aa = raw_input("Step ...")
 
 dtmax = dt * .1
+
+outVars = ['p','u','v','w','rho','Yh']
+ss.write(outVars)
 
 while time < tstop:
 
@@ -236,26 +222,12 @@ while time < tstop:
 
     # Print some output
     tke = ss.var('tke').sum()/tke0
-    #enst = ss.var('enst').sum()/enst0
-
     TIME.append(time)
-    #ENST.append(enst)
-    TKE.append(tke)
+    TKE.append(tke)    
 
-    #aa = raw_input("Step ...")
+    ss.iprint("%s -- %s --- TKE: %s " % (ss.cycle,time,tke)  ) 
     
-    ss.iprint("%s -- %s --- TKE: %s " % (cnt,time,tke)  ) 
-    cnt += 1
-    if viz:
-
-        fig = plt.figure(1)
-        plt.clf()
-
-        fig2 = plt.figure(2)
-        plt.clf()
-
-        dd = numpy.where( z == 0.0, 1.0, 0.0 )
-        v = ss.PyMPI.zbar( dd*ss.variables[pvar].data )
+    if 1:
 
         rho = ss.variables['rho'].data
         rhoL = ss.variables['rhoYh'].data
@@ -266,7 +238,7 @@ while time < tstop:
         p   = ss.variables['p'].data
         Et  = ss.variables['Et'].data            
 
-        # Time specific BCs
+        # Time specific BCs for letting shock/refraction out
         if (time > .010):
             if not leftOn:
                  wgt = numpy.exp( -(x-2.0)**2/.1**2 )
@@ -297,36 +269,18 @@ while time < tstop:
             ss.variables['rhoYl'].data = numpy.where( x > 7.0 , rright  , rhoR )
 
         
-        if (ss.PyMPI.master and (cnt%viz_freq == 0)) and True:
-            #dum = raw_input('Step?')
-            
+        if ( ss.cycle%viz_freq == 0 ) :
 
             # 2D contour plots
-            ax = fig.add_subplot(2,2,1)
-            im = ax.contourf( x[:,:,0], y[:,:,0], rho[:,:,0] ,32,cmap='jet')
+            
+            ss.plot.figure(1)
+            ss.plot.clf()
+            ss.plot.contourf( 'rho', 32, cmap='jet')
 
-            ax = fig.add_subplot(2,2,2)
-            im = ax.contourf( x[:,:,0], y[:,:,0], Yh[:,:,0] ,32,cmap='jet')
+            ss.plot.figure(2)
+            ss.plot.clf()
+            ss.plot.plot('rho','k-')    
 
-            ax = fig.add_subplot(2,2,3)
-            im = ax.contourf( x[:,:,0], y[:,:,0], p[:,:,0] ,32,cmap='jet')
-
-            ax = fig.add_subplot(2,2,4)
-            im = ax.contourf( x[:,:,0], y[:,:,0], u[:,:,0] ,32,cmap='jet')
-
-            # 1D contour plots
-            ax = fig2.add_subplot(2,2,1)
-            im = ax.plot( x[:,0,0], rho[:,0,0] )
-
-            ax = fig2.add_subplot(2,2,2)
-            im = ax.plot( x[:,0,0], Yh[:,0,0] )
-
-            ax = fig2.add_subplot(2,2,3)
-            im = ax.plot( x[:,0,0],  p[:,0,0] )
-
-            ax = fig2.add_subplot(2,2,4)
-            im = ax.plot( x[:,0,0], u[:,0,0] )
-
-            plt.pause(.001)
-
+        if ( ss.cycle%dmp_freq == 0) :
+            ss.write(outVars)
             
