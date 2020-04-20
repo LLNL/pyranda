@@ -32,7 +32,8 @@ gnu.fflags   = -fPIC -ffree-form -ffree-line-length-0 -fbackslash
 intel.fflags = -fPIC -O3
 # it's likely that mpiclang is using gfortran
 clang.fflags = $(gnu.fflags)
-ibm.fflags   = -fPIC -qxlf2003=polymorphic
+ibm.linkflags = -qoffload -W@,-v -qsmp=omp -qinfo=omperrtrace
+ibm.fflags   = -fPIC -qxlf2003=polymorphic $(ibm.linkflags)
 ibm.lopts    = -qmkshrobj
 pgi.fflags   = -fPIC
 
@@ -66,9 +67,9 @@ f2py.Iflags  = -I$(f2py.dir)
 #
 # source order is important because of mod file dependencies
 #
-source = blockmath.o stencils.o patch.o pentadiagonal.o \
-	     comm.o compact.o mesh.o objects.o compact_operators.o \
-			 operators.o
+source = blockmath.o ompsync.o stencils.o nrtype.o nrutil.o patch.o pentadiagonal.o \
+	     comm.o compact_basetype.o compact_d1.o compact_r3.o compact_r4.o \
+             compact.o mesh.o objects.o compact_operators.o operators.o
 
 vpath %.c $(f2py.dir)
 
@@ -104,6 +105,9 @@ test_pent: libparcop.a parcop.o test_pent.o
 
 miniApp: libparcop.a parcop.o miniApp.o
 	$(mpif90) miniApp.o parcop.o libparcop.a -o $@
+
+miniAppGPU: libparcop.a parcop.o miniApp.o
+	$(mpif90) $(ibm.linkflags) miniApp.o parcop.o libparcop.a -o $@
 
 info:
 	@echo "sys_type:  $(sys_type)"

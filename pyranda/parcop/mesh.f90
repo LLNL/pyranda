@@ -229,58 +229,59 @@
        
      if( custom_per ) then ! custom 1st derivative with unknown bcs
 
-       custom_periodic = .false. ; custom_nullop = .false.
-       custom_lo = comm_data%xcom_lo ; custom_hi = comm_data%xcom_hi
-       if( comm_data%xcom_id == 0 ) custom_lo = MPI_PROC_NULL
-       if( comm_data%xcom_id == comm_data%xcom_np-1 ) custom_hi = MPI_PROC_NULL
-       custom_comm = comm1_type(custom_periodic,comm_data%xcom,comm_data%xcom_np,comm_data%xcom_id, &
-         custom_lo,custom_hi,comm_data%xrange)
-!       custom_mesh = mesh1_type(coordsys,ax,nx,dx,x1,xn,'NONE','NONE')
-       custom_mesh = mesh1_type(ax,nx,dx,x1,xn,'NONE','NONE')
-       call custom_op%setup(compact_weight_d1(control_data%d1spec),custom_comm,custom_mesh,[0,0],custom_nullop)
-       dxdA = custom_op%evalx(xgrid)/dA
-       dydA = custom_op%evalx(ygrid)/dA
-       dzdA = custom_op%evalx(zgrid)/dA
-
-       custom_lo = comm_data%ycom_lo ; custom_hi = comm_data%ycom_hi
-       if( comm_data%ycom_id == 0 ) custom_lo = MPI_PROC_NULL
-       if( comm_data%ycom_id == comm_data%ycom_np-1 ) custom_hi = MPI_PROC_NULL
-       custom_comm = comm1_type(custom_periodic,comm_data%ycom,comm_data%ycom_np,comm_data%ycom_id, &
-         custom_lo,custom_hi,comm_data%yrange)
-!       custom_mesh = mesh1_type(coordsys,ay,ny,dy,y1,yn,'NONE','NONE')
-       custom_mesh = mesh1_type(ay,ny,dy,y1,yn,'NONE','NONE')
-       call custom_op%setup(compact_weight_d1(control_data%d1spec),custom_comm,custom_mesh,[0,0],custom_nullop)
-       dxdB = custom_op%evaly(xgrid)/dB
-       dydB = custom_op%evaly(ygrid)/dB
-       dzdB = custom_op%evaly(zgrid)/dB
-
-       custom_lo = comm_data%zcom_lo ; custom_hi = comm_data%zcom_hi
-       if( comm_data%zcom_id == 0 ) custom_lo = MPI_PROC_NULL
-       if( comm_data%zcom_id == comm_data%zcom_np-1 ) custom_hi = MPI_PROC_NULL
-       custom_comm = comm1_type(custom_periodic,comm_data%zcom,comm_data%zcom_np,comm_data%zcom_id, &
-         custom_lo,custom_hi,comm_data%zrange)
-!       custom_mesh = mesh1_type(coordsys,az,nz,dz,z1,zn,'NONE','NONE')
-       custom_mesh = mesh1_type(az,nz,dz,z1,zn,'NONE','NONE')
-       call custom_op%setup(compact_weight_d1(control_data%d1spec),custom_comm,custom_mesh,[0,0],custom_nullop)
-       dxdC = custom_op%evalz(xgrid)/dC
-       dydC = custom_op%evalz(ygrid)/dC
-       dzdC = custom_op%evalz(zgrid)/dC
-
-       call custom_op%remove()
+!!$       custom_periodic = .false. ; custom_nullop = .false.
+!!$       custom_lo = comm_data%xcom_lo ; custom_hi = comm_data%xcom_hi
+!!$       if( comm_data%xcom_id == 0 ) custom_lo = MPI_PROC_NULL
+!!$       if( comm_data%xcom_id == comm_data%xcom_np-1 ) custom_hi = MPI_PROC_NULL
+!!$       custom_comm = comm1_type(custom_periodic,comm_data%xcom,comm_data%xcom_np,comm_data%xcom_id, &
+!!$         custom_lo,custom_hi,comm_data%xrange)
+!!$!       custom_mesh = mesh1_type(coordsys,ax,nx,dx,x1,xn,'NONE','NONE')
+!!$       custom_mesh = mesh1_type(ax,nx,dx,x1,xn,'NONE','NONE')
+!!$       call custom_op%setup(compact_weight_d1(control_data%d1spec),custom_comm,custom_mesh,[0,0],custom_nullop)
+!!$       dxdA = custom_op%evalx(xgrid)/dA
+!!$       dydA = custom_op%evalx(ygrid)/dA
+!!$       dzdA = custom_op%evalx(zgrid)/dA
+!!$
+!!$       custom_lo = comm_data%ycom_lo ; custom_hi = comm_data%ycom_hi
+!!$       if( comm_data%ycom_id == 0 ) custom_lo = MPI_PROC_NULL
+!!$       if( comm_data%ycom_id == comm_data%ycom_np-1 ) custom_hi = MPI_PROC_NULL
+!!$       custom_comm = comm1_type(custom_periodic,comm_data%ycom,comm_data%ycom_np,comm_data%ycom_id, &
+!!$         custom_lo,custom_hi,comm_data%yrange)
+!!$!       custom_mesh = mesh1_type(coordsys,ay,ny,dy,y1,yn,'NONE','NONE')
+!!$       custom_mesh = mesh1_type(ay,ny,dy,y1,yn,'NONE','NONE')
+!!$       call custom_op%setup(compact_weight_d1(control_data%d1spec),custom_comm,custom_mesh,[0,0],custom_nullop)
+!!$       dxdB = custom_op%evaly(xgrid)/dB
+!!$       dydB = custom_op%evaly(ygrid)/dB
+!!$       dzdB = custom_op%evaly(zgrid)/dB
+!!$
+!!$       custom_lo = comm_data%zcom_lo ; custom_hi = comm_data%zcom_hi
+!!$       if( comm_data%zcom_id == 0 ) custom_lo = MPI_PROC_NULL
+!!$       if( comm_data%zcom_id == comm_data%zcom_np-1 ) custom_hi = MPI_PROC_NULL
+!!$       custom_comm = comm1_type(custom_periodic,comm_data%zcom,comm_data%zcom_np,comm_data%zcom_id, &
+!!$         custom_lo,custom_hi,comm_data%zrange)
+!!$!       custom_mesh = mesh1_type(coordsys,az,nz,dz,z1,zn,'NONE','NONE')
+!!$       custom_mesh = mesh1_type(az,nz,dz,z1,zn,'NONE','NONE')
+!!$       call custom_op%setup(compact_weight_d1(control_data%d1spec),custom_comm,custom_mesh,[0,0],custom_nullop)
+!!$       dxdC = custom_op%evalz(xgrid)/dC
+!!$       dydC = custom_op%evalz(ygrid)/dC
+!!$       dzdC = custom_op%evalz(zgrid)/dC
+!!$
+!!$       call custom_op%remove()
 
      else ! use stock routines for scalar
  
-       dxdA = compact_data%d1x(1)%evalx(xgrid)/dA
-       dydA = compact_data%d1x(1)%evalx(ygrid)/dA
-       dzdA = compact_data%d1x(1)%evalx(zgrid)/dA
-
-       dxdB = compact_data%d1y(1)%evaly(xgrid)/dB
-       dydB = compact_data%d1y(1)%evaly(ygrid)/dB
-       dzdB = compact_data%d1y(1)%evaly(zgrid)/dB
-
-       dxdC = compact_data%d1z(1)%evalz(xgrid)/dC
-       dydC = compact_data%d1z(1)%evalz(ygrid)/dC
-       dzdC = compact_data%d1z(1)%evalz(zgrid)/dC
+!!$       dxdA = compact_data%d1x(1)%evalx(xgrid)/dA
+!!$       dydA = compact_data%d1x(1)%evalx(ygrid)/dA
+!!$       dzdA = compact_data%d1x(1)%evalx(zgrid)/dA
+!!$       call compact_ops%d1x(1)%evalx(ax,ay,az,v,dv,vb1,vb2)
+!!$
+!!$       dxdB = compact_data%d1y(1)%evaly(xgrid)/dB
+!!$       dydB = compact_data%d1y(1)%evaly(ygrid)/dB
+!!$       dzdB = compact_data%d1y(1)%evaly(zgrid)/dB
+!!$
+!!$       dxdC = compact_data%d1z(1)%evalz(xgrid)/dC
+!!$       dydC = compact_data%d1z(1)%evalz(ygrid)/dC
+!!$       dzdC = compact_data%d1z(1)%evalz(zgrid)/dC
 
      endif ! custom
 
@@ -330,12 +331,12 @@
      SELECT CASE(coordsys)
      CASE(2,3) ! Spherical, Curvilinear for scalars (vectors??)
        ALLOCATE(tmp(patch_data%ax,patch_data%ay,patch_data%az))
-        CellVolS = compact_data%sfx(1)%evalx(CellVol)
-        tmp = compact_data%sfy(1)%evaly(CellVolS)
-        CellVolS = compact_data%sfz(1)%evalz(tmp)
-        CellVolG = compact_data%gfx(1)%evalx(CellVol)
-        tmp = compact_data%gfy(1)%evaly(CellVolG)
-        CellVolG = compact_data%gfz(1)%evalz(tmp)
+        !CellVolS = compact_data%sfx(1)%evalx(CellVol)
+        !tmp = compact_data%sfy(1)%evaly(CellVolS)
+        !CellVolS = compact_data%sfz(1)%evalz(tmp)
+        !CellVolG = compact_data%gfx(1)%evalx(CellVol)
+        !tmp = compact_data%gfy(1)%evaly(CellVolG)
+        !CellVolG = compact_data%gfz(1)%evalz(tmp)
        DEALLOCATE(tmp)
      CASE DEFAULT
        CellVolS = CellVol
