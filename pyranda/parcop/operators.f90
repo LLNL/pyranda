@@ -1,22 +1,15 @@
 !===================================================================================================
-! Copyright (c) 2018, Lawrence Livemore National Security, LLC.
-! Produced at the Lawrence Livermore National Laboratory.
-!
-! LLNL-CODE-749864
-! This file is part of pyranda
-! For details about use and distribution, please read: pyranda/LICENSE
-!
-! Written by: Britton J. Olson, olson45@llnl.gov
-!===================================================================================================
-!===================================================================================================
  MODULE LES_operators
 !===================================================================================================
   USE iso_c_binding
   USE LES_objects, ONLY : patch_ptr,mesh_ptr,compact_ptr
-!  USE LES_matrices, ONLY : ddx,ddy,ddz,d2x,d2y,d2z,d8x,d8y,d8z,bppfx,bppfy,bppfz,Sfilter,Gfilter,Tfilter
   USE LES_compact_operators, ONLY : ddx=>d1x,ddy=>d1y,ddz=>d1z,d2x,d2y,d2z,d8x,d8y,d8z, &
-    bppfx=>filterx,bppfy=>filtery,bppfz=>filterz,isrx,isry,isrz,islx,isly,islz
-!  USE LES_FFTs, ONLY : sfilterx,sfiltery,sfilterz
+       bppfx=>filterx,bppfy=>filtery,bppfz=>filterz
+!  USE LES_explicit, ONLY : ddx=>ddx,ddy=>ddy,ddz=>ddz,d2x=>ddx,d2y=>ddy,d2z=>ddz, &
+!       d8x=>dd4x,d8y=>dd4y,d8z=>dd4z,bppfx=>xFilter,bppfy=>yFilter,bppfz=>zFilter
+
+  !USE LES_FFTs, ONLY : sfilterx,sfiltery,sfilterz
+  !USE mapp_exosim_annotation, ONLY : exosim_annotation_begin,exosim_annotation_end
  
   INTERFACE div
    MODULE PROCEDURE divV, divT
@@ -33,47 +26,70 @@
   INTERFACE Laplacian
    MODULE PROCEDURE LapS, LapV
   END INTERFACE
+  INTERFACE ring
+   MODULE PROCEDURE ringS, ringV
+  END INTERFACE
   
 !===================================================================================================
   CONTAINS
 !===================================================================================================
 
 ! DIVERGENCE OF A VECTOR ===========================================================================
-   SUBROUTINE divV(fx,fy,fz,df)
+   SUBROUTINE divV(fx,fy,fz,df,ax,ay,az)
     IMPLICIT NONE
-    DOUBLE PRECISION, DIMENSION(:,:,:), INTENT(IN) :: fx,fy,fz
-    DOUBLE PRECISION, DIMENSION(:,:,:), INTENT(OUT) :: df
-    DOUBLE PRECISION, DIMENSION(SIZE(df,1),SIZE(df,2),SIZE(df,3)) :: fA,fB,fC,tmp
+    INTEGER(c_int), INTENT(IN) :: ax,ay,az 
+    DOUBLE PRECISION, DIMENSION(ax,ay,az), INTENT(IN) :: fx,fy,fz
+    DOUBLE PRECISION, DIMENSION(ax,ay,az), INTENT(OUT) :: df
+    DOUBLE PRECISION, DIMENSION(ax,ay,az) :: fA,fB,fC,tmp
+    !$DEF-FEXL
+    !$omp target data map(alloc:fA,fB,fC,tmp)
      SELECT CASE(patch_ptr%coordsys)
      CASE(0) ! Cartesian
       CALL ddx(fx,fA,patch_ptr%isymX)
       CALL ddy(fy,fB,patch_ptr%isymY)
       CALL ddz(fz,fC,patch_ptr%isymZ)
+      !$FEXL {dim:3,var:['df','fA','fB','fC'] }
       df = fA + fB + fC
+      !$END FEXL
      CASE(1)
+      !$FEXL {dim:3,var:['tmp','mesh_ptr%xgrid','fx'] }
       tmp = mesh_ptr%xgrid*fx             ! r*v_r
+      !$END FEXL
       CALL ddx(tmp,fA,patch_ptr%isymX**2)
       CALL ddy(fy,fB, patch_ptr%isymY)
       CALL ddz(fz,fC, patch_ptr%isymZ)
+      !$FEXL {dim:3,var:['df','fA','fB','fC','mesh_ptr%xgrid'] }
       df = (fA+fB)/mesh_ptr%xgrid + fC
+      !$END FEXL
      CASE(2)
-     ! *** does sin(mesh_ptr%ygrid) ever generate patch_ptr%isymY factor? ***
+      ! *** does sin(mesh_ptr%ygrid) ever generate patch_ptr%isymY factor? ***
+      !$FEXL {dim:3,var:['tmp','mesh_ptr%xgrid','fx','fy','df','mesh_ptr%ygrid'] }
       tmp = mesh_ptr%xgrid**2*fx          ! r**2*v_r
       df = fy*SIN(mesh_ptr%ygrid)          ! v_theta*SIN(theta)
+      !$END FEXL
       CALL ddx(tmp,fA,patch_ptr%isymX**3)
-      CALL ddy(df,fB, patch_ptr%isymY)      ! Assumes theta has some symmetry here... move outside derivative
+      CALL ddy(df,fB, patch_ptr%isymY**2)  ! Assumes theta has some symmetry here... move outside derivative
       CALL ddz(fz,fC, patch_ptr%isymZ)
+      !$FEXL {dim:3,var:['fA','fB','fC','mesh_ptr%xgrid','df','mesh_ptr%ygrid'] }
       df = fA/mesh_ptr%xgrid**2 + (fB + fC)/(mesh_ptr%xgrid*SIN(mesh_ptr%ygrid))
+      !$END FEXL
      CASE(3) ! General curvilinear
+      !$FEXL {dim:3,var:['fA','fB','fC','fx','fy','fz','mesh_ptr%dAdx','mesh_ptr%dBdx','mesh_ptr%dCdx','mesh_ptr%dAdy','mesh_ptr%dBdy','mesh_ptr%dCdy','mesh_ptr%dAdz','mesh_ptr%dBdz','mesh_ptr%dCdz','mesh_ptr%detxyz']}
       fA = (fx*mesh_ptr%dAdx + fy*mesh_ptr%dAdy + fz*mesh_ptr%dAdz)*mesh_ptr%detxyz
       fB = (fx*mesh_ptr%dBdx + fy*mesh_ptr%dBdy + fz*mesh_ptr%dBdz)*mesh_ptr%detxyz
       fC = (fx*mesh_ptr%dCdx + fy*mesh_ptr%dCdy + fz*mesh_ptr%dCdz)*mesh_ptr%detxyz
+      !$END FEXL
       CALL ddx(fA,df)
       CALL ddy(fB,tmp)
+      !$FEXL {dim:3,var:['df','tmp']}
       df = df+tmp
+      !$END FEXL
       CALL ddz(fC,tmp)
+      !$FEXL {dim:3,var:['df','tmp','mesh_ptr%detxyz']}
       df = (df+tmp)/mesh_ptr%detxyz
+      !$END FEXL
      END SELECT
+     !$omp end target data
    END SUBROUTINE divV
  
 ! DIVERGENCE OF A TENSOR ===========================================================================
@@ -82,61 +98,78 @@
     DOUBLE PRECISION, DIMENSION(:,:,:), INTENT(IN) :: fxx,fxy,fxz,fyx,fyy,fyz,fzx,fzy,fzz
     DOUBLE PRECISION, DIMENSION(:,:,:), INTENT(OUT) :: dfx,dfy,dfz
     DOUBLE PRECISION, DIMENSION(SIZE(fxx,1),SIZE(fxx,2),SIZE(fxx,3)) :: fA,fB,fC,tmp
+    !$DEF-FEXL
+    !$omp target data map(alloc:fA,fB,fC,tmp)
      SELECT CASE(patch_ptr%coordsys)
      CASE(0) ! Cartesian
       CALL ddx(fxx,fA,patch_ptr%isymX**2)
       CALL ddy(fyx,fB,patch_ptr%isymY)
       CALL ddz(fzx,fC,patch_ptr%isymZ)
-      dfx = fA + fB + fC   
+      !$FEXL {dim:3,var:['dfx','fA','fB','fC']}
+      dfx = fA + fB + fC
+      !$END FEXL
       CALL ddx(fxy,fA,patch_ptr%isymX)
       CALL ddy(fyy,fB,patch_ptr%isymY**2)
       CALL ddz(fzy,fC,patch_ptr%isymZ)
-      dfy = fA + fB + fC     
+      !$FEXL {dim:3,var:['dfy','fA','fB','fC']}
+      dfy = fA + fB + fC
+      !$END FEXL
       CALL ddx(fxz,fA,patch_ptr%isymX)
       CALL ddy(fyz,fB,patch_ptr%isymY)
       CALL ddz(fzz,fC,patch_ptr%isymZ**2)
-      dfz = fA + fB + fC   
+      !$FEXL {dim:3,var:['dfz','fA','fB','fC']}
+      dfz = fA + fB + fC
+      !$END FEXL
      CASE(1)
+      !$FEXL {dim:3,var:['tmp','mesh_ptr%xgrid','fxx'] }
       tmp = mesh_ptr%xgrid*fxx
+      !$END FEXL  
       CALL ddx(tmp,fA,patch_ptr%isymX**3)
       CALL ddy(fyx,fB,patch_ptr%isymY)
       CALL ddz(fzx,fC,patch_ptr%isymZ)
+      !$FEXL {dim:3,var:['dfx','mesh_ptr%xgrid','fyy','fA','fB','fC','tmp','fxy'] }
       dfx = (fA+fB-fyy)/mesh_ptr%xgrid+fC
       tmp = mesh_ptr%xgrid**2*fxy
+      !$END FEXL
       CALL ddx(tmp,fA,patch_ptr%isymX**3)
       CALL ddy(fyy,fB,patch_ptr%isymY**2)
       CALL ddz(fzy,fC,patch_ptr%isymZ)
+      !$FEXL {dim:3,var:['dfy','mesh_ptr%xgrid','fA','fB','fC','tmp','fxy','fyx','fxz'] }
       dfy = fA/mesh_ptr%xgrid**2 + (fB+fyx-fxy)/mesh_ptr%xgrid + fC
       tmp = mesh_ptr%xgrid*fxz
+      !$END FEXL
       CALL ddx(tmp,fA,patch_ptr%isymX**2)
       CALL ddy(fyz,fB,patch_ptr%isymY)
       CALL ddz(fzz,fC,patch_ptr%isymZ**2)
+      !$FEXL {dim:3,var:['dfz','mesh_ptr%xgrid','fA','fB','fC'] }
       dfz = (fA+fB)/mesh_ptr%xgrid + fC
+      !$END FEXL
     CASE(2)
     ! *** does sin(mesh_ptr%ygrid) ever generate patch_ptr%isymY factor? ***
       tmp = mesh_ptr%xgrid**2*fxx
       CALL ddx(tmp,fA,patch_ptr%isymX**4)
       tmp = fyx*SIN(mesh_ptr%ygrid)
-      CALL ddy(tmp,fB,patch_ptr%isymY)
+      CALL ddy(tmp,fB,patch_ptr%isymY**2)   !?
       CALL ddz(fzx,fC,patch_ptr%isymZ)
       dfx = fA/mesh_ptr%xgrid**2 + (fB+fC)/(mesh_ptr%xgrid*SIN(mesh_ptr%ygrid))-(fyy+fzz)/mesh_ptr%xgrid
       tmp = mesh_ptr%xgrid**3*fxy
       CALL ddx(tmp,fA,patch_ptr%isymX**4)
       tmp = fyy*SIN(mesh_ptr%ygrid)
-      CALL ddy(tmp,fB,patch_ptr%isymY**2)
+      CALL ddy(tmp,fB,patch_ptr%isymY**3)   !?
       CALL ddz(fzy,fC,patch_ptr%isymZ)
       dfy = fA/mesh_ptr%xgrid**3 + (fB+fC)/(mesh_ptr%xgrid*SIN(mesh_ptr%ygrid)) + (fyx-fxy-fzz/TAN(mesh_ptr%ygrid))/mesh_ptr%xgrid
       tmp = mesh_ptr%xgrid**3*fxz
       CALL ddx(tmp,fA,patch_ptr%isymX**4)
       tmp = fyz*SIN(mesh_ptr%ygrid)
-      CALL ddy(tmp,fB,patch_ptr%isymY)
+      CALL ddy(tmp,fB,patch_ptr%isymY**2)   !?
       CALL ddz(fzz,fC,patch_ptr%isymZ**2)
       dfz = fA/mesh_ptr%xgrid**3 + (fB+fC)/(mesh_ptr%xgrid*SIN(mesh_ptr%ygrid)) + (fzx-fxz+fzy/TAN(mesh_ptr%ygrid))/mesh_ptr%xgrid
      CASE(3)
-      CALL divV(fxx,fxy,fxz,dfx)
-      CALL divV(fyx,fyy,fyz,dfy)
-      CALL divV(fzx,fzy,fzz,dfz)
+      CALL divV(fxx,fxy,fxz,dfx,patch_ptr%ax,patch_ptr%ay,patch_ptr%az)
+      CALL divV(fyx,fyy,fyz,dfy,patch_ptr%ax,patch_ptr%ay,patch_ptr%az)
+      CALL divV(fzx,fzy,fzz,dfz,patch_ptr%ax,patch_ptr%ay,patch_ptr%az)
      END SELECT
+     !$omp end target data
    END SUBROUTINE divT
  
 ! GRADIENT OF A SCALAR =============================================================================
@@ -145,12 +178,16 @@
     DOUBLE PRECISION, DIMENSION(:,:,:), INTENT(IN) :: f
     DOUBLE PRECISION, DIMENSION(:,:,:), INTENT(OUT) :: dfdx,dfdy,dfdz
     DOUBLE PRECISION, DIMENSION(SIZE(f,1),SIZE(f,2),SIZE(f,3)) :: dfdA,dfdB,dfdC
+    !$DEF-FEXL
+    !$omp target data map(alloc:dfdA,dfdB,dfdC)
      CALL ddx(f,dfdx)
      CALL ddy(f,dfdy)
      CALL ddz(f,dfdz)
      SELECT CASE(patch_ptr%coordsys)
      CASE(1) ! Cylindrical
+      !$FEXL {dim:3,var:['dfdy','mesh_ptr%xgrid']}
       dfdy = dfdy/mesh_ptr%xgrid
+      !$END FEXL  
      CASE(2) ! Spherical
       dfdy = dfdy/mesh_ptr%xgrid
       dfdz = dfdz/(mesh_ptr%xgrid*SIN(mesh_ptr%ygrid))
@@ -162,6 +199,7 @@
       dfdy = dfdA*mesh_ptr%dAdy + dfdB*mesh_ptr%dBdy + dfdC*mesh_ptr%dCdy
       dfdz = dfdA*mesh_ptr%dAdz + dfdB*mesh_ptr%dBdz + dfdC*mesh_ptr%dCdz
      END SELECT
+     !$omp end target data
    END SUBROUTINE gradS
  
 ! GRADIENT OF A VECTOR COMPONENT =============================================================================
@@ -171,19 +209,23 @@
     DOUBLE PRECISION, DIMENSION(:,:,:), INTENT(OUT) :: dfdx,dfdy,dfdz
     INTEGER, INTENT(IN) :: vc
     DOUBLE PRECISION, DIMENSION(SIZE(f,1),SIZE(f,2),SIZE(f,3)) :: dfdA,dfdB,dfdC
+    !$DEF-FEXL
+    !$omp target data map(alloc:dfdA,dfdB,dfdC)
      SELECT CASE( vc )
      CASE( 1 )
-       CALL ddx(f,dfdx,patch_ptr%isymX) ; CALL ddy(f,dfdy) ; CALL ddz(f,dfdz)
+       CALL ddx(f,dfdx,patch_ptr%isymX); CALL ddy(f,dfdy);                 CALL ddz(f,dfdz)
      CASE( 2 )
-       CALL ddx(f,dfdx) ; CALL ddy(f,dfdy,patch_ptr%isymY) ; CALL ddz(f,dfdz)
+       CALL ddx(f,dfdx);                 CALL ddy(f,dfdy,patch_ptr%isymY); CALL ddz(f,dfdz)
      CASE( 3 )
-       CALL ddx(f,dfdx) ; CALL ddy(f,dfdy) ; CALL ddz(f,dfdz,patch_ptr%isymZ)
+       CALL ddx(f,dfdx);                 CALL ddy(f,dfdy);                 CALL ddz(f,dfdz,patch_ptr%isymZ)
      CASE DEFAULT
-       CALL ddx(f,dfdx) ; CALL ddy(f,dfdy) ; CALL ddz(f,dfdz)
+       CALL ddx(f,dfdx);                 CALL ddy(f,dfdy);                 CALL ddz(f,dfdz)
      END SELECT
      SELECT CASE(patch_ptr%coordsys)
      CASE(1) ! Cylindrical
+      !$FEXL {dim:3,var:['dfdy','mesh_ptr%xgrid']}  
       dfdy = dfdy/mesh_ptr%xgrid
+      !$END FEXL  
      CASE(2) ! Spherical
       dfdy = dfdy/mesh_ptr%xgrid
       dfdz = dfdz/(mesh_ptr%xgrid*SIN(mesh_ptr%ygrid))
@@ -195,6 +237,7 @@
       dfdy = dfdA*mesh_ptr%dAdy + dfdB*mesh_ptr%dBdy + dfdC*mesh_ptr%dCdy
       dfdz = dfdA*mesh_ptr%dAdz + dfdB*mesh_ptr%dBdz + dfdC*mesh_ptr%dCdz
      END SELECT
+     !$omp end target data
    END SUBROUTINE gradVc
  
 ! GRADIENT OF A TENSOR COMPONENT =============================================================================
@@ -204,21 +247,24 @@
     DOUBLE PRECISION, DIMENSION(:,:,:), INTENT(OUT) :: dfdx,dfdy,dfdz
     CHARACTER(LEN=2), INTENT(IN) :: tc
     DOUBLE PRECISION, DIMENSION(SIZE(f,1),SIZE(f,2),SIZE(f,3)) :: dfdA,dfdB,dfdC
+    !$DEF-FEXL
      SELECT CASE( tc )
      CASE( 'xx', 'yy', 'zz' )
-       CALL ddx(f,dfdx) ; CALL ddy(f,dfdy) ; CALL ddz(f,dfdz)
+       CALL ddx(f,dfdx);                 CALL ddy(f,dfdy);                 CALL ddz(f,dfdz)
      CASE( 'xy', 'yx' )
-       CALL ddx(f,dfdx,patch_ptr%isymX) ; CALL ddy(f,dfdy,patch_ptr%isymY) ; CALL ddz(f,dfdz)
+       CALL ddx(f,dfdx,patch_ptr%isymX); CALL ddy(f,dfdy,patch_ptr%isymY); CALL ddz(f,dfdz)
      CASE( 'xz', 'zx' )
-       CALL ddx(f,dfdx,patch_ptr%isymX) ; CALL ddy(f,dfdy) ; CALL ddz(f,dfdz,patch_ptr%isymZ)
+       CALL ddx(f,dfdx,patch_ptr%isymX); CALL ddy(f,dfdy);                 CALL ddz(f,dfdz,patch_ptr%isymZ)
      CASE( 'yz', 'zy' )
-       CALL ddx(f,dfdx) ; CALL ddy(f,dfdy,patch_ptr%isymY) ; CALL ddz(f,dfdz,patch_ptr%isymZ)
+       CALL ddx(f,dfdx);                 CALL ddy(f,dfdy,patch_ptr%isymY); CALL ddz(f,dfdz,patch_ptr%isymZ)
      CASE DEFAULT
-       CALL ddx(f,dfdx) ; CALL ddy(f,dfdy) ; CALL ddz(f,dfdz)
+       CALL ddx(f,dfdx);                 CALL ddy(f,dfdy);                 CALL ddz(f,dfdz)
      END SELECT
      SELECT CASE(patch_ptr%coordsys) !-----switches for non-Cartesian to be implemented---
-     CASE(1) ! Cylindrical 
+     CASE(1) ! Cylindrical
+      !$FEXL {dim:3,var:['dfdy','mesh_ptr%xgrid']}
       dfdy = dfdy/mesh_ptr%xgrid
+      !$END FEXL  
      CASE(2) ! Spherical
       dfdy = dfdy/mesh_ptr%xgrid
       dfdz = dfdz/(mesh_ptr%xgrid*SIN(mesh_ptr%ygrid))
@@ -238,6 +284,7 @@
     DOUBLE PRECISION, DIMENSION(:,:,:), INTENT(IN) :: fx,fy,fz
     DOUBLE PRECISION, DIMENSION(:,:,:), INTENT(OUT) :: dfxx,dfxy,dfxz,dfyx,dfyy,dfyz,dfzx,dfzy,dfzz
     DOUBLE PRECISION, DIMENSION(SIZE(fx,1),SIZE(fx,2),SIZE(fx,3)) :: dfdA,dfdB,dfdC
+    !$DEF-FEXL
      CALL ddx(fx,dfxx,patch_ptr%isymX)
      CALL ddx(fy,dfxy)
      CALL ddx(fz,dfxz)
@@ -249,9 +296,11 @@
      CALL ddz(fz,dfzz,patch_ptr%isymZ)
      SELECT CASE(patch_ptr%coordsys)
      CASE(1) ! Cylindrical
+      !$FEXL {dim:3,var:['dfyx','fy','mesh_ptr%xgrid','dfyy','fx','dfyz']}
       dfyx = (dfyx-fy)/mesh_ptr%xgrid
       dfyy = (dfyy+fx)/mesh_ptr%xgrid
       dfyz = dfyz/mesh_ptr%xgrid
+      !$END FEXL
      CASE(2) ! Spherical
       dfyx = (dfyx-fy)/mesh_ptr%xgrid
       dfyy = (dfyy+fx)/mesh_ptr%xgrid
@@ -276,55 +325,120 @@
    END SUBROUTINE gradV
  
 ! CURL OF A VECTOR =================================================================================
-   SUBROUTINE curlV(fx,fy,fz,cx,cy,cz)
+!   SUBROUTINE curlV(fx,fy,fz,cx,cy,cz)
+!    IMPLICIT NONE
+!    DOUBLE PRECISION, DIMENSION(:,:,:), INTENT(IN) :: fx,fy,fz
+!    DOUBLE PRECISION, DIMENSION(:,:,:), INTENT(OUT) :: cx,cy,cz
+!    DOUBLE PRECISION, DIMENSION(SIZE(fx,1),SIZE(fx,2),SIZE(fx,3)) :: tx,ty,tz,tmp
+!     SELECT CASE(patch_ptr%coordsys)
+!     CASE(0) ! Cartesian
+!      CALL ddy(fz,cx)
+!      CALL ddz(fy,tx)
+!      cx = cx - tx
+!      CALL ddz(fx,cy)
+!      CALL ddx(fz,ty)
+!      cy = cy - ty
+!      CALL ddx(fy,cz)
+!      CALL ddy(fx,tz)
+!      cz = cz - tz
+!     CASE(1) ! Cylindrical
+!      CALL ddy(fz,tmp)
+!      cx = tmp/mesh_ptr%xgrid
+!      CALL ddz(fy,tx)
+!      cx = cx - tx
+!      CALL ddz(fx,cy)
+!      CALL ddx(fz,ty)
+!      cy = cy - ty
+!      cz = mesh_ptr%xgrid*fy
+!      CALL ddx(cz,tmp,patch_ptr%isymX)    !?
+!      cz = tmp/mesh_ptr%xgrid
+!      CALL ddy(fx,tmp)
+!      tz = tmp/mesh_ptr%xgrid
+!      cz = cz - tz
+!     CASE(2) ! Spherical
+!      cx = fz*SIN(mesh_ptr%ygrid)
+!      CALL ddy(cx,tmp,patch_ptr%isymY)    !?
+!      cx = tmp/(mesh_ptr%xgrid*SIN(mesh_ptr%ygrid))
+!      CALL ddz(fy,tmp)
+!      tx = tmp/(mesh_ptr%xgrid*SIN(mesh_ptr%ygrid))
+!      cx = cx - tx
+!      CALL ddz(fx,tmp)
+!      cy = tmp/(mesh_ptr%xgrid*SIN(mesh_ptr%ygrid))
+!      ty = mesh_ptr%xgrid*fz
+!      CALL ddx(ty,tmp,patch_ptr%isymX)    !?
+!      ty = tmp/mesh_ptr%xgrid
+!      cy = cy - ty
+!      cz = mesh_ptr%xgrid*fy
+!      CALL ddx(cz,tmp,patch_ptr%isymX)
+!      cz = tmp/mesh_ptr%xgrid
+!      CALL ddy(fx,tmp)
+!      tz = tmp/mesh_ptr%xgrid
+!      cz = cz - tz
+!     CASE(3) ! Hack to avoid NANs in cylinder_curvy.csv file
+!      cx = 0.0D0
+!      cy = 0.0D0
+!      cz = 0.0D0      
+!     END SELECT
+!   END SUBROUTINE curlV
+ 
+! CURL OF A SYMMETRIC (e.g., for velocity, vsym=1) OR ANTISYMMETRIC (e.g., for magnetic field, vsym=-1) VECTOR
+   SUBROUTINE curlV(vsym,fx,fy,fz,cx,cy,cz)
     IMPLICIT NONE
+    INTEGER(c_int), INTENT(IN) :: vsym
     DOUBLE PRECISION, DIMENSION(:,:,:), INTENT(IN) :: fx,fy,fz
     DOUBLE PRECISION, DIMENSION(:,:,:), INTENT(OUT) :: cx,cy,cz
     DOUBLE PRECISION, DIMENSION(SIZE(fx,1),SIZE(fx,2),SIZE(fx,3)) :: tx,ty,tz,tmp
+    INTEGER(c_int) :: isymX,isymY,isymZ
+     isymX = -vsym*patch_ptr%isymX
+     isymY = -vsym*patch_ptr%isymY    
+     isymZ = -vsym*patch_ptr%isymZ        
      SELECT CASE(patch_ptr%coordsys)
      CASE(0) ! Cartesian
-      CALL ddy(fz,cx)
-      CALL ddz(fy,tx)
+      CALL ddy(fz,cx,isymY)
+      CALL ddz(fy,tx,isymZ)
       cx = cx - tx
-      CALL ddz(fx,cy)
-      CALL ddx(fz,ty)
+      CALL ddz(fx,cy,isymZ)
+      CALL ddx(fz,ty,isymX)
       cy = cy - ty
-      CALL ddx(fy,cz)
-      CALL ddy(fx,tz)
+      CALL ddx(fy,cz,isymX)
+      CALL ddy(fx,tz,isymY)
       cz = cz - tz
+! NEED TO CHECK THESE SYMMETRY SWITCHES!------------------------------------------------------------      
      CASE(1) ! Cylindrical
-      CALL ddy(fz,tmp)
+      CALL ddy(fz,tmp,isymY)                      !?  
       cx = tmp/mesh_ptr%xgrid
-      CALL ddz(fy,tx)
+      CALL ddz(fy,tx,isymZ)                       !?
       cx = cx - tx
-      CALL ddz(fx,cy)
-      CALL ddx(fz,ty)
+      CALL ddz(fx,cy,isymZ)                       !?
+      CALL ddx(fz,ty,isymX)                       !?
       cy = cy - ty
       cz = mesh_ptr%xgrid*fy
-      CALL ddx(cz,tmp)
+      CALL ddx(cz,tmp,isymX**2)                   !??
       cz = tmp/mesh_ptr%xgrid
-      CALL ddy(fx,tmp)
+      CALL ddy(fx,tmp,isymY)                      !?
       tz = tmp/mesh_ptr%xgrid
       cz = cz - tz
      CASE(2) ! Spherical
+      ! *** Does sin(mesh_ptr%ygrid) generate isymY factor? ***
       cx = fz*SIN(mesh_ptr%ygrid)
-      CALL ddy(cx,tmp)
+      CALL ddy(cx,tmp,isymY**2)                   !??
       cx = tmp/(mesh_ptr%xgrid*SIN(mesh_ptr%ygrid))
-      CALL ddz(fy,tmp)
+      CALL ddz(fy,tmp,isymZ)                      !?
       tx = tmp/(mesh_ptr%xgrid*SIN(mesh_ptr%ygrid))
       cx = cx - tx
-      CALL ddz(fx,tmp)
+      CALL ddz(fx,tmp,isymZ)                      !?
       cy = tmp/(mesh_ptr%xgrid*SIN(mesh_ptr%ygrid))
       ty = mesh_ptr%xgrid*fz
-      CALL ddx(ty,tmp)
+      CALL ddx(ty,tmp,isymX**2)                   !??
       ty = tmp/mesh_ptr%xgrid
       cy = cy - ty
       cz = mesh_ptr%xgrid*fy
-      CALL ddx(cz,tmp)
+      CALL ddx(cz,tmp,isymX**2)                   !??
       cz = tmp/mesh_ptr%xgrid
-      CALL ddy(fx,tmp)
+      CALL ddy(fx,tmp,isymY)                      !?
       tz = tmp/mesh_ptr%xgrid
       cz = cz - tz
+!---------------------------------------------------------------------------------------------------      
      CASE(3) ! Hack to avoid NANs in cylinder_curvy.csv file
       cx = 0.0D0
       cy = 0.0D0
@@ -333,6 +447,7 @@
    END SUBROUTINE curlV
  
 ! CURL OF A TENSOR =================================================================================
+   ! This needs symmetry switch for symmetric/anti-symmetric tensors.
    SUBROUTINE curlT(fxx,fxy,fxz,fyx,fyy,fyz,fzx,fzy,fzz,ttxx,ttxy,ttxz,ttyx,ttyy,ttyz,ttzx,ttzy,ttzz)
     IMPLICIT NONE
     DOUBLE PRECISION, DIMENSION(:,:,:), INTENT(IN) :: fxx,fxy,fxz,fyx,fyy,fyz,fzx,fzy,fzz
@@ -341,17 +456,18 @@
      SELECT CASE(patch_ptr%coordsys)
      CASE(0) ! Cartesian
       CALL ddy(fzx,ttxx);                  CALL ddz(fyx,tmp);                 ttxx = ttxx - tmp
-      CALL ddy(fzy,ttxy,patch_ptr%isymY);   CALL ddz(fyy,tmp);                ttxy = ttxy - tmp
+      CALL ddy(fzy,ttxy,patch_ptr%isymY);  CALL ddz(fyy,tmp);                 ttxy = ttxy - tmp
       CALL ddy(fzz,ttxz);                  CALL ddz(fyz,tmp,patch_ptr%isymZ); ttxz = ttxz - tmp
 
       CALL ddz(fxx,ttyx);                  CALL ddx(fzx,tmp,patch_ptr%isymX); ttyx = ttyx - tmp
       CALL ddz(fxy,ttyy);                  CALL ddx(fzy,tmp);                 ttyy = ttyy - tmp
-      CALL ddz(fxz,ttyz,patch_ptr%isymZ);   CALL ddx(fzz,tmp);                ttyz = ttyz - tmp
+      CALL ddz(fxz,ttyz,patch_ptr%isymZ);  CALL ddx(fzz,tmp);                 ttyz = ttyz - tmp
 
-      CALL ddx(fyx,ttzx,patch_ptr%isymX);   CALL ddy(fxx,tmp);                ttzx = ttzx - tmp
+      CALL ddx(fyx,ttzx,patch_ptr%isymX);  CALL ddy(fxx,tmp);                 ttzx = ttzx - tmp
       CALL ddx(fyy,ttzy);                  CALL ddy(fxy,tmp,patch_ptr%isymY); ttzy = ttzy - tmp
       CALL ddx(fyz,ttzz);                  CALL ddy(fxz,tmp);                 ttzz = ttzz - tmp
-     CASE(1) ! Cylindrical ----symmetry switches for non-Cartesian to be fixed-----
+! SYMMETRY SWITCHES FOR NON-CARTESIAN NEED TO BE FIXED----------------------------------------------      
+     CASE(1) ! Cylindrical
       CALL ddy(fzx,ttxx);   CALL ddz(fyx,tmp); ttxx = (ttxx - fzy)/mesh_ptr%xgrid - tmp
       CALL ddy(fzy,ttxy);   CALL ddz(fyy,tmp); ttxy = (ttxy + fzx)/mesh_ptr%xgrid - tmp
       CALL ddy(fzz,ttxz);   CALL ddz(fyz,tmp); ttxz =  ttxz       /mesh_ptr%xgrid - tmp
@@ -375,6 +491,7 @@
       CALL ddx(fyx,ttzx);   CALL ddy(fxx,tmp); ttzx = ttzx - (tmp - fyx - fxy)/mesh_ptr%xgrid
       CALL ddx(fyy,ttzy);   CALL ddy(fxy,tmp); ttzy = ttzy - (tmp - fyy + fxx)/mesh_ptr%xgrid
       CALL ddx(fyz,ttzz);   CALL ddy(fxz,tmp); ttzz = ttzz - (tmp - fyz      )/mesh_ptr%xgrid
+!---------------------------------------------------------------------------------------------------      
      END SELECT
    END SUBROUTINE curlT
  
@@ -384,6 +501,9 @@
     DOUBLE PRECISION, DIMENSION(:,:,:), INTENT(IN) :: f
     DOUBLE PRECISION, DIMENSION(:,:,:), INTENT(OUT) :: Lapf
     DOUBLE PRECISION, DIMENSION(SIZE(f,1),SIZE(f,2),SIZE(f,3)) :: tmp,dum
+    !$DEF-FEXL
+    !$omp target data map(alloc:tmp,dum)
+! SYMMETRY SWITCHES?--------------------------------------------------------------------------------    
      SELECT CASE(patch_ptr%coordsys)
      CASE(0) ! Cartesian
       CALL d2x(f,Lapf)
@@ -392,16 +512,22 @@
       Lapf = Lapf+tmp+dum
      CASE(1) ! Cylindrical
       CALL ddx(f,tmp)
+      !$FEXL {dim:3,var:['dum','tmp','mesh_ptr%xgrid']}
       dum = mesh_ptr%xgrid*tmp
+      !$END FEXL
       CALL ddx(dum,tmp)
+      !$FEXL {dim:3,var:['Lapf','tmp','mesh_ptr%xgrid']}
       Lapf = tmp/mesh_ptr%xgrid
-     
+      !$END FEXL
       CALL d2y(f,tmp)
+      !$FEXL {dim:3,var:['Lapf','dum','tmp','mesh_ptr%xgrid']}
       dum = tmp/mesh_ptr%xgrid**2
       Lapf = Lapf+dum
-     
+      !$END FEXL
       CALL d2z(f,tmp)
+      !$FEXL {dim:3,var:['Lapf','tmp']}
       Lapf = Lapf+tmp
+      !$END FEXL
      CASE(2) ! Spherical
       CALL ddx(f,tmp)
       dum = mesh_ptr%xgrid**2*tmp
@@ -417,7 +543,8 @@
       CALL d2z(f,tmp)
       dum = tmp/(mesh_ptr%xgrid*SIN(mesh_ptr%ygrid))**2
       Lapf = Lapf+dum
-     END SELECT
+   END SELECT
+     !$omp end target data
    END SUBROUTINE LapS
  
 ! LAPLACIAN OF A VECTOR ============================================================================ 
@@ -470,66 +597,146 @@
    END SUBROUTINE VcrossT
    
 ! RINGING DETECTOR FOR ARTIFICIAL VISCOSITY ETC.====================================================
-   FUNCTION ring(f)
+
+   SUBROUTINE ringS(f,fbar,L) ! adds cm^L to the dimensions of f
     IMPLICIT NONE
     DOUBLE PRECISION, DIMENSION(:,:,:), INTENT(IN) :: f
-    DOUBLE PRECISION, DIMENSION(SIZE(f,1),SIZE(f,2),SIZE(f,3)) :: ring
-     ring = MAX(ABS(ringx(f))*mesh_ptr%d1**2,ABS(ringy(f))*mesh_ptr%d2**2,ABS(ringz(f))*mesh_ptr%d3**2)
-   END FUNCTION ring
+    DOUBLE PRECISION, DIMENSION(:,:,:), INTENT(OUT) :: fbar
+    INTEGER,                            INTENT(IN) :: L
+    DOUBLE PRECISION, DIMENSION(SIZE(f,1),SIZE(f,2),SIZE(f,3)) :: ring1,ring2,ring3
+    !$DEF-FEXL
+    !CALL exosim_annotation_begin("operators.ringS")
+    !$omp target data map(alloc:ring1,ring2,ring3)    
+     CALL ringx(f,ring1)
+     CALL ringy(f,ring2)
+     CALL ringz(f,ring3)
+     SELECT CASE(L)
+     CASE(0)   
+        !$FEXL {dim:3,var:['fbar','ring1','ring2','ring3']}           
+        fbar = MAX(ABS(ring1)               ,ABS(ring2)               ,ABS(ring3)               )
+        !$END FEXL
+     CASE(1)                        
+        !$FEXL {dim:3,var:['fbar','ring1','ring2','ring3','mesh_ptr%d1','mesh_ptr%d2','mesh_ptr%d3']}           
+        fbar = MAX(ABS(ring1)*mesh_ptr%d1   ,ABS(ring2)*mesh_ptr%d2   ,ABS(ring3)*mesh_ptr%d3   )
+        !$END FEXL
+     CASE(2)                        
+        !$FEXL {dim:3,var:['fbar','ring1','ring2','ring3','mesh_ptr%d1','mesh_ptr%d2','mesh_ptr%d3']}           
+        fbar = MAX(ABS(ring1)*mesh_ptr%d1**2,ABS(ring2)*mesh_ptr%d2**2,ABS(ring3)*mesh_ptr%d3**2)
+        !$END FEXL
+     END SELECT
+     !$omp end target data 
+     !CALL exosim_annotation_end("operators.ringS")
+   END SUBROUTINE ringS
      
-   FUNCTION ringV(f,g,h)
+   SUBROUTINE ringV(f,g,h,fbar,L) ! adds cm^L to the dimensions of (f,g,h)
     IMPLICIT NONE
     DOUBLE PRECISION, DIMENSION(:,:,:), INTENT(IN) :: f,g,h
-    DOUBLE PRECISION, DIMENSION(SIZE(f,1),SIZE(f,2),SIZE(f,3)) :: ringV
+    DOUBLE PRECISION, DIMENSION(:,:,:), INTENT(OUT) :: fbar
+    INTEGER,                            INTENT(IN) :: L
+    !DOUBLE PRECISION, DIMENSION(SIZE(f,1),SIZE(f,2),SIZE(f,3)) :: ringV
     DOUBLE PRECISION, DIMENSION(SIZE(f,1),SIZE(f,2),SIZE(f,3)) :: ringxL,ringyL,ringzL
-     ringxL = MAX(ABS(ringx(f,patch_ptr%isymX)),ABS(ringx(g))                ,ABS(ringx(h))                )*mesh_ptr%d1
-     ringyL = MAX(ABS(ringy(f))                ,ABS(ringy(g,patch_ptr%isymY)),ABS(ringy(h))                )*mesh_ptr%d2
-     ringzL = MAX(ABS(ringz(f))                ,ABS(ringz(g))                ,ABS(ringz(h,patch_ptr%isymZ)))*mesh_ptr%d3
-     ringV = MAX(ringxL,ringyL,ringzL)
-   END FUNCTION ringV
+    DOUBLE PRECISION, DIMENSION(SIZE(f,1),SIZE(f,2),SIZE(f,3)) :: ringx1,ringy1,ringz1
+    DOUBLE PRECISION, DIMENSION(SIZE(f,1),SIZE(f,2),SIZE(f,3)) :: ringx2,ringy2,ringz2
+    DOUBLE PRECISION, DIMENSION(SIZE(f,1),SIZE(f,2),SIZE(f,3)) :: ringx3,ringy3,ringz3
+    !$DEF-FEXL
+    !CALL exosim_annotation_begin("operators.ringV")
+    !$omp target data map(alloc:ringx1,ringx2,ringx3) & 
+    !$omp             map(alloc:ringy1,ringy2,ringy3) &  
+    !$omp             map(alloc:ringz1,ringz2,ringz3) &
+    !$omp             map(alloc:ringxL,ringyL,ringzL)
 
-   FUNCTION ringx(f,bc)
+     CALL ringx(f,ringx1,patch_ptr%isymX)
+     CALL ringy(f,ringy1)
+     CALL ringz(f,ringz1)
+
+     CALL ringx(g,ringx2)
+     CALL ringy(g,ringy2,patch_ptr%isymY)
+     CALL ringz(g,ringz2)
+
+     CALL ringx(h,ringx3)
+     CALL ringy(h,ringy3)
+     CALL ringz(h,ringz3,patch_ptr%isymZ)
+
+     SELECT CASE(L)
+     CASE(0)
+        !$FEXL {dim:3,var:['fbar','ringxL','ringyL','ringzL','ringx1','ringy1','ringz1','ringx2','ringy2','ringz2','ringx3','ringy3','ringz3']}
+        ringxL = MAX(ABS(ringx1)   ,ABS(ringx2)     ,ABS(ringx3)  )
+        ringyL = MAX(ABS(ringy1)   ,ABS(ringy2)     ,ABS(ringy3)  )
+        ringzL = MAX(ABS(ringz1)   ,ABS(ringz2)     ,ABS(ringz3)  )
+        fbar   = MAX(ringxL,ringyL,ringzL)
+        !$END FEXL
+     CASE(1)
+        !$FEXL {dim:3,var:['fbar','ringxL','ringyL','ringzL','ringx1','ringy1','ringz1','ringx2','ringy2','ringz2','ringx3','ringy3','ringz3','mesh_ptr%d1','mesh_ptr%d2','mesh_ptr%d3']}
+        ringxL = MAX(ABS(ringx1)   ,ABS(ringx2)     ,ABS(ringx3)  )*mesh_ptr%d1
+        ringyL = MAX(ABS(ringy1)   ,ABS(ringy2)     ,ABS(ringy3)  )*mesh_ptr%d2
+        ringzL = MAX(ABS(ringz1)   ,ABS(ringz2)     ,ABS(ringz3)  )*mesh_ptr%d3
+        fbar   = MAX(ringxL,ringyL,ringzL)
+        !$END FEXL
+     CASE(2)
+        !$FEXL {dim:3,var:['fbar','ringxL','ringyL','ringzL','ringx1','ringy1','ringz1','ringx2','ringy2','ringz2','ringx3','ringy3','ringz3','mesh_ptr%d1','mesh_ptr%d2','mesh_ptr%d3']}
+        ringxL = MAX(ABS(ringx1)   ,ABS(ringx2)     ,ABS(ringx3)  )*mesh_ptr%d1**2
+        ringyL = MAX(ABS(ringy1)   ,ABS(ringy2)     ,ABS(ringy3)  )*mesh_ptr%d2**2
+        ringzL = MAX(ABS(ringz1)   ,ABS(ringz2)     ,ABS(ringz3)  )*mesh_ptr%d3**2
+        fbar   = MAX(ringxL,ringyL,ringzL)
+        !$END FEXL
+     END SELECT
+     !$omp end target data
+     !CALL exosim_annotation_end("operators.ringV")
+   END SUBROUTINE ringV
+
+   SUBROUTINE ringx(f,fbar,bc)
     IMPLICIT NONE
     DOUBLE PRECISION, DIMENSION(:,:,:), INTENT(IN) :: f
+    DOUBLE PRECISION, DIMENSION(:,:,:), INTENT(OUT) :: fbar
     INTEGER, INTENT(IN), OPTIONAL :: bc
-    DOUBLE PRECISION, DIMENSION(SIZE(f,1),SIZE(f,2),SIZE(f,3)) :: ringx
-    DOUBLE PRECISION, DIMENSION(-1:SIZE(f,1)+2,SIZE(f,2),SIZE(f,3)) :: g
     INTEGER :: n
+    !$DEF-FEXL
+    !CALL exosim_annotation_begin("operators.ringx")
      IF (SIZE(f,1) == 1) THEN
-       ringx = 0.0D0
+        !$FEXL {dim:3,var:['fbar']}
+        fbar = 0.0D0
+        !$END FEXL
      ELSE
-       CALL d8x(f,ringx,bc)
+        CALL d8x(f,fbar,bc)
      ENDIF
-   END FUNCTION ringx
+     !CALL exosim_annotation_end("operators.ringx")
+   END SUBROUTINE ringx
 
-   FUNCTION ringy(f,bc)
+   SUBROUTINE ringy(f,fbar,bc)
     IMPLICIT NONE
     DOUBLE PRECISION, DIMENSION(:,:,:), INTENT(IN) :: f
+    DOUBLE PRECISION, DIMENSION(:,:,:), INTENT(OUT) :: fbar
     INTEGER, INTENT(IN), OPTIONAL :: bc
-    DOUBLE PRECISION, DIMENSION(SIZE(f,1),SIZE(f,2),SIZE(f,3)) :: ringy
-    DOUBLE PRECISION, DIMENSION(SIZE(f,1),-1:SIZE(f,2)+2,SIZE(f,3)) :: g
     INTEGER :: n
+    !$DEF-FEXL
+    !CALL exosim_annotation_begin("operators.ringy")
      IF (SIZE(f,2) == 1) THEN
-       ringy = 0.0D0
+        !$FEXL {dim:3,var:['fbar']}
+        fbar = 0.0D0
+        !$END FEXL
      ELSE
-       CALL d8y(f,ringy,bc)
+       CALL d8y(f,fbar,bc)
      ENDIF
-   END FUNCTION ringy
+     !CALL exosim_annotation_end("operators.ringy")
+   END SUBROUTINE ringy
 
-   FUNCTION ringz(f,bc)
+   SUBROUTINE ringz(f,fbar,bc)
     IMPLICIT NONE
     DOUBLE PRECISION, DIMENSION(:,:,:), INTENT(IN) :: f
+    DOUBLE PRECISION, DIMENSION(:,:,:), INTENT(OUT) :: fbar
     INTEGER, INTENT(IN), OPTIONAL :: bc
-    DOUBLE PRECISION, DIMENSION(SIZE(f,1),SIZE(f,2),SIZE(f,3)) :: ringz
-    DOUBLE PRECISION, DIMENSION(SIZE(f,1),SIZE(f,2),-1:SIZE(f,3)+2) :: g
     INTEGER :: n
+    !$DEF-FEXL
+    !CALL exosim_annotation_begin("operators.ringz")
      IF (SIZE(f,3) == 1) THEN
-       ringz = 0.0D0
+        !$FEXL {dim:3,var:['fbar']}
+        fbar = 0.0D0
+        !$END FEXL
      ELSE
-       CALL d8z(f,ringz,bc)
+       CALL d8z(f,fbar,bc)
      ENDIF
-   END FUNCTION ringz
-
+     !CALL exosim_annotation_end("operators.ringz")
+   END SUBROUTINE ringz
 
    SUBROUTINE filterGdir(filtype,fun,bar,direction)
     IMPLICIT NONE
@@ -555,24 +762,33 @@
       
     END ASSOCIATE
   END SUBROUTINE filterGdir
-
-    
+   
 ! CONSERVATIVE FILTER (except for 'smooth' filtype)=================================================
-   SUBROUTINE filter(filtype,fun,bar,component)
+   SUBROUTINE filter(filtype,fun,bar,component,vsym)
     IMPLICIT NONE
     CHARACTER(LEN=*), INTENT(IN) :: filtype
     DOUBLE PRECISION, DIMENSION(:,:,:), INTENT(IN) :: fun
     DOUBLE PRECISION, DIMENSION(:,:,:), INTENT(OUT) :: bar
-    INTEGER, INTENT(IN), OPTIONAL :: component ! -1=no filter, 0=scalar, 1=x, 2=y, 3=z
+    INTEGER(c_int), INTENT(IN), OPTIONAL :: component ! -1=no filter, 0=scalar, 1=x, 2=y, 3=z
+    INTEGER(c_int), INTENT(IN), OPTIONAL :: vsym ! symmetry flag for anti-symmetric magnetic field
     LOGICAL, PARAMETER :: sharp = .TRUE.
     DOUBLE PRECISION, DIMENSION(SIZE(fun,1),SIZE(fun,2),SIZE(fun,3)) :: tmp
     REAL(c_double), DIMENSION(:,:,:), POINTER :: CellBar
     INTEGER :: filnum,xasym,yasym,zasym
+    !$DEF-FEXL
+
+    !$omp target enter data map(alloc:tmp)
     
-     IF (PRESENT(component)) THEN
+    !$FEXL {dim:3,var:['tmp']}
+    tmp = 0.0D0
+    !$END FEXL
+
+    
+     IF (PRESENT(component)) THEN ! it's a vector
        SELECT CASE(component)
        CASE(-1)     ! Do not filter.
          bar = fun
+         !$omp target exit data map(delete:tmp)
          RETURN
        CASE(0)      ! symmetric scalar
          xasym =  1
@@ -602,36 +818,41 @@
          xasym =  1
          yasym = -1 ! antisymmetric in y, z directions
          zasym = -1 ! antisymmetric in y, z directions
-       END SELECT
-     ELSE
+       END SELECT     
+       IF (PRESENT(vsym)) THEN
+         xasym = vsym*xasym
+         yasym = vsym*yasym
+         zasym = vsym*zasym
+       END IF	  
+     ELSE ! it's a scalar
        xasym =  1
        yasym =  1
        zasym =  1 
      END IF
  
-     ASSOCIATE( Gfilter=>compact_ptr%control%gfspec, Sfilter=>compact_ptr%control%sfspec, &
-                Tfilter=>compact_ptr%control%tfspec )
-     
      SELECT CASE(TRIM(filtype))
      CASE('smooth','Smooth','SMOOTH')
-       CALL bppfx(fun,bar,Gfilter,1)
-       CALL bppfy(bar,tmp,Gfilter,1)
-       CALL bppfz(tmp,bar,Gfilter,1)
+       CALL bppfx(fun,bar,compact_ptr%control%gfspec,1)
+       CALL bppfy(bar,tmp,compact_ptr%control%gfspec,1)
+       CALL bppfz(tmp,bar,compact_ptr%control%gfspec,1)
+       !$omp target exit data map(delete:tmp)
        RETURN
-!     CASE('fourier','Fourier','FOURIER')
-!       CALL sfilterx(fun,bar,1,sharp)
-!       CALL sfiltery(bar,tmp,1,sharp)
-!       CALL sfilterz(tmp,bar,1,sharp)
-!       RETURN
+     !CASE('fourier','Fourier','FOURIER')
+     !  CALL sfilterx(fun,bar,1,sharp)
+     !  CALL sfiltery(bar,tmp,1,sharp)
+     !  CALL sfilterz(tmp,bar,1,sharp)
+     !  !$omp target exit data map(delete:tmp)
+     !  RETURN
      CASE('spectral','Spectral','SPECTRAL','shrpspct','eightord')
-       filnum = Sfilter
+       filnum = compact_ptr%control%sfspec
        CellBar => mesh_ptr%CellVolS
      CASE('gaussian','Gaussian','GAUSSIAN')
-       filnum = Gfilter
+       filnum = compact_ptr%control%gfspec
        CellBar => mesh_ptr%CellVolG
+     CASE('com6ten')
+       filnum = 4
+       CellBar => mesh_ptr%CellVolS
      END SELECT
-     
-     END ASSOCIATE
 
      SELECT CASE(patch_ptr%coordsys)
      CASE(0) ! Cartesian
@@ -640,11 +861,15 @@
        CALL bppfz(tmp,bar,filnum,zasym)
      CASE(1) ! Cylindrical
        xasym = -xasym ! mesh_ptr%CellVol is an odd function in radial direction.
+       !$FEXL {dim:3,var:['fun','tmp','mesh_ptr%CellVol']}
        tmp = fun*mesh_ptr%CellVol
+       !$END FEXL
        CALL bppfx(tmp,bar,filnum,xasym)
        CALL bppfy(bar,tmp,filnum,yasym)
        CALL bppfz(tmp,bar,filnum,zasym)
+       !$FEXL {dim:3,var:['bar','mesh_ptr%CellVol']}
        bar = bar/mesh_ptr%CellVol
+       !$END FEXL
      CASE(2,3) ! Spherical, Curvilinear
        tmp = fun*mesh_ptr%CellVol
        CALL bppfx(tmp,bar,filnum,xasym)
@@ -653,169 +878,10 @@
        bar = bar/CellBar
      END SELECT
 
+     !$omp target exit data map(delete:tmp)
    END SUBROUTINE filter
 
-! refine by a factor of 3 interpolating left shift(1) = -1/3 and right shift(2) = 1/3
-   SUBROUTINE interp_Rubik_compact(f,ff,component)
-    IMPLICIT NONE
-    DOUBLE PRECISION, DIMENSION(:,:,:), INTENT(IN)  :: f
-    DOUBLE PRECISION, DIMENSION(:,:,:), INTENT(OUT) :: ff
-    INTEGER, INTENT(IN), OPTIONAL :: component ! -1=no refinement, 0=scalar, 1=x, 2=y, 3=z
-    DOUBLE PRECISION, DIMENSION(:,:,:,:,:,:), allocatable :: f3
-    DOUBLE PRECISION, DIMENSION(SIZE(f,1),SIZE(f,2),SIZE(f,3)) :: tmp
-    DOUBLE PRECISION, parameter :: half=0.5D0, third=1.0D0/3.0D0
-    INTEGER :: asymx,asymy,asymz,ax,ay,az,bx,by,bz,cx,cy,cz,i,j,k,l,m,n,comp
-     ax = SIZE(f,1)  ; ay = SIZE(f,2)  ; az = SIZE(f,3)
-     bx = SIZE(ff,1) ; by = SIZE(ff,2) ; bz = SIZE(ff,3)
-     if( ax /= bx .and. bx /= 3*ax ) return
-     if( ay /= by .and. by /= 3*ay ) return
-     if( az /= bz .and. bz /= 3*az ) return
-     if( ax == bx .and. ay == by .and. az == bz ) then
-       ff = f ; return
-     endif
-     comp  = 0 ; if(present(component)) comp=component
-     if( comp < 0 ) then
-       ff = f ; return
-     endif
-     asymx = 1 ; if( comp == 1 ) asymx = -1
-     asymy = 1 ; if( comp == 2 ) asymy = -1
-     asymz = 1 ; if( comp == 3 ) asymz = -1
-     cx = (bx/ax-1)/2 ; cy = (by/ay-1)/2 ; cz = (bz/az-1)/2 ! 0 or 1
-     allocate( f3(ax,ay,az,-cx:cx,-cy:cy,-cz:cz) )
-     ! lines, 6 ops max
-     f3(:,:,:,0,0,0) = f
-     if( bx > ax ) then
-       call islx(f,f3(:,:,:,-1,0,0),asymx)
-       call isrx(f,f3(:,:,:,+1,0,0),asymx)
-       if( by==ay .and. bz==az ) then ! 1D
-         forall(i=1:ax,j=1:ay,k=1:az,l=-cx:cx) ff(3*i+l-1,j,k) = f3(i,j,k,l,0,0)
-         deallocate(f3)
-         return
-       endif
-     endif
-     if( by > ay ) then
-       call isly(f,f3(:,:,:,0,-1,0),asymy)
-       call isry(f,f3(:,:,:,0,+1,0),asymy)
-       if( bx==ax .and. bz==az ) then ! 1D
-         forall(i=1:ax,j=1:ay,k=1:az,m=-cy:cy) ff(i,3*j+m-1,k) = f3(i,j,k,0,m,0)
-         deallocate(f3)
-         return
-       endif
-     endif
-     if( bz > az ) then
-       call islz(f,f3(:,:,:,0,0,-1),asymz)
-       call isrz(f,f3(:,:,:,0,0,+1),asymz)
-       if( bx==ax .and. by==ay ) then ! 1D
-         forall(i=1:ax,j=1:ay,k=1:az,n=-cz:cz) ff(i,j,3*k+n-1) = f3(i,j,k,0,0,n)
-         deallocate(f3)
-         return
-       endif
-     endif
-     ! planes, 24 ops max
-     if( bx > ax .and. by > ay ) then ! xy + yx
-       call islx(f3(:,:,:,0,-1,0),f3(:,:,:,-1,-1,0),asymx)
-       call islx(f3(:,:,:,0,+1,0),f3(:,:,:,-1,+1,0),asymx)
-       call isrx(f3(:,:,:,0,-1,0),f3(:,:,:,+1,-1,0),asymx)
-       call isrx(f3(:,:,:,0,+1,0),f3(:,:,:,+1,+1,0),asymx)
-       call isly(f3(:,:,:,-1,0,0),tmp,asymy)
-       f3(:,:,:,-1,-1,0) = half*(f3(:,:,:,-1,-1,0)+tmp)
-       call isly(f3(:,:,:,+1,0,0),tmp,asymy)
-       f3(:,:,:,+1,-1,0) = half*(f3(:,:,:,+1,-1,0)+tmp)
-       call isry(f3(:,:,:,-1,0,0),tmp,asymy)
-       f3(:,:,:,-1,+1,0) = half*(f3(:,:,:,-1,+1,0)+tmp)
-       call isry(f3(:,:,:,+1,0,0),tmp,asymy)
-       f3(:,:,:,+1,+1,0) = half*(f3(:,:,:,+1,+1,0)+tmp)
-       if( bz == az ) then ! 2D
-         forall(i=1:ax,j=1:ay,k=1:az,l=-cx:cx,m=-cy:cy) ff(3*i+l-1,3*j+m-1,k) = f3(i,j,k,l,m,0)
-         deallocate(f3)
-         return
-       endif
-     endif
-     if( bx > ax .and. bz > az ) then ! xz + zx
-       call islx(f3(:,:,:,0,0,-1),f3(:,:,:,-1,0,-1),asymx)
-       call islx(f3(:,:,:,0,0,+1),f3(:,:,:,-1,0,+1),asymx)
-       call isrx(f3(:,:,:,0,0,-1),f3(:,:,:,+1,0,-1),asymx)
-       call isrx(f3(:,:,:,0,0,+1),f3(:,:,:,+1,0,+1),asymx)
-       call islz(f3(:,:,:,-1,0,0),tmp,asymz)
-       f3(:,:,:,-1,0,-1) = half*(f3(:,:,:,-1,0,-1)+tmp)
-       call islz(f3(:,:,:,+1,0,0),tmp,asymz)
-       f3(:,:,:,+1,0,-1) = half*(f3(:,:,:,+1,0,-1)+tmp)
-       call isrz(f3(:,:,:,-1,0,0),tmp,asymz)
-       f3(:,:,:,-1,0,+1) = half*(f3(:,:,:,-1,0,+1)+tmp)
-       call isrz(f3(:,:,:,+1,0,0),tmp,asymz)
-       f3(:,:,:,+1,0,+1) = half*(f3(:,:,:,+1,0,+1)+tmp)
-       if( by == ay ) then ! 2D
-         forall(i=1:ax,j=1:ay,k=1:az,l=-cx:cx,n=-cz:cz) ff(3*i+l-1,j,3*k+n-1) = f3(i,j,k,l,0,n)
-         deallocate(f3)
-         return
-       endif
-     endif
-     if( by > ay .and. bz > az ) then ! yz + zy
-       call isly(f3(:,:,:,0,0,-1),f3(:,:,:,0,-1,-1),asymy)
-       call isly(f3(:,:,:,0,0,+1),f3(:,:,:,0,-1,+1),asymy)
-       call isry(f3(:,:,:,0,0,-1),f3(:,:,:,0,+1,-1),asymy)
-       call isry(f3(:,:,:,0,0,+1),f3(:,:,:,0,+1,+1),asymy)
-       call islz(f3(:,:,:,0,-1,0),tmp,asymz)
-       f3(:,:,:,0,-1,-1) = half*(f3(:,:,:,0,-1,-1)+tmp)
-       call islz(f3(:,:,:,0,+1,0),tmp,asymz)
-       f3(:,:,:,0,+1,-1) = half*(f3(:,:,:,0,+1,-1)+tmp)
-       call isrz(f3(:,:,:,0,-1,0),tmp,asymz)
-       f3(:,:,:,0,-1,+1) = half*(f3(:,:,:,0,-1,+1)+tmp)
-       call isrz(f3(:,:,:,0,+1,0),tmp,asymz)
-       f3(:,:,:,0,+1,+1) = half*(f3(:,:,:,0,+1,+1)+tmp)
-       if( bx == ax ) then ! 2D
-         forall(i=1:ax,j=1:ay,k=1:az,m=-cy:cy,n=-cz:cz) ff(i,3*j+m-1,3*k+n-1) = f3(i,j,k,0,m,n)
-         deallocate(f3)
-         return
-       endif
-     endif
-     ! 3D corners, 24 ops max
-     call islx(f3(:,:,:,0,-1,-1),f3(:,:,:,-1,-1,-1),asymx)
-     call islx(f3(:,:,:,0,+1,-1),f3(:,:,:,-1,+1,-1),asymx)
-     call islx(f3(:,:,:,0,-1,+1),f3(:,:,:,-1,-1,+1),asymx)
-     call islx(f3(:,:,:,0,+1,+1),f3(:,:,:,-1,+1,+1),asymx)
-     call isrx(f3(:,:,:,0,-1,-1),f3(:,:,:,+1,-1,-1),asymx)
-     call isrx(f3(:,:,:,0,+1,-1),f3(:,:,:,+1,+1,-1),asymx)
-     call isrx(f3(:,:,:,0,-1,+1),f3(:,:,:,+1,-1,+1),asymx)
-     call isrx(f3(:,:,:,0,+1,+1),f3(:,:,:,+1,+1,+1),asymx)
-     call isly(f3(:,:,:,-1,0,-1),tmp,asymy)
-     f3(:,:,:,-1,-1,-1) = f3(:,:,:,-1,-1,-1)+tmp
-     call isly(f3(:,:,:,+1,0,-1),tmp,asymy)
-     f3(:,:,:,+1,-1,-1) = f3(:,:,:,+1,-1,-1)+tmp
-     call isly(f3(:,:,:,-1,0,+1),tmp,asymy)
-     f3(:,:,:,-1,-1,+1) = f3(:,:,:,-1,-1,+1)+tmp
-     call isly(f3(:,:,:,+1,0,+1),tmp,asymy)
-     f3(:,:,:,+1,-1,+1) = f3(:,:,:,+1,-1,+1)+tmp
-     call isry(f3(:,:,:,-1,0,-1),tmp,asymy)
-     f3(:,:,:,-1,+1,-1) = f3(:,:,:,-1,+1,-1)+tmp
-     call isry(f3(:,:,:,+1,0,-1),tmp,asymy)
-     f3(:,:,:,+1,+1,-1) = f3(:,:,:,+1,+1,-1)+tmp
-     call isry(f3(:,:,:,-1,0,+1),tmp,asymy)
-     f3(:,:,:,-1,+1,+1) = f3(:,:,:,-1,+1,+1)+tmp
-     call isry(f3(:,:,:,+1,0,+1),tmp,asymy)
-     f3(:,:,:,+1,+1,+1) = f3(:,:,:,+1,+1,+1)+tmp
-     call islz(f3(:,:,:,-1,-1,0),tmp,asymz)
-     f3(:,:,:,-1,-1,-1) = third*(f3(:,:,:,-1,-1,-1)+tmp)
-     call islz(f3(:,:,:,+1,-1,0),tmp,asymz)
-     f3(:,:,:,+1,-1,-1) = third*(f3(:,:,:,+1,-1,-1)+tmp)
-     call islz(f3(:,:,:,-1,+1,0),tmp,asymz)
-     f3(:,:,:,-1,+1,-1) = third*(f3(:,:,:,-1,+1,-1)+tmp)
-     call islz(f3(:,:,:,+1,+1,0),tmp,asymz)
-     f3(:,:,:,+1,+1,-1) = third*(f3(:,:,:,+1,+1,-1)+tmp)
-     call isrz(f3(:,:,:,-1,-1,0),tmp,asymz)
-     f3(:,:,:,-1,-1,+1) = third*(f3(:,:,:,-1,-1,+1)+tmp)
-     call isrz(f3(:,:,:,+1,-1,0),tmp,asymz)
-     f3(:,:,:,+1,-1,+1) = third*(f3(:,:,:,+1,-1,+1)+tmp)
-     call isrz(f3(:,:,:,-1,+1,0),tmp,asymz)
-     f3(:,:,:,-1,+1,+1) = third*(f3(:,:,:,-1,+1,+1)+tmp)
-     call isrz(f3(:,:,:,+1,+1,0),tmp,asymz)
-     f3(:,:,:,+1,+1,+1) = third*(f3(:,:,:,+1,+1,+1)+tmp)
-     forall(i=1:ax,j=1:ay,k=1:az,l=-cx:cx,m=-cy:cy,n=-cz:cz) ff(3*i+l-1,3*j+m-1,3*k+n-1) = f3(i,j,k,l,m,n)
-     deallocate(f3)
-   END SUBROUTINE interp_Rubik_compact
-
-
-   SUBROUTINE filtRands(Nspan,Ni,No,Nbuff, &
+  SUBROUTINE filtRands(Nspan,Ni,No,Nbuff, &
         bmnI,bmnO,rands,vfilt, &
         ny, nz, ay, az, iy1, iz1,y_r )        
      !USE inputs, ONLY: ny,nz
@@ -898,10 +964,7 @@
      
    END SUBROUTINE get_rands_normal
 
-
-
-
-
+   
 !===================================================================================================
  END MODULE LES_operators
 !=================================================================================================== 

@@ -25,6 +25,7 @@ PROGRAM miniApp
   INTEGER :: nargs,ii,iterations
   INTEGER :: rank,ierror
   DOUBLE PRECISION :: dt = 0.0
+  !$DEF-FEXL
   
   ! MPI
   CALL MPI_INIT(mpierr)
@@ -159,76 +160,106 @@ PROGRAM miniApp
 
   CALL EOS(ie,rho,p,t)
   
- 
+  ! From(device to host) To(host to device)
+  !$omp target data map(to:rho,u,v,w,et,p,rad,T,ie,Fx,Fy,Fz,tx,ty,tz,tmp,bar) &
+  !$omp             map(to:Fxx,Fyx,Fzx,Fxy,Fyy,Fzy,Fxz,Fyz,Fzz) &
+  !$omp             map(to:mesh_ptr%GridLen,RHS)
 
   ! Time the derivatives
   CALL SYSTEM_CLOCK( t1, clock_rate, clock_max)
   DO i=1,iterations
 
+     !$FEXL {dim:3,var:['ie','et','rho','u','v','w']}
      ie = et - .5 * rho * (u*u + v*v + w*w )
+     !$END FEXL
+     
      CALL EOS(ie,rho,p,t)
-     !CALL EOS_nx(ie,rho,p,t,ax,ay,az)
      
      ! Mass equation
+
+     !$FEXL {dim:3,var:['Fx','Fy','Fz','rho','u','v','w']}
      Fx = rho * u
      Fy = rho * v
      Fz = rho * w
-     CALL div(Fx,Fy,Fz,RHS(:,:,:,1))
+     !$END FEXL     
+     CALL div(Fx,Fy,Fz,RHS(:,:,:,1),patch_ptr%ax,patch_ptr%ay,patch_ptr%az)
 
      ! Momentum equation (x)
+     !$FEXL {dim:3,var:['Fxx','Fyx','Fzx','Fxy','Fyy','Fzy','Fxz','Fyz','Fzz','rho','u','v','w','p']}
      Fxx = rho * u * u + p
      Fyx = rho * u * v
      Fzx = rho * u * w 
-     !CALL div(Fx,Fy,Fz,RHS(:,:,:,2))
      
      ! Momentum equation (y)
      Fxy = rho * v * u 
      Fyy = rho * v * v + p
      Fzy = rho * v * w 
-     !CALL div(Fx,Fy,Fz,RHS(:,:,:,3))
      
      ! Momentum equation (z)
      Fxz = rho * w * u 
      Fyz = rho * w * v
      Fzz = rho * w * w + p
-     !CALL div(Fx,Fy,Fz,RHS(:,:,:,4))
+     !$END FEXL
+     
      CALL div(Fxx,Fxy,Fxz,Fyx,Fyy,Fyz,Fzx,Fzy,Fzz, &
           RHS(:,:,:,2),RHS(:,:,:,3),RHS(:,:,:,4) )
 
      ! Energy equation
+     !$FEXL {dim:3,var:['et','ie','rho','u','v','w']}
      et = ie + .5 * rho * (u*u + v*v + w*w )
+     !$END FEXL
      CALL grad(T,tx,ty,tz)
-     
+
+     !$FEXL {dim:3,var:['Fx','Fy','Fz','et','u','v','w','tx','ty','tz']}
      Fx = et * u - tx
      Fy = et * v - ty
      Fz = et * w - tz
-     CALL div(Fx,Fy,Fz,RHS(:,:,:,5))
+     !$END FEXL
+     CALL div(Fx,Fy,Fz,RHS(:,:,:,5),patch_ptr%ax,patch_ptr%ay,patch_ptr%az)
 
      ! Integrate the equaions
+     !$FEXL {dim:3,var:['rho','RHS','u','v','w','et','Fx','Fy','Fz']}
+     Fx = rho*u
+     Fy = rho*v
+     Fz = rho*w
      rho = rho - dt * RHS(:,:,:,1)
      et = et - dt * RHS(:,:,:,5)
-
+     u = (Fx - dt*RHS(:,:,:,2)) / rho
+     v = (Fy - dt*RHS(:,:,:,3)) / rho
+     w = (Fz - dt*RHS(:,:,:,4)) / rho     
+     !$END FEXL
      
      ! Filter the equations
+     !$FEXL {dim:3,var:['tmp','rho']}
      tmp = rho
+     !$END FEXL
      CALL filter('spectral',tmp,rho)
+     !$FEXL {dim:3,var:['tmp','rho','u']}
      tmp = rho*u
+     !$END FEXL
      CALL filter('spectral',tmp,bar)
-     u = bar / rho
-     
+     !$FEXL {dim:3,var:['u','bar','v','tmp','rho']}
+     u = bar / rho    
      tmp = rho*v
+     !$END FEXL
      CALL filter('spectral',tmp,bar)
-     v = bar / rho
-     
+     !$FEXL {dim:3,var:['w','bar','v','tmp','rho']}
+     v = bar / rho     
      tmp = rho*w
+     !$END FEXL
      CALL filter('spectral',tmp,bar)
-     w = bar / rho
-     
+     !$FEXL {dim:3,var:['w','bar','et','tmp','rho']}
+     w = bar / rho     
      tmp = et
+     !$END FEXL
      CALL filter('spectral',tmp,et)
 
      
   END DO
+
+  !$omp end target data
+
+  
   CALL SYSTEM_CLOCK( t2, clock_rate, clock_max)
 
 
@@ -257,11 +288,12 @@ SUBROUTINE EOS(ie,rho,p,T)
   DOUBLE PRECISION, DIMENSION(:,:,:), INTENT(IN) :: ie,rho
   DOUBLE PRECISION, DIMENSION(:,:,:), INTENT(OUT) :: p,t
   DOUBLE PRECISION :: gamma = 1.4
-
+  !$DEF-FEXL
   
+  !$FEXL {dim:3,var:['p','ie','rho','t']}
   p = ie / rho * (gamma - 1.0 )
   t = ie * (gamma )
-  
+  !$END FEXL
   
 END SUBROUTINE EOS
 

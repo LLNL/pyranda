@@ -1,16 +1,7 @@
 !===================================================================================================
-! Copyright (c) 2018, Lawrence Livemore National Security, LLC.
-! Produced at the Lawrence Livermore National Laboratory.
-!
-! LLNL-CODE-749864
-! This file is part of pyranda
-! For details about use and distribution, please read: pyranda/LICENSE
-!
-! Written by: Britton J. Olson, olson45@llnl.gov
-!===================================================================================================
-!===================================================================================================
  MODULE LES_pentadiagonal ! pentadiagonal matrix solvers
   USE iso_c_binding
+  !use LES_input, only : gpu_kernel
 
   interface btrid_block4_lus
     module procedure btrid_block4_lus_al
@@ -20,6 +11,8 @@
     module procedure ptrid_block4_lus_al
   end interface
 
+  integer :: gpu_kernel = 1
+  
   contains
 
   subroutine bpentLUD1(c,n)
@@ -193,32 +186,41 @@
     integer(c_int), intent(in) :: n, n1, n2
     real(kind=c_double), dimension(4,4,3,n), intent(in) :: a
     real(kind=c_double), dimension(4,n1,n2,n), intent(inout) :: r
-    real(kind=c_double), dimension(4,n1) :: tmp
+    real(kind=c_double), dimension(4) :: tmp
     integer(c_int) :: i,j,k
-    do k=2,n
-     do j=1,n2
-      do i=1,n1
+    
+    !$omp target teams if(gpu_kernel==1)
+    !$omp distribute parallel do collapse(2)
+    do j=1,n2
+     do i=1,n1
+      do k=2,n
         r(:,i,j,k) = r(:,i,j,k) - a(:,1,1,k)*r(1,i,j,k-1) - a(:,2,1,k)*r(2,i,j,k-1) &
                                 - a(:,3,1,k)*r(3,i,j,k-1) - a(:,4,1,k)*r(4,i,j,k-1)
       end do
      end do
     end do
+    !$omp end distribute parallel do
+    !$omp distribute parallel do collapse(2) private(tmp)
     do j=1,n2
      do i=1,n1
-	  tmp(:,i) = r(:,i,j,n)
-      r(:,i,j,n) = a(:,1,2,n)*tmp(1,i) + a(:,2,2,n)*tmp(2,i) &
-                 + a(:,3,2,n)*tmp(3,i) + a(:,4,2,n)*tmp(4,i)
+	  	 tmp(:) = r(:,i,j,n)
+       r(:,i,j,n) = a(:,1,2,n)*tmp(1) + a(:,2,2,n)*tmp(2) &
+       	          + a(:,3,2,n)*tmp(3) + a(:,4,2,n)*tmp(4)
      end do
     end do
-    do k=n-1,1,-1
+    !$omp end distribute parallel do
+    !$omp distribute parallel do collapse(2) private(tmp)
      do j=1,n2
       do i=1,n1
-	   tmp(:,i) = r(:,i,j,k) - a(:,1,3,k)*r(1,i,j,k+1) - a(:,2,3,k)*r(2,i,j,k+1)
-       r(:,i,j,k) = a(:,1,2,k)*tmp(1,i) + a(:,2,2,k)*tmp(2,i) &
-                  + a(:,3,2,k)*tmp(3,i) + a(:,4,2,k)*tmp(4,i)
+      do k=n-1,1,-1
+	   		tmp(:) = r(:,i,j,k) - a(:,1,3,k)*r(1,i,j,k+1) - a(:,2,3,k)*r(2,i,j,k+1)
+       	r(:,i,j,k) = a(:,1,2,k)*tmp(1) + a(:,2,2,k)*tmp(2) &
+                   + a(:,3,2,k)*tmp(3) + a(:,4,2,k)*tmp(4)
       end do
      end do
     end do
+    !$omp end distribute parallel do
+    !$omp end target teams
   end subroutine btrid_block4_lus_al
 
 ! note: a(:,3:4,3,:) = 0
@@ -393,54 +395,64 @@
     integer(c_int), intent(in) :: n, n1, n2
     real(kind=c_double), dimension(4,4,4,n), intent(in) :: a
     real(kind=c_double), dimension(4,n1,n2,n), intent(inout) :: r
-    real(kind=c_double), dimension(4,n1) :: tmp
+    real(kind=c_double), dimension(4) :: tmp
     integer(c_int) :: i,j,k
+    !$omp target teams if(gpu_kernel==1)
     if (n > 2) then
+    !$omp distribute parallel do collapse(2)
     do j=1,n2
      do i=1,n1
        r(:,i,j,n) = r(:,i,j,n) - a(:,1,4,1)*r(1,i,j,1) - a(:,2,4,1)*r(2,i,j,1)
      end do
     end do
+    !$omp end distribute parallel do
     endif
-    do k=2,n-2
-     do j=1,n2
-      do i=1,n1
+    !$omp distribute parallel do collapse(2)
+    do j=1,n2
+     do i=1,n1
+      do k=2,n-2
         r(:,i,j,k) = r(:,i,j,k) - a(:,1,1,k)*r(1,i,j,k-1) - a(:,2,1,k)*r(2,i,j,k-1) &
                                 - a(:,3,1,k)*r(3,i,j,k-1) - a(:,4,1,k)*r(4,i,j,k-1)
         r(:,i,j,n) = r(:,i,j,n) - a(:,1,4,k)*r(1,i,j,k)   - a(:,2,4,k)*r(2,i,j,k)
       end do
      end do
     end do
+    !$omp end distribute parallel do
     if (n > 2) then
+    !$omp distribute parallel do collapse(2)
     do j=1,n2
      do i=1,n1
        r(:,i,j,n-1) = r(:,i,j,n-1) - a(:,1,1,n-1)*r(1,i,j,n-2) - a(:,2,1,n-1)*r(2,i,j,n-2) &
                                    - a(:,3,1,n-1)*r(3,i,j,n-2) - a(:,4,1,n-1)*r(4,i,j,n-2)
      end do
     end do
+    !$omp end distribute parallel do
     end if
+    !$omp distribute parallel do collapse(2) private(tmp)
     do j=1,n2
      do i=1,n1
-       tmp(:,i)     = r(:,i,j,n) - a(:,1,1,n)*r(1,i,j,n-1) - a(:,2,1,n)*r(2,i,j,n-1) &
+       tmp(:)     = r(:,i,j,n) - a(:,1,1,n)*r(1,i,j,n-1) - a(:,2,1,n)*r(2,i,j,n-1) &
                                  - a(:,3,1,n)*r(3,i,j,n-1) - a(:,4,1,n)*r(4,i,j,n-1)
-       r(:,i,j,n) = a(:,1,2,n)*tmp(1,i) + a(:,2,2,n)*tmp(2,i) &
-                  + a(:,3,2,n)*tmp(3,i) + a(:,4,2,n)*tmp(4,i)
+       r(:,i,j,n) = a(:,1,2,n)*tmp(1) + a(:,2,2,n)*tmp(2) &
+                  + a(:,3,2,n)*tmp(3) + a(:,4,2,n)*tmp(4)
      end do
     end do
-    do k=n-1,1,-1
-     do j=1,n2
-      do i=1,n1
-	    tmp(:,i) = r(:,i,j,k) - a(:,1,3,k)*r(1,i,j,k+1) - a(:,2,3,k)*r(2,i,j,k+1) &
+    !$omp end distribute parallel do
+    !$omp distribute parallel do collapse(2) private(tmp)
+    do j=1,n2
+     do i=1,n1
+      do k=n-1,1,-1
+	      tmp(:) = r(:,i,j,k) - a(:,1,3,k)*r(1,i,j,k+1) - a(:,2,3,k)*r(2,i,j,k+1) &
                               - a(:,3,4,k)*r(3,i,j,n)   - a(:,4,4,k)*r(4,i,j,n)
-        r(:,i,j,k) = a(:,1,2,k)*tmp(1,i) + a(:,2,2,k)*tmp(2,i) &
-                   + a(:,3,2,k)*tmp(3,i) + a(:,4,2,k)*tmp(4,i)
+        r(:,i,j,k) = a(:,1,2,k)*tmp(1) + a(:,2,2,k)*tmp(2) &
+                   + a(:,3,2,k)*tmp(3) + a(:,4,2,k)*tmp(4)
       end do
      end do
     end do
+    !$omp end distribute parallel do
+    !$omp end target teams
   end subroutine ptrid_block4_lus_al
 
-! note: a(:,3:4,3,:) = 0, a(:,3:4,5,:) = 0, and a(:,1:2,4,:) = 0
-! a(:,1:2,5,:) packed in a(:,1:2,4,:)
   subroutine ptrid_block4_lus_as( a, r, n, n1, n2 )
     implicit none
     integer(c_int), intent(in) :: n, n1, n2
@@ -448,24 +460,29 @@
     real(kind=c_double), dimension(4,n1,n2,n), intent(inout) :: r
     real(kind=c_double), dimension(4) :: tmp
     integer(c_int) :: i,j,k,l
-    do k=2,n
-      do j=1,n2
-      do i=1,n1
-      do l=1,4
+    !$omp target teams distribute parallel do collapse(2) if(gpu_kernel==1)
+    do j=1,n2
+     do i=1,n1
+      do k=2,n
+       do l=1,4
         r(l,i,j,k) = r(l,i,j,k) - sum(a(l,:,1,k)*r(:,i,j,k-1))
-      end do
-      end do
-      end do
-    end do
-    do k=1,n-2
-      do j=1,n2
-      do i=1,n1
-      do l=1,4
+       end do ! l
+      end do ! k
+     end do ! i
+    end do ! j
+    !$omp end target teams distribute parallel do
+    !$omp target teams distribute parallel do collapse(2) if(gpu_kernel==1)
+    do j=1,n2
+     do i=1,n1
+      do k=1,n-2
+       do l=1,4
         r(l,i,j,n) = r(l,i,j,n) - a(l,1,4,k)*r(1,i,j,k) - a(l,2,4,k)*r(2,i,j,k)
+       end do
       end do
-      end do
-      end do
+     end do
     end do
+    !$omp end target teams distribute parallel do
+    !$omp target teams distribute parallel do collapse(2) private(tmp) if(gpu_kernel==1)
     do j=1,n2
     do i=1,n1
       do l=1,4
@@ -474,17 +491,20 @@
       r(:,i,j,n) = tmp
     end do
     end do
-    do k=n-1,1,-1
-      do j=1,n2
-      do i=1,n1
-      do l=1,4
+    !$omp end target teams distribute parallel do
+    !$omp target teams distribute parallel do collapse(2) if(gpu_kernel==1)
+    do j=1,n2
+     do i=1,n1
+      do k=n-1,1,-1
+       do l=1,4
         tmp(l) = sum(a(l,:,2,k)*( r(:,i,j,k) - a(:,1,3,k)*r(1,i,j,k+1) - a(:,2,3,k)*r(2,i,j,k+1) &
           - a(:,3,4,k)*r(3,i,j,n) - a(:,4,4,k)*r(4,i,j,n) ) )
+       end do
+        r(:,i,j,k) = tmp
       end do
-      r(:,i,j,k) = tmp
-      end do
-      end do
+     end do
     end do
+    !$omp end target teams distribute parallel do
   end subroutine ptrid_block4_lus_as
 
 ! note: a(:,3:4,3,:) = 0, a(:,3:4,5,:) = 0, and a(:,1:2,4,:) = 0
@@ -613,8 +633,9 @@
     real(kind=c_double), dimension(n1,n2,n3), intent(inout) :: r
     integer(c_int) :: i,j,k
     if( n > n1 ) return
+    !$omp target teams distribute parallel do collapse(2) if(gpu_kernel==1)
     do k=1,n3
-    do j=1,n2
+     do j=1,n2
       do i=1,n-2
         r(i+1,j,k) = r(i+1,j,k) - r(i,j,k)*c(i+1,2)
         r(i+2,j,k) = r(i+2,j,k) - r(i,j,k)*c(i+2,1)
@@ -624,8 +645,9 @@
       do i=n-2,1,-1
         r(i,j,k) = (r(i,j,k) - c(i,4)*r(i+1,j,k) - c(i,5)*r(i+2,j,k))*c(i,3)
       end do
+     end do
     end do
-    end do
+    !$omp end target teams distribute parallel do
   end subroutine bpentLUS3x
 
 
@@ -637,8 +659,9 @@
     real(kind=c_double) :: tmp1,tmp2
     integer(c_int) :: i,j,k
     if( n > n1 ) return
+    !$omp target teams distribute parallel do collapse(2) private(tmp1,tmp2) if(gpu_kernel==1)
     do k=1,n3
-    do j=1,n2
+     do j=1,n2
       r(2,j,k)=r(2,j,k)-c(2,2)*r(1,j,k)
       tmp1 = c(1,6)*r(1,j,k)+c(2,6)*r(2,j,k)
       tmp2 = c(1,7)*r(1,j,k)+c(2,7)*r(2,j,k)
@@ -655,8 +678,9 @@
       DO i=N-4,1,-1
         r(i,j,k)=(r(i,j,k)-(c(i,4)*r(i+1,j,k)+c(i,5)*r(i+2,j,k)+c(i,8)*r(n-1,j,k)+c(i,9)*r(n,j,k)))*c(i,3)
       END DO
+     end do
     end do
-    end do
+    !$omp end target teams distribute parallel do
   END SUBROUTINE ppentLUS3x
 
 
@@ -667,23 +691,21 @@
     real(kind=c_double), dimension(n1,n2,n3), intent(inout) :: r
     integer(c_int) :: i,j,k
     if( n > n2 ) return
+    !$omp target teams distribute parallel do collapse(2) if(gpu_kernel==1)
     do k=1,n3
-      do j=1,n-2
-        do i=1,n1
+    	do i=1,n1
+       	do j=1,n-2
           r(i,j+1,k) = r(i,j+1,k) - r(i,j,k)*c(j+1,2)
           r(i,j+2,k) = r(i,j+2,k) - r(i,j,k)*c(j+2,1)
-        end do
-      end do
-      do i=1,n1
+        end do ! end j
         r(i,n,k) = (r(i,n,k) - r(i,n-1,k)*c(n,2))*c(n,3)
         r(i,n-1,k) = (r(i,n-1,k) - c(n-1,4)*r(i,n,k))*c(n-1,3)
-      end do
-      do j=n-2,1,-1 
-       do i=1,n1
-          r(i,j,k) = (r(i,j,k) - c(j,4)*r(i,j+1,k) - c(j,5)*r(i,j+2,k))*c(j,3)
-        end do
-      end do
-    end do
+      	do j=n-2,1,-1 
+        	r(i,j,k) = (r(i,j,k) - c(j,4)*r(i,j+1,k) - c(j,5)*r(i,j+2,k))*c(j,3)
+        end do ! end j
+      end do ! end i
+    end do ! end k
+    !$omp end target teams distribute parallel do
   end subroutine bpentLUS3y
 
 
@@ -717,35 +739,31 @@
     integer(c_int), intent(in) :: n, n1, n2, n3
     real(kind=c_double), DIMENSION(n,9), INTENT(IN) :: c
     real(kind=c_double), DIMENSION(n1,n2,n3), INTENT(INOUT) :: r
-    real(kind=c_double), DIMENSION(n1) :: tmp1,tmp2
+    real(kind=c_double) :: tmp1,tmp2
     integer(c_int) :: i,j,k
     if( n > n2 ) return
+    !$omp target teams distribute parallel do collapse(2) private(tmp1,tmp2) if(gpu_kernel==1)
     do k=1,n3
       do i=1,n1
         r(i,2,k) = r(i,2,k)-c(2,2)*r(i,1,k)
-        tmp1(i) = c(1,6)*r(i,1,k)+c(2,6)*r(i,2,k)
-        tmp2(i) = c(1,7)*r(i,1,k)+c(2,7)*r(i,2,k)
-      end do
+        tmp1 = c(1,6)*r(i,1,k)+c(2,6)*r(i,2,k)
+        tmp2 = c(1,7)*r(i,1,k)+c(2,7)*r(i,2,k)
       DO j=3,N-2
-        do i=1,n1
           r(i,j,k) = r(i,j,k)-(c(j,2)*r(i,j-1,k)+c(j,1)*r(i,j-2,k))
-          tmp1(i) = tmp1(i)+c(j,6)*r(i,j,k)
-          tmp2(i) = tmp2(i)+c(j,7)*r(i,j,k)
-        end do
+          tmp1 = tmp1+c(j,6)*r(i,j,k)
+          tmp2 = tmp2+c(j,7)*r(i,j,k)
       END DO
-      do i=1,n1
-        r(i,N-1,k)=r(i,N-1,k)-tmp1(i)
-        r(i,N,k)  =(r(i,N,k)-tmp2(i)-c(N-1,7)*r(i,N-1,k))*c(N,3)
+        r(i,N-1,k)=r(i,N-1,k)-tmp1
+        r(i,N,k)  =(r(i,N,k)-tmp2-c(N-1,7)*r(i,N-1,k))*c(N,3)
         r(i,N-1,k)=(r(i,N-1,k)-c(N-1,9)*r(i,N,k))*c(N-1,3)
         r(i,N-2,k)=(r(i,N-2,k)-c(N-2,8)*r(i,N-1,k)-c(N-2,9)*r(i,N,k))*c(N-2,3)
         r(i,N-3,k)=(r(i,N-3,k)-(c(N-3,4)*r(i,N-2,k)+c(N-3,8)*r(i,N-1,k)+c(N-3,9)*r(i,N,k)))*c(N-3,3)
-      end do
       DO j=N-4,1,-1
-        do i=1,n1
           r(i,j,k)=(r(i,j,k)-(c(j,4)*r(i,j+1,k)+c(j,5)*r(i,j+2,k)+c(j,8)*r(i,n-1,k)+c(j,9)*r(i,n,k)))*c(j,3)
         end do
       END DO
     end do
+    !$omp end target teams distribute parallel do
   END SUBROUTINE ppentLUS3y
 
 
@@ -756,15 +774,21 @@
     real(kind=c_double), dimension(n1,n2,n3), intent(inout) :: r
     integer(c_int) :: i,j,k
     if( n > n3 ) return
-    do k=1,n-2
-      r(:,:,k+1) = r(:,:,k+1) - r(:,:,k)*c(k+1,2)
-      r(:,:,k+2) = r(:,:,k+2) - r(:,:,k)*c(k+2,1)
-    end do
-    r(:,:,n) = (r(:,:,n) - r(:,:,n-1)*c(n,2))*c(n,3)
-    r(:,:,n-1) = (r(:,:,n-1) - c(n-1,4)*r(:,:,n))*c(n-1,3)
-    do k=n-2,1,-1
-      r(:,:,k) = (r(:,:,k) - c(k,4)*r(:,:,k+1) - c(k,5)*r(:,:,k+2))*c(k,3)
-    end do
+    !$omp target teams distribute parallel do collapse(2) if(gpu_kernel==1)
+    do j=1,n2
+     do i=1,n1
+    	do k=1,n-2
+       r(i,j,k+1) = r(i,j,k+1) - r(i,j,k)*c(k+1,2)
+       r(i,j,k+2) = r(i,j,k+2) - r(i,j,k)*c(k+2,1)
+    	end do ! k
+		  r(i,j,n) = (r(i,j,n) - r(i,j,n-1)*c(n,2))*c(n,3)
+		  r(i,j,n-1) = (r(i,j,n-1) - c(n-1,4)*r(i,j,n))*c(n-1,3)
+		  do k=n-2,1,-1
+		    r(i,j,k) = (r(i,j,k) - c(k,4)*r(i,j,k+1) - c(k,5)*r(i,j,k+2))*c(k,3)
+		  end do
+     end do ! i
+    end do ! j
+    !$omp end target teams distribute parallel do
   end subroutine bpentLUS3z
 
 
@@ -773,25 +797,31 @@
       integer(c_int), intent(in) :: n, n1, n2, n3
       real(kind=c_double), DIMENSION(n,9), INTENT(IN) :: c
       real(kind=c_double), DIMENSION(n1,n2,n3), INTENT(INOUT) :: r
-      real(kind=c_double), DIMENSION(n1,n2) :: tmp1,tmp2
+      real(kind=c_double) :: tmp1,tmp2
       integer(c_int) :: i,j,k
       if( n > n3 ) return
-      r(:,:,2)=r(:,:,2)-c(2,2)*r(:,:,1)
-      tmp1 = c(1,6)*r(:,:,1)+c(2,6)*r(:,:,2)
-      tmp2 = c(1,7)*r(:,:,1)+c(2,7)*r(:,:,2)
-      DO k=3,N-2
-        r(:,:,k)=r(:,:,k)-(c(k,2)*r(:,:,k-1)+c(k,1)*r(:,:,k-2))
-        tmp1 = tmp1+c(k,6)*r(:,:,k) 
-        tmp2 = tmp2+c(k,7)*r(:,:,k) 
-      END DO
-      r(:,:,N-1)=r(:,:,N-1)-tmp1
-      r(:,:,N)=(r(:,:,N)-tmp2-c(N-1,7)*r(:,:,N-1))*c(N,3)
-      r(:,:,N-1)=(r(:,:,N-1)-c(N-1,9)*r(:,:,N))*c(N-1,3)
-      r(:,:,N-2)=(r(:,:,N-2)-c(N-2,8)*r(:,:,N-1)-c(N-2,9)*r(:,:,N))*c(N-2,3)
-      r(:,:,N-3)=(r(:,:,N-3)-(c(N-3,4)*r(:,:,N-2)+c(N-3,8)*r(:,:,N-1)+c(N-3,9)*r(:,:,N)))*c(N-3,3)
-      DO k=N-4,1,-1
-        r(:,:,k)=(r(:,:,k)-(c(k,4)*r(:,:,k+1)+c(k,5)*r(:,:,k+2)+c(k,8)*r(:,:,n-1)+c(k,9)*r(:,:,n)))*c(k,3)
-      END DO
+      !$omp target teams distribute parallel do collapse(2) private(tmp1,tmp2) if(gpu_kernel==1)
+      do j=1,n2
+       do i=1,n1
+        r(i,j,2)=r(i,j,2)-c(2,2)*r(i,j,1)
+        tmp1 = c(1,6)*r(i,j,1)+c(2,6)*r(i,j,2)
+        tmp2 = c(1,7)*r(i,j,1)+c(2,7)*r(i,j,2)
+        DO k=3,N-2
+         r(i,j,k)=r(i,j,k)-(c(k,2)*r(i,j,k-1)+c(k,1)*r(i,j,k-2))
+         tmp1 = tmp1+c(k,6)*r(i,j,k) 
+         tmp2 = tmp2+c(k,7)*r(i,j,k) 
+        END DO
+        r(i,j,N-1)=r(i,j,N-1)-tmp1
+        r(i,j,N)=(r(i,j,N)-tmp2-c(N-1,7)*r(i,j,N-1))*c(N,3)
+        r(i,j,N-1)=(r(i,j,N-1)-c(N-1,9)*r(i,j,N))*c(N-1,3)
+        r(i,j,N-2)=(r(i,j,N-2)-c(N-2,8)*r(i,j,N-1)-c(N-2,9)*r(i,j,N))*c(N-2,3)
+        r(i,j,N-3)=(r(i,j,N-3)-(c(N-3,4)*r(i,j,N-2)+c(N-3,8)*r(i,j,N-1)+c(N-3,9)*r(i,j,N)))*c(N-3,3)
+        DO k=N-4,1,-1
+         r(i,j,k)=(r(i,j,k)-(c(k,4)*r(i,j,k+1)+c(k,5)*r(i,j,k+2)+c(k,8)*r(i,j,n-1)+c(k,9)*r(i,j,n)))*c(k,3)
+        END DO ! k
+       end do ! i
+      end do ! j
+      !$omp end target teams distribute parallel do
   END SUBROUTINE ppentLUS3z
 
   SUBROUTINE ppentLUS(opindex,use_ppent_opt,clu,FRHS)
@@ -972,7 +1002,7 @@
 ! do not hold.
 ! ===================================================================
  subroutine ppentlus_f77(n1,n2,n3,clu,frhs)
-  !USE LES_nrutil
+  USE LES_nrutil
   IMPLICIT NONE
   INTEGER   n1,n2,n3
   DOUBLE PRECISION clu(n2,9)

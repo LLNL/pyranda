@@ -106,7 +106,9 @@
       patch_data%periodicz = .TRUE.
      CASE DEFAULT
       patch_data%periodicz = .FALSE.
-     END SELECT 
+   END SELECT
+
+   
    END SUBROUTINE setup_patch
 
    SUBROUTINE remove_patch(patch_data)

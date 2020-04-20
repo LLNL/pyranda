@@ -205,7 +205,7 @@ MODULE parcop
       real(kind=8), dimension(nx,ny,nz),intent(in)  :: fx,fy,fz 
       real(kind=8), dimension(nx,ny,nz),intent(out) :: val
 
-      CALL div(fx,fy,fz,val)
+      CALL div(fx,fy,fz,val,nx,ny,nz)
       
       
     END SUBROUTINE divergence
@@ -282,7 +282,8 @@ MODULE parcop
       real(kind=8), dimension(nx,ny,nz), intent(in) :: val
       real(kind=8), dimension(nx,ny,nz),intent(out) :: dval
       
-      dval = ring( val )
+      !dval = ring( val )
+      CALL ring(val,dval, 2)
 
     END SUBROUTINE pRing
 
@@ -292,7 +293,8 @@ MODULE parcop
       real(kind=8), dimension(nx,ny,nz), intent(in) :: vx,vy,vz
       real(kind=8), dimension(nx,ny,nz),intent(out) :: dval
       
-      dval = ringV( vx, vy, vz )
+      !dval = ringV( vx, vy, vz )
+      CALL ringV( vx, vy, vz , dval, 1)
 
     END SUBROUTINE pRingV
  
