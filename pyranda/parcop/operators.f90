@@ -10,7 +10,10 @@
 
   !USE LES_FFTs, ONLY : sfilterx,sfiltery,sfilterz
   !USE mapp_exosim_annotation, ONLY : exosim_annotation_begin,exosim_annotation_end
- 
+#ifdef fexlpool
+  USE LES_ompsync
+#endif
+  
   INTERFACE div
    MODULE PROCEDURE divV, divT
   END INTERFACE
@@ -41,55 +44,134 @@
     DOUBLE PRECISION, DIMENSION(ax,ay,az), INTENT(IN) :: fx,fy,fz
     DOUBLE PRECISION, DIMENSION(ax,ay,az), INTENT(OUT) :: df
     DOUBLE PRECISION, DIMENSION(ax,ay,az) :: fA,fB,fC,tmp
-    !$DEF-FEXL
+    INTEGER :: error
+    integer :: ifunr,jfunr,kfunr,nfunr 
+
+#ifdef omppool
     !$omp target data map(alloc:fA,fB,fC,tmp)
+#endif
+#ifdef fexlpool
+    ASSOCIATE(fA=>fexlPool_get(ax,ay,az),fB=>fexlPool_get(ax,ay,az),&
+         fC=>fexlPool_get(ax,ay,az),tmp=>fexlPool_get(ax,ay,az) )
+#endif      
      SELECT CASE(patch_ptr%coordsys)
      CASE(0) ! Cartesian
       CALL ddx(fx,fA,patch_ptr%isymX)
       CALL ddy(fy,fB,patch_ptr%isymY)
       CALL ddz(fz,fC,patch_ptr%isymZ)
-      !$FEXL {dim:3,var:['df','fA','fB','fC'] }
-      df = fA + fB + fC
-      !$END FEXL
+
+!$omp target teams distribute parallel do collapse(3)
+      do kfunr=1,size(df,3)
+        do jfunr=1,size(df,2)
+          do ifunr=1,size(df,1)
+            df(ifunr,jfunr,kfunr)= fA(ifunr,jfunr,kfunr)+ fB(ifunr,jfunr,kfunr)+ fC(ifunr,jfunr,kfunr)
+           end do
+        end do
+      end do
+!$omp end target teams distribute parallel do
+
      CASE(1)
-      !$FEXL {dim:3,var:['tmp','mesh_ptr%xgrid','fx'] }
-      tmp = mesh_ptr%xgrid*fx             ! r*v_r
-      !$END FEXL
+
+!$omp target teams distribute parallel do collapse(3)
+      do kfunr=1,size(tmp,3)
+        do jfunr=1,size(tmp,2)
+          do ifunr=1,size(tmp,1)
+            tmp(ifunr,jfunr,kfunr)= mesh_ptr%xgrid(ifunr,jfunr,kfunr)* fx(ifunr,jfunr,kfunr)! r*v_r
+          end do
+        end do
+      end do
+!$omp end target teams distribute parallel do
+
       CALL ddx(tmp,fA,patch_ptr%isymX**2)
       CALL ddy(fy,fB, patch_ptr%isymY)
       CALL ddz(fz,fC, patch_ptr%isymZ)
-      !$FEXL {dim:3,var:['df','fA','fB','fC','mesh_ptr%xgrid'] }
-      df = (fA+fB)/mesh_ptr%xgrid + fC
-      !$END FEXL
+
+!$omp target teams distribute parallel do collapse(3)
+      do kfunr=1,size(df,3)
+        do jfunr=1,size(df,2)
+          do ifunr=1,size(df,1)
+            df(ifunr,jfunr,kfunr)=(fA(ifunr,jfunr,kfunr)+ fB(ifunr,jfunr,kfunr))/mesh_ptr%xgrid(ifunr,jfunr,kfunr)+ fC(ifunr,jfunr,kfunr)
+           end do
+        end do
+      end do
+!$omp end target teams distribute parallel do
+
      CASE(2)
       ! *** does sin(mesh_ptr%ygrid) ever generate patch_ptr%isymY factor? ***
-      !$FEXL {dim:3,var:['tmp','mesh_ptr%xgrid','fx','fy','df','mesh_ptr%ygrid'] }
-      tmp = mesh_ptr%xgrid**2*fx          ! r**2*v_r
-      df = fy*SIN(mesh_ptr%ygrid)          ! v_theta*SIN(theta)
-      !$END FEXL
+
+!$omp target teams distribute parallel do collapse(3)
+      do kfunr=1,size(tmp,3)
+        do jfunr=1,size(tmp,2)
+          do ifunr=1,size(tmp,1)
+            tmp(ifunr,jfunr,kfunr)= mesh_ptr%xgrid(ifunr,jfunr,kfunr)**2*fx(ifunr,jfunr,kfunr)! r** 2*v_r
+            df(ifunr,jfunr,kfunr)= fy(ifunr,jfunr,kfunr)* SIN(mesh_ptr%ygrid(ifunr,jfunr,kfunr)) ! v_theta*SIN(theta )
+          end do
+        end do
+      end do
+!$omp end target teams distribute parallel do
+
       CALL ddx(tmp,fA,patch_ptr%isymX**3)
       CALL ddy(df,fB, patch_ptr%isymY**2)  ! Assumes theta has some symmetry here... move outside derivative
       CALL ddz(fz,fC, patch_ptr%isymZ)
-      !$FEXL {dim:3,var:['fA','fB','fC','mesh_ptr%xgrid','df','mesh_ptr%ygrid'] }
-      df = fA/mesh_ptr%xgrid**2 + (fB + fC)/(mesh_ptr%xgrid*SIN(mesh_ptr%ygrid))
-      !$END FEXL
+
+!$omp target teams distribute parallel do collapse(3)
+      do kfunr=1,size(fA,3)
+        do jfunr=1,size(fA,2)
+          do ifunr=1,size(fA,1)
+            df(ifunr,jfunr,kfunr)= fA(ifunr,jfunr,kfunr)/ mesh_ptr%xgrid(ifunr,jfunr,kfunr)**2+( fB(ifunr,jfunr,kfunr)+ fC(ifunr,jfunr,kfunr))/( mesh_ptr%xgrid(ifunr,jfunr,kfunr)* SIN(mesh_ptr%ygrid(ifunr,jfunr,kfunr)) )
+          end do
+        end do
+      end do
+!$omp end target teams distribute parallel do
+
      CASE(3) ! General curvilinear
-      !$FEXL {dim:3,var:['fA','fB','fC','fx','fy','fz','mesh_ptr%dAdx','mesh_ptr%dBdx','mesh_ptr%dCdx','mesh_ptr%dAdy','mesh_ptr%dBdy','mesh_ptr%dCdy','mesh_ptr%dAdz','mesh_ptr%dBdz','mesh_ptr%dCdz','mesh_ptr%detxyz']}
-      fA = (fx*mesh_ptr%dAdx + fy*mesh_ptr%dAdy + fz*mesh_ptr%dAdz)*mesh_ptr%detxyz
-      fB = (fx*mesh_ptr%dBdx + fy*mesh_ptr%dBdy + fz*mesh_ptr%dBdz)*mesh_ptr%detxyz
-      fC = (fx*mesh_ptr%dCdx + fy*mesh_ptr%dCdy + fz*mesh_ptr%dCdz)*mesh_ptr%detxyz
-      !$END FEXL
+
+!$omp target teams distribute parallel do collapse(3)
+      do kfunr=1,size(fA,3)
+        do jfunr=1,size(fA,2)
+          do ifunr=1,size(fA,1)
+            fA(ifunr,jfunr,kfunr)=(fx(ifunr,jfunr,kfunr)* mesh_ptr%dAdx(ifunr,jfunr,kfunr)+ fy(ifunr,jfunr,kfunr)* mesh_ptr%dAdy(ifunr,jfunr,kfunr)+ fz(ifunr,jfunr,kfunr)* mesh_ptr%dAdz(ifunr,jfunr,kfunr))*mesh_ptr%detxyz(ifunr,jfunr,kfunr)
+             fB(ifunr,jfunr,kfunr)=(fx(ifunr,jfunr,kfunr)* mesh_ptr%dBdx(ifunr,jfunr,kfunr)+ fy(ifunr,jfunr,kfunr)* mesh_ptr%dBdy(ifunr,jfunr,kfunr)+ fz(ifunr,jfunr,kfunr)* mesh_ptr%dBdz(ifunr,jfunr,kfunr))*mesh_ptr%detxyz(ifunr,jfunr,kfunr)
+             fC(ifunr,jfunr,kfunr)=(fx(ifunr,jfunr,kfunr)* mesh_ptr%dCdx(ifunr,jfunr,kfunr)+ fy(ifunr,jfunr,kfunr)* mesh_ptr%dCdy(ifunr,jfunr,kfunr)+ fz(ifunr,jfunr,kfunr)* mesh_ptr%dCdz(ifunr,jfunr,kfunr))*mesh_ptr%detxyz(ifunr,jfunr,kfunr)
+           end do
+        end do
+      end do
+!$omp end target teams distribute parallel do
+
       CALL ddx(fA,df)
       CALL ddy(fB,tmp)
-      !$FEXL {dim:3,var:['df','tmp']}
-      df = df+tmp
-      !$END FEXL
+
+!$omp target teams distribute parallel do collapse(3)
+      do kfunr=1,size(df,3)
+        do jfunr=1,size(df,2)
+          do ifunr=1,size(df,1)
+            df(ifunr,jfunr,kfunr)= df(ifunr,jfunr,kfunr)+ tmp(ifunr,jfunr,kfunr)
+           end do
+        end do
+      end do
+!$omp end target teams distribute parallel do
+
       CALL ddz(fC,tmp)
-      !$FEXL {dim:3,var:['df','tmp','mesh_ptr%detxyz']}
-      df = (df+tmp)/mesh_ptr%detxyz
-      !$END FEXL
-     END SELECT
-     !$omp end target data
+
+!$omp target teams distribute parallel do collapse(3)
+      do kfunr=1,size(df,3)
+        do jfunr=1,size(df,2)
+          do ifunr=1,size(df,1)
+            df(ifunr,jfunr,kfunr)=(df(ifunr,jfunr,kfunr)+ tmp(ifunr,jfunr,kfunr))/mesh_ptr%detxyz(ifunr,jfunr,kfunr)
+           end do
+        end do
+      end do
+!$omp end target teams distribute parallel do
+
+   END SELECT
+
+#ifdef fexlpool
+ END ASSOCIATE
+ error = fexlPool_free(4)
+#endif
+#ifdef omppool
+ !$omp end target data
+#endif
    END SUBROUTINE divV
  
 ! DIVERGENCE OF A TENSOR ===========================================================================
@@ -98,52 +180,109 @@
     DOUBLE PRECISION, DIMENSION(:,:,:), INTENT(IN) :: fxx,fxy,fxz,fyx,fyy,fyz,fzx,fzy,fzz
     DOUBLE PRECISION, DIMENSION(:,:,:), INTENT(OUT) :: dfx,dfy,dfz
     DOUBLE PRECISION, DIMENSION(SIZE(fxx,1),SIZE(fxx,2),SIZE(fxx,3)) :: fA,fB,fC,tmp
-    !$DEF-FEXL
+    integer :: ifunr,jfunr,kfunr,nfunr 
+
     !$omp target data map(alloc:fA,fB,fC,tmp)
      SELECT CASE(patch_ptr%coordsys)
      CASE(0) ! Cartesian
       CALL ddx(fxx,fA,patch_ptr%isymX**2)
       CALL ddy(fyx,fB,patch_ptr%isymY)
       CALL ddz(fzx,fC,patch_ptr%isymZ)
-      !$FEXL {dim:3,var:['dfx','fA','fB','fC']}
-      dfx = fA + fB + fC
-      !$END FEXL
+
+!$omp target teams distribute parallel do collapse(3)
+      do kfunr=1,size(dfx,3)
+        do jfunr=1,size(dfx,2)
+          do ifunr=1,size(dfx,1)
+            dfx(ifunr,jfunr,kfunr)= fA(ifunr,jfunr,kfunr)+ fB(ifunr,jfunr,kfunr)+ fC(ifunr,jfunr,kfunr)
+           end do
+        end do
+      end do
+!$omp end target teams distribute parallel do
+
       CALL ddx(fxy,fA,patch_ptr%isymX)
       CALL ddy(fyy,fB,patch_ptr%isymY**2)
       CALL ddz(fzy,fC,patch_ptr%isymZ)
-      !$FEXL {dim:3,var:['dfy','fA','fB','fC']}
-      dfy = fA + fB + fC
-      !$END FEXL
+
+!$omp target teams distribute parallel do collapse(3)
+      do kfunr=1,size(dfy,3)
+        do jfunr=1,size(dfy,2)
+          do ifunr=1,size(dfy,1)
+            dfy(ifunr,jfunr,kfunr)= fA(ifunr,jfunr,kfunr)+ fB(ifunr,jfunr,kfunr)+ fC(ifunr,jfunr,kfunr)
+           end do
+        end do
+      end do
+!$omp end target teams distribute parallel do
+
       CALL ddx(fxz,fA,patch_ptr%isymX)
       CALL ddy(fyz,fB,patch_ptr%isymY)
       CALL ddz(fzz,fC,patch_ptr%isymZ**2)
-      !$FEXL {dim:3,var:['dfz','fA','fB','fC']}
-      dfz = fA + fB + fC
-      !$END FEXL
+
+!$omp target teams distribute parallel do collapse(3)
+      do kfunr=1,size(dfz,3)
+        do jfunr=1,size(dfz,2)
+          do ifunr=1,size(dfz,1)
+            dfz(ifunr,jfunr,kfunr)= fA(ifunr,jfunr,kfunr)+ fB(ifunr,jfunr,kfunr)+ fC(ifunr,jfunr,kfunr)
+           end do
+        end do
+      end do
+!$omp end target teams distribute parallel do
+
      CASE(1)
-      !$FEXL {dim:3,var:['tmp','mesh_ptr%xgrid','fxx'] }
-      tmp = mesh_ptr%xgrid*fxx
-      !$END FEXL  
+
+!$omp target teams distribute parallel do collapse(3)
+      do kfunr=1,size(tmp,3)
+        do jfunr=1,size(tmp,2)
+          do ifunr=1,size(tmp,1)
+            tmp(ifunr,jfunr,kfunr)= mesh_ptr%xgrid(ifunr,jfunr,kfunr)* fxx(ifunr,jfunr,kfunr)
+           end do
+        end do
+      end do
+!$omp end target teams distribute parallel do
+
       CALL ddx(tmp,fA,patch_ptr%isymX**3)
       CALL ddy(fyx,fB,patch_ptr%isymY)
       CALL ddz(fzx,fC,patch_ptr%isymZ)
-      !$FEXL {dim:3,var:['dfx','mesh_ptr%xgrid','fyy','fA','fB','fC','tmp','fxy'] }
-      dfx = (fA+fB-fyy)/mesh_ptr%xgrid+fC
-      tmp = mesh_ptr%xgrid**2*fxy
-      !$END FEXL
+
+!$omp target teams distribute parallel do collapse(3)
+      do kfunr=1,size(dfx,3)
+        do jfunr=1,size(dfx,2)
+          do ifunr=1,size(dfx,1)
+            dfx(ifunr,jfunr,kfunr)=(fA(ifunr,jfunr,kfunr)+ fB(ifunr,jfunr,kfunr)- fyy(ifunr,jfunr,kfunr))/mesh_ptr%xgrid(ifunr,jfunr,kfunr)+ fC(ifunr,jfunr,kfunr)
+             tmp(ifunr,jfunr,kfunr)= mesh_ptr%xgrid(ifunr,jfunr,kfunr)**2*fxy(ifunr,jfunr,kfunr)
+           end do
+        end do
+      end do
+!$omp end target teams distribute parallel do
+
       CALL ddx(tmp,fA,patch_ptr%isymX**3)
       CALL ddy(fyy,fB,patch_ptr%isymY**2)
       CALL ddz(fzy,fC,patch_ptr%isymZ)
-      !$FEXL {dim:3,var:['dfy','mesh_ptr%xgrid','fA','fB','fC','tmp','fxy','fyx','fxz'] }
-      dfy = fA/mesh_ptr%xgrid**2 + (fB+fyx-fxy)/mesh_ptr%xgrid + fC
-      tmp = mesh_ptr%xgrid*fxz
-      !$END FEXL
+
+!$omp target teams distribute parallel do collapse(3)
+      do kfunr=1,size(dfy,3)
+        do jfunr=1,size(dfy,2)
+          do ifunr=1,size(dfy,1)
+            dfy(ifunr,jfunr,kfunr)= fA(ifunr,jfunr,kfunr)/ mesh_ptr%xgrid(ifunr,jfunr,kfunr)**2+( fB(ifunr,jfunr,kfunr)+ fyx(ifunr,jfunr,kfunr)- fxy(ifunr,jfunr,kfunr))/mesh_ptr%xgrid(ifunr,jfunr,kfunr)+ fC(ifunr,jfunr,kfunr)
+             tmp(ifunr,jfunr,kfunr)= mesh_ptr%xgrid(ifunr,jfunr,kfunr)* fxz(ifunr,jfunr,kfunr)
+           end do
+        end do
+      end do
+!$omp end target teams distribute parallel do
+
       CALL ddx(tmp,fA,patch_ptr%isymX**2)
       CALL ddy(fyz,fB,patch_ptr%isymY)
       CALL ddz(fzz,fC,patch_ptr%isymZ**2)
-      !$FEXL {dim:3,var:['dfz','mesh_ptr%xgrid','fA','fB','fC'] }
-      dfz = (fA+fB)/mesh_ptr%xgrid + fC
-      !$END FEXL
+
+!$omp target teams distribute parallel do collapse(3)
+      do kfunr=1,size(dfz,3)
+        do jfunr=1,size(dfz,2)
+          do ifunr=1,size(dfz,1)
+            dfz(ifunr,jfunr,kfunr)=(fA(ifunr,jfunr,kfunr)+ fB(ifunr,jfunr,kfunr))/mesh_ptr%xgrid(ifunr,jfunr,kfunr)+ fC(ifunr,jfunr,kfunr)
+           end do
+        end do
+      end do
+!$omp end target teams distribute parallel do
+
     CASE(2)
     ! *** does sin(mesh_ptr%ygrid) ever generate patch_ptr%isymY factor? ***
       tmp = mesh_ptr%xgrid**2*fxx
@@ -178,16 +317,25 @@
     DOUBLE PRECISION, DIMENSION(:,:,:), INTENT(IN) :: f
     DOUBLE PRECISION, DIMENSION(:,:,:), INTENT(OUT) :: dfdx,dfdy,dfdz
     DOUBLE PRECISION, DIMENSION(SIZE(f,1),SIZE(f,2),SIZE(f,3)) :: dfdA,dfdB,dfdC
-    !$DEF-FEXL
+    integer :: ifunr,jfunr,kfunr,nfunr 
+
     !$omp target data map(alloc:dfdA,dfdB,dfdC)
      CALL ddx(f,dfdx)
      CALL ddy(f,dfdy)
      CALL ddz(f,dfdz)
      SELECT CASE(patch_ptr%coordsys)
      CASE(1) ! Cylindrical
-      !$FEXL {dim:3,var:['dfdy','mesh_ptr%xgrid']}
-      dfdy = dfdy/mesh_ptr%xgrid
-      !$END FEXL  
+
+!$omp target teams distribute parallel do collapse(3)
+      do kfunr=1,size(dfdy,3)
+        do jfunr=1,size(dfdy,2)
+          do ifunr=1,size(dfdy,1)
+            dfdy(ifunr,jfunr,kfunr)= dfdy(ifunr,jfunr,kfunr)/ mesh_ptr%xgrid(ifunr,jfunr,kfunr)
+           end do
+        end do
+      end do
+!$omp end target teams distribute parallel do
+
      CASE(2) ! Spherical
       dfdy = dfdy/mesh_ptr%xgrid
       dfdz = dfdz/(mesh_ptr%xgrid*SIN(mesh_ptr%ygrid))
@@ -209,7 +357,8 @@
     DOUBLE PRECISION, DIMENSION(:,:,:), INTENT(OUT) :: dfdx,dfdy,dfdz
     INTEGER, INTENT(IN) :: vc
     DOUBLE PRECISION, DIMENSION(SIZE(f,1),SIZE(f,2),SIZE(f,3)) :: dfdA,dfdB,dfdC
-    !$DEF-FEXL
+    integer :: ifunr,jfunr,kfunr,nfunr 
+
     !$omp target data map(alloc:dfdA,dfdB,dfdC)
      SELECT CASE( vc )
      CASE( 1 )
@@ -223,9 +372,17 @@
      END SELECT
      SELECT CASE(patch_ptr%coordsys)
      CASE(1) ! Cylindrical
-      !$FEXL {dim:3,var:['dfdy','mesh_ptr%xgrid']}  
-      dfdy = dfdy/mesh_ptr%xgrid
-      !$END FEXL  
+
+!$omp target teams distribute parallel do collapse(3)
+      do kfunr=1,size(dfdy,3)
+        do jfunr=1,size(dfdy,2)
+          do ifunr=1,size(dfdy,1)
+            dfdy(ifunr,jfunr,kfunr)= dfdy(ifunr,jfunr,kfunr)/ mesh_ptr%xgrid(ifunr,jfunr,kfunr)
+           end do
+        end do
+      end do
+!$omp end target teams distribute parallel do
+
      CASE(2) ! Spherical
       dfdy = dfdy/mesh_ptr%xgrid
       dfdz = dfdz/(mesh_ptr%xgrid*SIN(mesh_ptr%ygrid))
@@ -247,7 +404,8 @@
     DOUBLE PRECISION, DIMENSION(:,:,:), INTENT(OUT) :: dfdx,dfdy,dfdz
     CHARACTER(LEN=2), INTENT(IN) :: tc
     DOUBLE PRECISION, DIMENSION(SIZE(f,1),SIZE(f,2),SIZE(f,3)) :: dfdA,dfdB,dfdC
-    !$DEF-FEXL
+    integer :: ifunr,jfunr,kfunr,nfunr 
+
      SELECT CASE( tc )
      CASE( 'xx', 'yy', 'zz' )
        CALL ddx(f,dfdx);                 CALL ddy(f,dfdy);                 CALL ddz(f,dfdz)
@@ -262,9 +420,17 @@
      END SELECT
      SELECT CASE(patch_ptr%coordsys) !-----switches for non-Cartesian to be implemented---
      CASE(1) ! Cylindrical
-      !$FEXL {dim:3,var:['dfdy','mesh_ptr%xgrid']}
-      dfdy = dfdy/mesh_ptr%xgrid
-      !$END FEXL  
+
+!$omp target teams distribute parallel do collapse(3)
+      do kfunr=1,size(dfdy,3)
+        do jfunr=1,size(dfdy,2)
+          do ifunr=1,size(dfdy,1)
+            dfdy(ifunr,jfunr,kfunr)= dfdy(ifunr,jfunr,kfunr)/ mesh_ptr%xgrid(ifunr,jfunr,kfunr)
+           end do
+        end do
+      end do
+!$omp end target teams distribute parallel do
+
      CASE(2) ! Spherical
       dfdy = dfdy/mesh_ptr%xgrid
       dfdz = dfdz/(mesh_ptr%xgrid*SIN(mesh_ptr%ygrid))
@@ -284,7 +450,8 @@
     DOUBLE PRECISION, DIMENSION(:,:,:), INTENT(IN) :: fx,fy,fz
     DOUBLE PRECISION, DIMENSION(:,:,:), INTENT(OUT) :: dfxx,dfxy,dfxz,dfyx,dfyy,dfyz,dfzx,dfzy,dfzz
     DOUBLE PRECISION, DIMENSION(SIZE(fx,1),SIZE(fx,2),SIZE(fx,3)) :: dfdA,dfdB,dfdC
-    !$DEF-FEXL
+    integer :: ifunr,jfunr,kfunr,nfunr 
+
      CALL ddx(fx,dfxx,patch_ptr%isymX)
      CALL ddx(fy,dfxy)
      CALL ddx(fz,dfxz)
@@ -296,11 +463,19 @@
      CALL ddz(fz,dfzz,patch_ptr%isymZ)
      SELECT CASE(patch_ptr%coordsys)
      CASE(1) ! Cylindrical
-      !$FEXL {dim:3,var:['dfyx','fy','mesh_ptr%xgrid','dfyy','fx','dfyz']}
-      dfyx = (dfyx-fy)/mesh_ptr%xgrid
-      dfyy = (dfyy+fx)/mesh_ptr%xgrid
-      dfyz = dfyz/mesh_ptr%xgrid
-      !$END FEXL
+
+!$omp target teams distribute parallel do collapse(3)
+      do kfunr=1,size(dfyx,3)
+        do jfunr=1,size(dfyx,2)
+          do ifunr=1,size(dfyx,1)
+            dfyx(ifunr,jfunr,kfunr)=(dfyx(ifunr,jfunr,kfunr)- fy(ifunr,jfunr,kfunr))/mesh_ptr%xgrid(ifunr,jfunr,kfunr)
+             dfyy(ifunr,jfunr,kfunr)=(dfyy(ifunr,jfunr,kfunr)+ fx(ifunr,jfunr,kfunr))/mesh_ptr%xgrid(ifunr,jfunr,kfunr)
+             dfyz(ifunr,jfunr,kfunr)= dfyz(ifunr,jfunr,kfunr)/ mesh_ptr%xgrid(ifunr,jfunr,kfunr)
+           end do
+        end do
+      end do
+!$omp end target teams distribute parallel do
+
      CASE(2) ! Spherical
       dfyx = (dfyx-fy)/mesh_ptr%xgrid
       dfyy = (dfyy+fx)/mesh_ptr%xgrid
@@ -501,7 +676,8 @@
     DOUBLE PRECISION, DIMENSION(:,:,:), INTENT(IN) :: f
     DOUBLE PRECISION, DIMENSION(:,:,:), INTENT(OUT) :: Lapf
     DOUBLE PRECISION, DIMENSION(SIZE(f,1),SIZE(f,2),SIZE(f,3)) :: tmp,dum
-    !$DEF-FEXL
+    integer :: ifunr,jfunr,kfunr,nfunr 
+
     !$omp target data map(alloc:tmp,dum)
 ! SYMMETRY SWITCHES?--------------------------------------------------------------------------------    
      SELECT CASE(patch_ptr%coordsys)
@@ -512,22 +688,54 @@
       Lapf = Lapf+tmp+dum
      CASE(1) ! Cylindrical
       CALL ddx(f,tmp)
-      !$FEXL {dim:3,var:['dum','tmp','mesh_ptr%xgrid']}
-      dum = mesh_ptr%xgrid*tmp
-      !$END FEXL
+
+!$omp target teams distribute parallel do collapse(3)
+      do kfunr=1,size(dum,3)
+        do jfunr=1,size(dum,2)
+          do ifunr=1,size(dum,1)
+            dum(ifunr,jfunr,kfunr)= mesh_ptr%xgrid(ifunr,jfunr,kfunr)* tmp(ifunr,jfunr,kfunr)
+           end do
+        end do
+      end do
+!$omp end target teams distribute parallel do
+
       CALL ddx(dum,tmp)
-      !$FEXL {dim:3,var:['Lapf','tmp','mesh_ptr%xgrid']}
-      Lapf = tmp/mesh_ptr%xgrid
-      !$END FEXL
+
+!$omp target teams distribute parallel do collapse(3)
+      do kfunr=1,size(Lapf,3)
+        do jfunr=1,size(Lapf,2)
+          do ifunr=1,size(Lapf,1)
+            Lapf(ifunr,jfunr,kfunr)= tmp(ifunr,jfunr,kfunr)/ mesh_ptr%xgrid(ifunr,jfunr,kfunr)
+           end do
+        end do
+      end do
+!$omp end target teams distribute parallel do
+
       CALL d2y(f,tmp)
-      !$FEXL {dim:3,var:['Lapf','dum','tmp','mesh_ptr%xgrid']}
-      dum = tmp/mesh_ptr%xgrid**2
-      Lapf = Lapf+dum
-      !$END FEXL
+
+!$omp target teams distribute parallel do collapse(3)
+      do kfunr=1,size(Lapf,3)
+        do jfunr=1,size(Lapf,2)
+          do ifunr=1,size(Lapf,1)
+            dum(ifunr,jfunr,kfunr)= tmp(ifunr,jfunr,kfunr)/ mesh_ptr%xgrid(ifunr,jfunr,kfunr)**2
+            Lapf(ifunr,jfunr,kfunr)= Lapf(ifunr,jfunr,kfunr)+ dum(ifunr,jfunr,kfunr)
+           end do
+        end do
+      end do
+!$omp end target teams distribute parallel do
+
       CALL d2z(f,tmp)
-      !$FEXL {dim:3,var:['Lapf','tmp']}
-      Lapf = Lapf+tmp
-      !$END FEXL
+
+!$omp target teams distribute parallel do collapse(3)
+      do kfunr=1,size(Lapf,3)
+        do jfunr=1,size(Lapf,2)
+          do ifunr=1,size(Lapf,1)
+            Lapf(ifunr,jfunr,kfunr)= Lapf(ifunr,jfunr,kfunr)+ tmp(ifunr,jfunr,kfunr)
+           end do
+        end do
+      end do
+!$omp end target teams distribute parallel do
+
      CASE(2) ! Spherical
       CALL ddx(f,tmp)
       dum = mesh_ptr%xgrid**2*tmp
@@ -604,7 +812,8 @@
     DOUBLE PRECISION, DIMENSION(:,:,:), INTENT(OUT) :: fbar
     INTEGER,                            INTENT(IN) :: L
     DOUBLE PRECISION, DIMENSION(SIZE(f,1),SIZE(f,2),SIZE(f,3)) :: ring1,ring2,ring3
-    !$DEF-FEXL
+    integer :: ifunr,jfunr,kfunr,nfunr 
+
     !CALL exosim_annotation_begin("operators.ringS")
     !$omp target data map(alloc:ring1,ring2,ring3)    
      CALL ringx(f,ring1)
@@ -612,17 +821,41 @@
      CALL ringz(f,ring3)
      SELECT CASE(L)
      CASE(0)   
-        !$FEXL {dim:3,var:['fbar','ring1','ring2','ring3']}           
-        fbar = MAX(ABS(ring1)               ,ABS(ring2)               ,ABS(ring3)               )
-        !$END FEXL
+
+!$omp target teams distribute parallel do collapse(3)
+        do kfunr=1,size(fbar,3)
+          do jfunr=1,size(fbar,2)
+            do ifunr=1,size(fbar,1)
+              fbar(ifunr,jfunr,kfunr)=MAX( ABS(ring1(ifunr,jfunr,kfunr)),ABS(ring2(ifunr,jfunr,kfunr)),ABS(ring3(ifunr,jfunr,kfunr)) )
+            end do
+          end do
+        end do
+!$omp end target teams distribute parallel do
+
      CASE(1)                        
-        !$FEXL {dim:3,var:['fbar','ring1','ring2','ring3','mesh_ptr%d1','mesh_ptr%d2','mesh_ptr%d3']}           
-        fbar = MAX(ABS(ring1)*mesh_ptr%d1   ,ABS(ring2)*mesh_ptr%d2   ,ABS(ring3)*mesh_ptr%d3   )
-        !$END FEXL
+
+!$omp target teams distribute parallel do collapse(3)
+        do kfunr=1,size(fbar,3)
+          do jfunr=1,size(fbar,2)
+            do ifunr=1,size(fbar,1)
+              fbar(ifunr,jfunr,kfunr)=MAX( ABS(ring1(ifunr,jfunr,kfunr))*mesh_ptr%d1(ifunr,jfunr,kfunr), ABS(ring2(ifunr,jfunr,kfunr))*mesh_ptr%d2(ifunr,jfunr,kfunr), ABS(ring3(ifunr,jfunr,kfunr))*mesh_ptr%d3(ifunr,jfunr,kfunr))
+            end do
+          end do
+        end do
+!$omp end target teams distribute parallel do
+
      CASE(2)                        
-        !$FEXL {dim:3,var:['fbar','ring1','ring2','ring3','mesh_ptr%d1','mesh_ptr%d2','mesh_ptr%d3']}           
-        fbar = MAX(ABS(ring1)*mesh_ptr%d1**2,ABS(ring2)*mesh_ptr%d2**2,ABS(ring3)*mesh_ptr%d3**2)
-        !$END FEXL
+
+!$omp target teams distribute parallel do collapse(3)
+        do kfunr=1,size(fbar,3)
+          do jfunr=1,size(fbar,2)
+            do ifunr=1,size(fbar,1)
+              fbar(ifunr,jfunr,kfunr)=MAX( ABS(ring1(ifunr,jfunr,kfunr))*mesh_ptr%d1(ifunr,jfunr,kfunr)**2,ABS(ring2(ifunr,jfunr,kfunr))*mesh_ptr%d2(ifunr,jfunr,kfunr)**2,ABS(ring3(ifunr,jfunr,kfunr))*mesh_ptr%d3(ifunr,jfunr,kfunr)**2 )
+            end do
+          end do
+        end do
+!$omp end target teams distribute parallel do
+
      END SELECT
      !$omp end target data 
      !CALL exosim_annotation_end("operators.ringS")
@@ -638,7 +871,8 @@
     DOUBLE PRECISION, DIMENSION(SIZE(f,1),SIZE(f,2),SIZE(f,3)) :: ringx1,ringy1,ringz1
     DOUBLE PRECISION, DIMENSION(SIZE(f,1),SIZE(f,2),SIZE(f,3)) :: ringx2,ringy2,ringz2
     DOUBLE PRECISION, DIMENSION(SIZE(f,1),SIZE(f,2),SIZE(f,3)) :: ringx3,ringy3,ringz3
-    !$DEF-FEXL
+    integer :: ifunr,jfunr,kfunr,nfunr 
+
     !CALL exosim_annotation_begin("operators.ringV")
     !$omp target data map(alloc:ringx1,ringx2,ringx3) & 
     !$omp             map(alloc:ringy1,ringy2,ringy3) &  
@@ -659,26 +893,50 @@
 
      SELECT CASE(L)
      CASE(0)
-        !$FEXL {dim:3,var:['fbar','ringxL','ringyL','ringzL','ringx1','ringy1','ringz1','ringx2','ringy2','ringz2','ringx3','ringy3','ringz3']}
-        ringxL = MAX(ABS(ringx1)   ,ABS(ringx2)     ,ABS(ringx3)  )
-        ringyL = MAX(ABS(ringy1)   ,ABS(ringy2)     ,ABS(ringy3)  )
-        ringzL = MAX(ABS(ringz1)   ,ABS(ringz2)     ,ABS(ringz3)  )
-        fbar   = MAX(ringxL,ringyL,ringzL)
-        !$END FEXL
+
+!$omp target teams distribute parallel do collapse(3)
+        do kfunr=1,size(fbar,3)
+          do jfunr=1,size(fbar,2)
+            do ifunr=1,size(fbar,1)
+              ringxL(ifunr,jfunr,kfunr)=MAX( ABS(ringx1(ifunr,jfunr,kfunr)),ABS(ringx2(ifunr,jfunr,kfunr)),ABS(ringx3(ifunr,jfunr,kfunr)) )
+              ringyL(ifunr,jfunr,kfunr)=MAX( ABS(ringy1(ifunr,jfunr,kfunr)),ABS(ringy2(ifunr,jfunr,kfunr)),ABS(ringy3(ifunr,jfunr,kfunr)) )
+              ringzL(ifunr,jfunr,kfunr)=MAX( ABS(ringz1(ifunr,jfunr,kfunr)),ABS(ringz2(ifunr,jfunr,kfunr)),ABS(ringz3(ifunr,jfunr,kfunr)) )
+              fbar(ifunr,jfunr,kfunr)=MAX( ringxL(ifunr,jfunr,kfunr), ringyL(ifunr,jfunr,kfunr), ringzL(ifunr,jfunr,kfunr))
+            end do
+          end do
+        end do
+!$omp end target teams distribute parallel do
+
      CASE(1)
-        !$FEXL {dim:3,var:['fbar','ringxL','ringyL','ringzL','ringx1','ringy1','ringz1','ringx2','ringy2','ringz2','ringx3','ringy3','ringz3','mesh_ptr%d1','mesh_ptr%d2','mesh_ptr%d3']}
-        ringxL = MAX(ABS(ringx1)   ,ABS(ringx2)     ,ABS(ringx3)  )*mesh_ptr%d1
-        ringyL = MAX(ABS(ringy1)   ,ABS(ringy2)     ,ABS(ringy3)  )*mesh_ptr%d2
-        ringzL = MAX(ABS(ringz1)   ,ABS(ringz2)     ,ABS(ringz3)  )*mesh_ptr%d3
-        fbar   = MAX(ringxL,ringyL,ringzL)
-        !$END FEXL
+
+!$omp target teams distribute parallel do collapse(3)
+        do kfunr=1,size(fbar,3)
+          do jfunr=1,size(fbar,2)
+            do ifunr=1,size(fbar,1)
+              ringxL(ifunr,jfunr,kfunr)=MAX( ABS(ringx1(ifunr,jfunr,kfunr)),ABS(ringx2(ifunr,jfunr,kfunr)),ABS(ringx3(ifunr,jfunr,kfunr)) )*mesh_ptr%d1(ifunr,jfunr,kfunr)
+               ringyL(ifunr,jfunr,kfunr)=MAX( ABS(ringy1(ifunr,jfunr,kfunr)),ABS(ringy2(ifunr,jfunr,kfunr)),ABS(ringy3(ifunr,jfunr,kfunr)) )*mesh_ptr%d2(ifunr,jfunr,kfunr)
+               ringzL(ifunr,jfunr,kfunr)=MAX( ABS(ringz1(ifunr,jfunr,kfunr)),ABS(ringz2(ifunr,jfunr,kfunr)),ABS(ringz3(ifunr,jfunr,kfunr)) )*mesh_ptr%d3(ifunr,jfunr,kfunr)
+               fbar(ifunr,jfunr,kfunr)=MAX( ringxL(ifunr,jfunr,kfunr), ringyL(ifunr,jfunr,kfunr), ringzL(ifunr,jfunr,kfunr))
+            end do
+          end do
+        end do
+!$omp end target teams distribute parallel do
+
      CASE(2)
-        !$FEXL {dim:3,var:['fbar','ringxL','ringyL','ringzL','ringx1','ringy1','ringz1','ringx2','ringy2','ringz2','ringx3','ringy3','ringz3','mesh_ptr%d1','mesh_ptr%d2','mesh_ptr%d3']}
-        ringxL = MAX(ABS(ringx1)   ,ABS(ringx2)     ,ABS(ringx3)  )*mesh_ptr%d1**2
-        ringyL = MAX(ABS(ringy1)   ,ABS(ringy2)     ,ABS(ringy3)  )*mesh_ptr%d2**2
-        ringzL = MAX(ABS(ringz1)   ,ABS(ringz2)     ,ABS(ringz3)  )*mesh_ptr%d3**2
-        fbar   = MAX(ringxL,ringyL,ringzL)
-        !$END FEXL
+
+!$omp target teams distribute parallel do collapse(3)
+        do kfunr=1,size(fbar,3)
+          do jfunr=1,size(fbar,2)
+            do ifunr=1,size(fbar,1)
+              ringxL(ifunr,jfunr,kfunr)=MAX( ABS(ringx1(ifunr,jfunr,kfunr)),ABS(ringx2(ifunr,jfunr,kfunr)),ABS(ringx3(ifunr,jfunr,kfunr)) )*mesh_ptr%d1(ifunr,jfunr,kfunr)**2
+              ringyL(ifunr,jfunr,kfunr)=MAX( ABS(ringy1(ifunr,jfunr,kfunr)),ABS(ringy2(ifunr,jfunr,kfunr)),ABS(ringy3(ifunr,jfunr,kfunr)) )*mesh_ptr%d2(ifunr,jfunr,kfunr)**2
+              ringzL(ifunr,jfunr,kfunr)=MAX( ABS(ringz1(ifunr,jfunr,kfunr)),ABS(ringz2(ifunr,jfunr,kfunr)),ABS(ringz3(ifunr,jfunr,kfunr)) )*mesh_ptr%d3(ifunr,jfunr,kfunr)**2
+              fbar(ifunr,jfunr,kfunr)=MAX( ringxL(ifunr,jfunr,kfunr), ringyL(ifunr,jfunr,kfunr), ringzL(ifunr,jfunr,kfunr))
+            end do
+          end do
+        end do
+!$omp end target teams distribute parallel do
+
      END SELECT
      !$omp end target data
      !CALL exosim_annotation_end("operators.ringV")
@@ -690,12 +948,21 @@
     DOUBLE PRECISION, DIMENSION(:,:,:), INTENT(OUT) :: fbar
     INTEGER, INTENT(IN), OPTIONAL :: bc
     INTEGER :: n
-    !$DEF-FEXL
+    integer :: ifunr,jfunr,kfunr,nfunr 
+
     !CALL exosim_annotation_begin("operators.ringx")
      IF (SIZE(f,1) == 1) THEN
-        !$FEXL {dim:3,var:['fbar']}
-        fbar = 0.0D0
-        !$END FEXL
+
+!$omp target teams distribute parallel do collapse(3)
+        do kfunr=1,size(fbar,3)
+          do jfunr=1,size(fbar,2)
+            do ifunr=1,size(fbar,1)
+              fbar(ifunr,jfunr,kfunr)= 0.0D0
+            end do
+          end do
+        end do
+!$omp end target teams distribute parallel do
+
      ELSE
         CALL d8x(f,fbar,bc)
      ENDIF
@@ -708,12 +975,21 @@
     DOUBLE PRECISION, DIMENSION(:,:,:), INTENT(OUT) :: fbar
     INTEGER, INTENT(IN), OPTIONAL :: bc
     INTEGER :: n
-    !$DEF-FEXL
+    integer :: ifunr,jfunr,kfunr,nfunr 
+
     !CALL exosim_annotation_begin("operators.ringy")
      IF (SIZE(f,2) == 1) THEN
-        !$FEXL {dim:3,var:['fbar']}
-        fbar = 0.0D0
-        !$END FEXL
+
+!$omp target teams distribute parallel do collapse(3)
+        do kfunr=1,size(fbar,3)
+          do jfunr=1,size(fbar,2)
+            do ifunr=1,size(fbar,1)
+              fbar(ifunr,jfunr,kfunr)= 0.0D0
+            end do
+          end do
+        end do
+!$omp end target teams distribute parallel do
+
      ELSE
        CALL d8y(f,fbar,bc)
      ENDIF
@@ -726,12 +1002,21 @@
     DOUBLE PRECISION, DIMENSION(:,:,:), INTENT(OUT) :: fbar
     INTEGER, INTENT(IN), OPTIONAL :: bc
     INTEGER :: n
-    !$DEF-FEXL
+    integer :: ifunr,jfunr,kfunr,nfunr 
+
     !CALL exosim_annotation_begin("operators.ringz")
      IF (SIZE(f,3) == 1) THEN
-        !$FEXL {dim:3,var:['fbar']}
-        fbar = 0.0D0
-        !$END FEXL
+
+!$omp target teams distribute parallel do collapse(3)
+        do kfunr=1,size(fbar,3)
+          do jfunr=1,size(fbar,2)
+            do ifunr=1,size(fbar,1)
+              fbar(ifunr,jfunr,kfunr)= 0.0D0
+            end do
+          end do
+        end do
+!$omp end target teams distribute parallel do
+
      ELSE
        CALL d8z(f,fbar,bc)
      ENDIF
@@ -775,13 +1060,22 @@
     DOUBLE PRECISION, DIMENSION(SIZE(fun,1),SIZE(fun,2),SIZE(fun,3)) :: tmp
     REAL(c_double), DIMENSION(:,:,:), POINTER :: CellBar
     INTEGER :: filnum,xasym,yasym,zasym
-    !$DEF-FEXL
+    integer :: ifunr,jfunr,kfunr,nfunr 
+
 
     !$omp target enter data map(alloc:tmp)
     
-    !$FEXL {dim:3,var:['tmp']}
-    tmp = 0.0D0
-    !$END FEXL
+
+!$omp target teams distribute parallel do collapse(3)
+    do kfunr=1,size(tmp,3)
+      do jfunr=1,size(tmp,2)
+        do ifunr=1,size(tmp,1)
+          tmp(ifunr,jfunr,kfunr)= 0.0D0
+        end do
+      end do
+    end do
+!$omp end target teams distribute parallel do
+
 
     
      IF (PRESENT(component)) THEN ! it's a vector
@@ -861,15 +1155,31 @@
        CALL bppfz(tmp,bar,filnum,zasym)
      CASE(1) ! Cylindrical
        xasym = -xasym ! mesh_ptr%CellVol is an odd function in radial direction.
-       !$FEXL {dim:3,var:['fun','tmp','mesh_ptr%CellVol']}
-       tmp = fun*mesh_ptr%CellVol
-       !$END FEXL
+
+!$omp target teams distribute parallel do collapse(3)
+       do kfunr=1,size(fun,3)
+         do jfunr=1,size(fun,2)
+           do ifunr=1,size(fun,1)
+             tmp(ifunr,jfunr,kfunr)= fun(ifunr,jfunr,kfunr)* mesh_ptr%CellVol(ifunr,jfunr,kfunr)
+            end do
+         end do
+       end do
+!$omp end target teams distribute parallel do
+
        CALL bppfx(tmp,bar,filnum,xasym)
        CALL bppfy(bar,tmp,filnum,yasym)
        CALL bppfz(tmp,bar,filnum,zasym)
-       !$FEXL {dim:3,var:['bar','mesh_ptr%CellVol']}
-       bar = bar/mesh_ptr%CellVol
-       !$END FEXL
+
+!$omp target teams distribute parallel do collapse(3)
+       do kfunr=1,size(bar,3)
+         do jfunr=1,size(bar,2)
+           do ifunr=1,size(bar,1)
+             bar(ifunr,jfunr,kfunr)= bar(ifunr,jfunr,kfunr)/ mesh_ptr%CellVol(ifunr,jfunr,kfunr)
+            end do
+         end do
+       end do
+!$omp end target teams distribute parallel do
+
      CASE(2,3) ! Spherical, Curvilinear
        tmp = fun*mesh_ptr%CellVol
        CALL bppfx(tmp,bar,filnum,xasym)

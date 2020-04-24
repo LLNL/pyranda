@@ -7,6 +7,9 @@ PROGRAM miniApp
   USE LES_mesh, ONLY : mesh_type
   USE LES_objects
   USE parcop, ONLY : setup,ddx,point_to_objects,setup_mesh,grad,filter,div
+#ifdef fexlpool
+  USE LES_ompsync
+#endif
   IMPLICIT NONE
   INCLUDE "mpif.h"
 
@@ -20,12 +23,14 @@ PROGRAM miniApp
   REAL(c_double), DIMENSION(:,:,:), ALLOCATABLE :: Fxx,Fyx,Fzx,Fxy,Fyy,Fzy,Fxz,Fyz,Fzz
   REAL(c_double), DIMENSION(:,:,:,:), ALLOCATABLE :: RHS
   INTEGER :: i
-  INTEGER :: t1,t2,clock_rate,clock_max
+  REAL(c_double) :: t1,t2,clock_rate,clock_max,t3,t4
   CHARACTER(LEN=32) :: arg
   INTEGER :: nargs,ii,iterations
   INTEGER :: rank,ierror
-  DOUBLE PRECISION :: dt = 0.0
-  !$DEF-FEXL
+  DOUBLE PRECISION :: dt = 0.0, memtime = 0.0
+  DOUBLE PRECISION :: answer = 830909.7500
+  integer :: ifunr,jfunr,kfunr,nfunr 
+
   
   ! MPI
   CALL MPI_INIT(mpierr)
@@ -153,130 +158,137 @@ PROGRAM miniApp
   ! rho = x
   rad = SQRT( ( mesh_ptr%xgrid - 0.5 )**2 + ( mesh_ptr%ygrid - 0.5 )**2 + ( mesh_ptr%zgrid - 0.5 )**2 )
   rho = (1.0 - TANH( (rad - .25 ) / .05 ))*0.5 + 1.0
-  u = 0.0
+  u = 1.0
   v = 0.0
   w = 0.0
   ie = 1.0
 
-  CALL EOS(ie,rho,p,t)
+  CALL EOS(ie,rho,p,t,patch_ptr%ax,patch_ptr%ay,patch_ptr%az)
   
-  ! From(device to host) To(host to device)
-  !$omp target data map(to:rho,u,v,w,et,p,rad,T,ie,Fx,Fy,Fz,tx,ty,tz,tmp,bar) &
-  !$omp             map(to:Fxx,Fyx,Fzx,Fxy,Fyy,Fzy,Fxz,Fyz,Fzz) &
-  !$omp             map(to:mesh_ptr%GridLen,RHS)
+  ! Persistent Data Map.. should always be on the device
+  !$omp target data map(tofrom:rho,u,v,w,et,p,rad,T,ie) &
+  !$omp             map(tofrom:mesh_ptr%GridLen,RHS)
 
+#ifdef fexlpool
+  !! FEXL-POOL version
+  CALL fexlPool_setPoolDepth(25,ax,ay,az)
+#endif
+  
   ! Time the derivatives
-  CALL SYSTEM_CLOCK( t1, clock_rate, clock_max)
+  !CALL SYSTEM_CLOCK( t1, clock_rate, clock_max)
+  CALL CPU_TIME(t1)
+  
   DO i=1,iterations
 
-     !$FEXL {dim:3,var:['ie','et','rho','u','v','w']}
-     ie = et - .5 * rho * (u*u + v*v + w*w )
-     !$END FEXL
+
+     !CALL SYSTEM_CLOCK( t3, clock_rate, clock_max )
+     CALL CPU_TIME(t3)
      
-     CALL EOS(ie,rho,p,t)
+#ifdef omppool
+     ! Temp. memory
+     !$omp target data map(alloc:Fx,Fy,Fz,tx,ty,tz,tmp,bar,Fxx,Fyx,Fzx,Fxy,Fyy,Fzy,Fxz,Fyz,Fzz)
+#endif
+     
+#ifdef fexlpool
+     ASSOCIATE(Fx=>fexlPool_get(ax,ay,az),Fy=>fexlPool_get(ax,ay,az),Fz=>fexlPool_get(ax,ay,az) &
+          ,tx=>fexlPool_get(ax,ay,az),ty=>fexlPool_get(ax,ay,az),tz=>fexlPool_get(ax,ay,az) &
+          ,tmp=>fexlPool_get(ax,ay,az),bar=>fexlPool_get(ax,ay,az),Fxx=>fexlPool_get(ax,ay,az) &
+          ,Fyx=>fexlPool_get(ax,ay,az),Fzx=>fexlPool_get(ax,ay,az),Fxy=>fexlPool_get(ax,ay,az) &
+          ,Fyy=>fexlPool_get(ax,ay,az),Fzy=>fexlPool_get(ax,ay,az),Fxz=>fexlPool_get(ax,ay,az) &
+          ,Fyz=>fexlPool_get(ax,ay,az),Fzz=>fexlPool_get(ax,ay,az)  )
+#endif
+     
+
+       !CALL SYSTEM_CLOCK( t4, clock_rate, clock_max )
+     CALL CPU_TIME( t4 )
+       
+
+     !memtime = memtime + real(t4-t3) / real(clock_rate)
+     memtime = memtime + (t4-t3)
+     
+
+!$omp target teams distribute parallel do collapse(3)
+     do kfunr=1,size(ie,3)
+       do jfunr=1,size(ie,2)
+         do ifunr=1,size(ie,1)
+           ie(ifunr,jfunr,kfunr)= et(ifunr,jfunr,kfunr)- .5*rho(ifunr,jfunr,kfunr)*(u(ifunr,jfunr,kfunr)* u(ifunr,jfunr,kfunr)+ v(ifunr,jfunr,kfunr)* v(ifunr,jfunr,kfunr)+ w(ifunr,jfunr,kfunr)* w(ifunr,jfunr,kfunr))
+         end do
+       end do
+     end do
+!$omp end target teams distribute parallel do
+
+     
+     CALL EOS(ie,rho,p,t,patch_ptr%ax,patch_ptr%ay,patch_ptr%az)
+
+     ! Rest u
+
+!$omp target teams distribute parallel do collapse(3)
+     do kfunr=1,size(u,3)
+       do jfunr=1,size(u,2)
+         do ifunr=1,size(u,1)
+           u(ifunr,jfunr,kfunr)= 1.0D0
+         end do
+       end do
+     end do
+!$omp end target teams distribute parallel do
+
      
      ! Mass equation
 
-     !$FEXL {dim:3,var:['Fx','Fy','Fz','rho','u','v','w']}
-     Fx = rho * u
-     Fy = rho * v
-     Fz = rho * w
-     !$END FEXL     
+
+!$omp target teams distribute parallel do collapse(3)
+     do kfunr=1,size(Fx,3)
+       do jfunr=1,size(Fx,2)
+         do ifunr=1,size(Fx,1)
+           Fx(ifunr,jfunr,kfunr)= rho(ifunr,jfunr,kfunr)* u(ifunr,jfunr,kfunr)
+            Fy(ifunr,jfunr,kfunr)= rho(ifunr,jfunr,kfunr)* v(ifunr,jfunr,kfunr)
+            Fz(ifunr,jfunr,kfunr)= rho(ifunr,jfunr,kfunr)* w(ifunr,jfunr,kfunr)
+          end do
+       end do
+     end do
+!$omp end target teams distribute parallel do
+
      CALL div(Fx,Fy,Fz,RHS(:,:,:,1),patch_ptr%ax,patch_ptr%ay,patch_ptr%az)
 
-     ! Momentum equation (x)
-     !$FEXL {dim:3,var:['Fxx','Fyx','Fzx','Fxy','Fyy','Fzy','Fxz','Fyz','Fzz','rho','u','v','w','p']}
-     Fxx = rho * u * u + p
-     Fyx = rho * u * v
-     Fzx = rho * u * w 
-     
-     ! Momentum equation (y)
-     Fxy = rho * v * u 
-     Fyy = rho * v * v + p
-     Fzy = rho * v * w 
-     
-     ! Momentum equation (z)
-     Fxz = rho * w * u 
-     Fyz = rho * w * v
-     Fzz = rho * w * w + p
-     !$END FEXL
-     
-     CALL div(Fxx,Fxy,Fxz,Fyx,Fyy,Fyz,Fzx,Fzy,Fzz, &
-          RHS(:,:,:,2),RHS(:,:,:,3),RHS(:,:,:,4) )
 
-     ! Energy equation
-     !$FEXL {dim:3,var:['et','ie','rho','u','v','w']}
-     et = ie + .5 * rho * (u*u + v*v + w*w )
-     !$END FEXL
-     CALL grad(T,tx,ty,tz)
-
-     !$FEXL {dim:3,var:['Fx','Fy','Fz','et','u','v','w','tx','ty','tz']}
-     Fx = et * u - tx
-     Fy = et * v - ty
-     Fz = et * w - tz
-     !$END FEXL
-     CALL div(Fx,Fy,Fz,RHS(:,:,:,5),patch_ptr%ax,patch_ptr%ay,patch_ptr%az)
-
-     ! Integrate the equaions
-     !$FEXL {dim:3,var:['rho','RHS','u','v','w','et','Fx','Fy','Fz']}
-     Fx = rho*u
-     Fy = rho*v
-     Fz = rho*w
-     rho = rho - dt * RHS(:,:,:,1)
-     et = et - dt * RHS(:,:,:,5)
-     u = (Fx - dt*RHS(:,:,:,2)) / rho
-     v = (Fy - dt*RHS(:,:,:,3)) / rho
-     w = (Fz - dt*RHS(:,:,:,4)) / rho     
-     !$END FEXL
-     
-     ! Filter the equations
-     !$FEXL {dim:3,var:['tmp','rho']}
-     tmp = rho
-     !$END FEXL
-     CALL filter('spectral',tmp,rho)
-     !$FEXL {dim:3,var:['tmp','rho','u']}
-     tmp = rho*u
-     !$END FEXL
-     CALL filter('spectral',tmp,bar)
-     !$FEXL {dim:3,var:['u','bar','v','tmp','rho']}
-     u = bar / rho    
-     tmp = rho*v
-     !$END FEXL
-     CALL filter('spectral',tmp,bar)
-     !$FEXL {dim:3,var:['w','bar','v','tmp','rho']}
-     v = bar / rho     
-     tmp = rho*w
-     !$END FEXL
-     CALL filter('spectral',tmp,bar)
-     !$FEXL {dim:3,var:['w','bar','et','tmp','rho']}
-     w = bar / rho     
-     tmp = et
-     !$END FEXL
-     CALL filter('spectral',tmp,et)
+!$omp target teams distribute parallel do collapse(3)
+     do kfunr=1,size(u,3)
+       do jfunr=1,size(u,2)
+         do ifunr=1,size(u,1)
+           u(ifunr,jfunr,kfunr)= u(ifunr,jfunr,kfunr)* 0.0+RHS(ifunr,jfunr,kfunr, 1 )
+         end do
+       end do
+     end do
+!$omp end target teams distribute parallel do
 
      
+#ifdef fexlpool
+   END ASSOCIATE
+   ierror = fexlPool_free(17)
+#endif
+
+#ifdef omppool
+   !$omp end target data 
+#endif
+   
   END DO
 
-  !$omp end target data
-
+  !CALL SYSTEM_CLOCK( t2, clock_rate, clock_max)
+  CALL CPU_TIME( t2 )
   
-  CALL SYSTEM_CLOCK( t2, clock_rate, clock_max)
-
+  !$omp end target data  
 
   IF ( rank == 0 ) THEN
-     print*,'Ellapsed time = ', real(t2-t1) / real(clock_rate)
+     print*,'Ellapsed time = ', real(t2-t1) !/ real(clock_rate)
+     print*,'Memory time = ', real(memtime)
+     print*,'Result = ' , real( SUM(ABS(u)) )
+     print*,'Answer = ' , real( answer )
   END IF
 
   CALL remove_objects(0,0)
   CALL MPI_FINALIZE(mpierr)
 
 
-  CONTAINS
-    SUBROUTINE EOS(ie,rho,p,T)
-      DOUBLE PRECISION, DIMENSION(:,:,:), INTENT(IN) :: ie,rho
-      DOUBLE PRECISION, DIMENSION(:,:,:), INTENT(OUT) :: p,t
-    END SUBROUTINE EOS
-  
     
   
 END PROGRAM miniApp
@@ -284,29 +296,29 @@ END PROGRAM miniApp
 
 
 
-SUBROUTINE EOS(ie,rho,p,T)
-  DOUBLE PRECISION, DIMENSION(:,:,:), INTENT(IN) :: ie,rho
-  DOUBLE PRECISION, DIMENSION(:,:,:), INTENT(OUT) :: p,t
-  DOUBLE PRECISION :: gamma = 1.4
-  !$DEF-FEXL
-  
-  !$FEXL {dim:3,var:['p','ie','rho','t']}
-  p = ie / rho * (gamma - 1.0 )
-  t = ie * (gamma )
-  !$END FEXL
-  
-END SUBROUTINE EOS
-
-
-SUBROUTINE EOS_nx(ie,rho,p,T,nx,ny,nz)
+SUBROUTINE EOS(ie,rho,p,T,nx,ny,nz)
   INTEGER, INTENT(IN) :: nx,ny,nz
   DOUBLE PRECISION, DIMENSION(nx,ny,nz), INTENT(IN) :: ie,rho
   DOUBLE PRECISION, DIMENSION(nx,ny,nz), INTENT(OUT) :: p,t
+  DOUBLE PRECISION, DIMENSION(nx,ny,nz) :: tmp1,tmp2
   DOUBLE PRECISION :: gamma = 1.4
 
+  !$omp target data map(alloc:tmp1,tmp2)
+
+
+!$omp target teams distribute parallel do collapse(3)
+  do kfunr=1,size(p,3)
+    do jfunr=1,size(p,2)
+      do ifunr=1,size(p,1)
+        p(ifunr,jfunr,kfunr)= ie(ifunr,jfunr,kfunr)/ rho(ifunr,jfunr,kfunr)*(gamma-1.0 )
+        t(ifunr,jfunr,kfunr)= ie(ifunr,jfunr,kfunr)*(gamma )
+      end do
+    end do
+  end do
+!$omp end target teams distribute parallel do
+
   
-  p = ie / rho * (gamma - 1.0 )
-  t = ie * (gamma )
-  
-  
-END SUBROUTINE EOS_nx
+  !$omp end target data
+
+
+END SUBROUTINE EOS

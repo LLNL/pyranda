@@ -48,6 +48,8 @@ f2py    ?= $(python) -c 'import numpy.f2py; numpy.f2py.main()'
 fflags  ?= $($(fcomp).fflags)
 lopts   ?= $(call use-if,$($(fcomp).lopts),-shared)
 
+uflags  ?= 
+
 #
 # Python and numpy directories for use when building the f2py wrapped module
 #
@@ -76,7 +78,7 @@ vpath %.c $(f2py.dir)
 .PHONY: clean info
 
 %.o: %.f90
-	$(mpif90) $(fflags) -c $<
+	$(mpif90) $(uflags) $(fflags)  -c $<
 
 %.o: %.c
 	$(mpicc) -fPIC $(python.Iflags) $(numpy.Iflags) $(f2py.Iflags) -c $^

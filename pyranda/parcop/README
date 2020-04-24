@@ -1,0 +1,63 @@
+This branch demonstrates two approaches for allocating memory on the device.
+We're not interested in the persistent data maps (for now) and those data transfers are low frequency
+(only at IO for the time being).  We ARE interested in the temporary data maps for data needed as working
+varaibles as the code is called.
+
+---omp approach---
+By default we use !$omp pragmas for this.  A very common approach for us currently, is to use the
+"!$omp target data map(alloc:foovar)" to map data on the device.  As far as I can tell, this grabs
+data from omp's pool, and associates a pointer to the data for usage.  Best case scenario, the
+pool data are already allocated, and a simple pointer meta-data get transferred.  Worst case, the
+data requested exceed the pool's size and it must grow. ALLOC is called on the GPU and usually wont
+be again unless the code forks into a more memory heavy path.
+
+--fexl pool approach---
+We've tried to circumvent the small overhead with the omp approach, as this is taking ~10% of our run time.
+To do this, we keep our own device pointers as an array of types that have some relevant state.  We use omp
+to map elements of this array to the device, but then we explicitly manage them, assuming info about their size,
+etc.  This class/data/type are all in ompsync.f90.  Doing this virtually eliminates the persistent overhead of
+requesting temporary data for each cycle of the simulation.
+
+Questions:
+- Does UMPIRE suffer from the same similar overhead as omp data maps?  That is, will we observe a small HtoD memcpy
+  of the fortran array metadata in a serial, per-variable fashion?
+- I think we could easily incoorporate umpire into our fexl-pool approach.  However, it may be better to extend umpire's
+  capability as a more general/performant approach.  If Q1 is yes, then do umpire folks have an interest in extending
+  their API to return more specific/data?
+  (see, for example, "fexlPool_get()"
+
+
+
+To build and run the two approaches for handling memory transfers:
+
+
+
+1) fexlpool
+    - make clean
+    - fexl
+    - make miniAppGPU uflags="-qpreprocess -WF,-Dfexlpool"
+    - lrun -n 1 miniAppGPU 500 128 1 128 1 128 1
+
+    output: 
+     Ellapsed time =  1.250000000
+     Memory time =  0.0000000000E+00  **
+     Result =  830909.7500
+     Answer =  830909.7500
+
+2) omppool
+    - make clean
+    - fexl
+    - make miniAppGPU uflags="-qpreprocess -WF,-Domppool"
+    - lrun -n 1 miniAppGPU 500 128 1 128 1 128 1
+
+    output:
+      Ellapsed time =  1.360000014
+      Memory time =  0.1000000015 **
+      Result =  830909.7500
+      Answer =  830909.7500
+
+
+** Note that in this example, the time omp takes to access its pool and
+give a new pointer for device usage is about 10% of the run time.  This is more/less
+the percentage we see for the full code.
+
