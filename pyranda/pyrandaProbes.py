@@ -33,8 +33,6 @@ class pyrandaProbes(pyrandaPackage):
         
         xmesh = pysim.PyMPI.ghost( pysim.x().data, 1)[:,:,0]
         ymesh = pysim.PyMPI.ghost( pysim.y().data, 1)[:,:,0]
-        #xrng = [ pysim.x().data.min(), pysim.x().data.max() ]
-        #yrng = [ pysim.y().data.min(), pysim.y().data.max() ]
         for ix,iy in zip(self.xpts,self.ypts):
             self.points.append( ipoint(ix,iy,xmesh,ymesh) )
         
