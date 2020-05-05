@@ -149,8 +149,28 @@ class pyrandaMesh:
             self.PyMPI.ax,
             self.PyMPI.ay,
             self.PyMPI.az)
-        
 
+
+        # Compute global index arrays
+        self.indices = [ pyrandaVar("iloc","mesh","scalar"),
+                         pyrandaVar("jloc","mesh","scalar"),
+                         pyrandaVar("kloc","mesh","scalar") ]
+        
+        for ind in self.indices:
+            ind.__allocate__(self.PyMPI)
+            
+        for i in range(ax):
+            for j in range(ay):
+                for k in range(az):
+                    # Get global indices
+                    ii = i + self.PyMPI.chunk_3d_lo[0]
+                    jj = j + self.PyMPI.chunk_3d_lo[1]
+                    kk = k + self.PyMPI.chunk_3d_lo[2]
+                    self.indices[0].data[i,j,k] = ii
+                    self.indices[1].data[i,j,k] = jj
+                    self.indices[2].data[i,j,k] = kk
+
+                    
 def defaultMeshOptions():
     options = {}
     

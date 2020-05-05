@@ -792,6 +792,12 @@ class pyrandaSim:
         sMap['meshx']   = 'self.mesh.coords[0].data'
         sMap['meshy']   = 'self.mesh.coords[1].data'
         sMap['meshz']   = 'self.mesh.coords[2].data'
+
+        sMap['meshi']   = 'self.mesh.indices[0].data'
+        sMap['meshj']   = 'self.mesh.indices[1].data'
+        sMap['meshk']   = 'self.mesh.indices[2].data'
+
+        
         self.sMap = sMap
         
     def euler(self,time,dt):
@@ -912,7 +918,7 @@ def pyrandaRestart(rootname,suffix=None):
         dump = os.path.join(rootname, "restart_%s" % suffix )
 
     if not os.path.isdir( dump ):
-        self.iprint("Error: Cant read resart file %s" % dump)
+        self.iprint("Error: Cant read restart file %s" % dump)
         return None
 
     # Get serial data
@@ -922,6 +928,7 @@ def pyrandaRestart(rootname,suffix=None):
     # Load local data into current state
     serial_data = eval( dstr )
 
+    message = ''
     
     # Unpack the mesh function (not needed?)
     #if ( 'function' in serial_data['mesh'] ):
@@ -939,6 +946,7 @@ def pyrandaRestart(rootname,suffix=None):
     if "local_vars" in serial_data:
         for vv in serial_data["local_vars"]:
             exec("%s = %s" % (vv,serial_data["local_vars"][vv]) )
+            message += "    variable %s added \n" % vv
         my_local_vars.update( serial_data['local_vars'] )
 
         for na in serial_data['local_vars']['numpyArrays']:
@@ -946,6 +954,7 @@ def pyrandaRestart(rootname,suffix=None):
             data = numpy.load(filename)
             my_local_vars.update( {na:data} )
             exec("%s = numpy.load('%s')" % (na,filename))
+            message += "    numpy array %s added \n" % na
             
         serial_data.pop("local_vars",None)
         
@@ -957,6 +966,7 @@ def pyrandaRestart(rootname,suffix=None):
         exec("import %s" % ipack )
         pk = eval("%s.%s(pysim)" % (ipack,ipack) )
         pysim.addPackage( pk )
+        message += "    package %s added \n" % ipack
 
     # EOM and IC's
     pysim.EOM( serial_data['EOM'] )
@@ -981,14 +991,15 @@ def pyrandaRestart(rootname,suffix=None):
     pysim.mesh.makeMesh(xr=pysim.x().data,
                         yr=pysim.y().data,
                         zr=pysim.z().data)
-    
-    #for pp in ProcFiles:
-    #    fid = open(os.path.join(dump,"proc-%s.bin" % str(pp).zfill(5)))
-    #    DATA = numpy.reshape(numpy.fromfile( fid ),nshape,order='C')
-    #    for var in pysim.variables:                                                
-    #        pysim.variables[var].data = DATA[:,:,:,serial_data['vars'][var]]
 
-    return pysim
+    # Print restart summary
+    pysim.iprint("Successful read of restart file: %s " % dump )
+    pysim.iprint(message)
+
+    # Remove the array meta data
+    my_local_vars.pop("numpyArrays",None)
+    
+    return [ pysim, my_local_vars ]
 
         
         
