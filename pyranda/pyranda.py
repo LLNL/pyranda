@@ -115,7 +115,7 @@ class pyrandaSim:
         # Print startup message
         self.iprint( code() , 4000 )
         self.iprint( version() , 1000)
-        self.iprint( icopyright(), 400 )
+        self.iprint( icopyright(), 1000 )
 
         
     def iprint(self,sprnt,wpm=0):
