@@ -163,7 +163,7 @@ def version():
 
 def icopyright():
     return """
-Copyright (c) 2018 Lawrence Livermore National Laboratory (LLNL-CODE-749864)
+Copyright (c) 2020 Lawrence Livermore National Laboratory (LLNL-CODE-749864)
 All rights reserved. 
 For details about use and distribution, please read: pyranda/LICENSE
 """
