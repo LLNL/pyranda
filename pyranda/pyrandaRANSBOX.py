@@ -52,9 +52,9 @@ class pyrandaRANSBOX(pyrandaPackage):
         # Allocate some space for RANSBox outputs
         npts = self.nx * self.ny * self.nz
         for ii in self.outputList:
-            exec("val = self.%s" % ii )
-            if val:
-                exec("self.outputs.%s = numpy.zeros(npts)" % ii )
+            #exec("val = self.%s" % ii )
+            #if val:
+            exec("self.outputs.%s = numpy.zeros(npts)" % ii )
 
         self.allocated = True
                 
