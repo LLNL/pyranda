@@ -59,7 +59,7 @@ def spec_1d(y,han=True):
     #psd = npy.abs(f2) #*npy.conjugate(f2))
     psd = (f2)*numpy.conjugate(f2)
     psd = numpy.abs(psd)
-    return psd[0:y.shape[0]/2]
+    return psd[0:int(y.shape[0]/2)]
 
 
 mesh_options = {}
