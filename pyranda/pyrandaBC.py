@@ -298,7 +298,6 @@ class pyrandaBC(pyrandaPackage):
 
         if direction == 'yn':
 
-            #if not self.BCdata.has_key('slipbc-yn'):
             if not 'slipbc-yn' in self.BCdata.keys():
 
                 [n1,n2,n3] = self.getNorms(direction)
