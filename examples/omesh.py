@@ -21,8 +21,8 @@ def extend_normal( xpts,ypts, dist , sign=1,
 
         dx.append( idx )
         dy.append( idy )
-        
-    
+
+
     for i in range( npts ):
 
         idx  = dx[i] #xpts[(i+1)%npts]-xpts[i-1]
@@ -51,7 +51,7 @@ def extend_normal( xpts,ypts, dist , sign=1,
 def smoothMesh(x,y):
 
     nx = x.shape[0]
-    ny = x.shape[1]    
+    ny = x.shape[1]
 
     xnew = x*1.0
     ynew = y*1.0
@@ -59,8 +59,8 @@ def smoothMesh(x,y):
     for i in range(nx):
 
         # J=0 is Diriclet
-        # J=1 to force Neuman        
-        
+        # J=1 to force Neuman
+
         for j in range(0,ny-1):
             ip = (i+1)%nx
 
@@ -69,25 +69,25 @@ def smoothMesh(x,y):
 
 
             wgt = min( float(j)/5.0 , 1.0 )
-            
+
             xnew[i,j] =  x[i,j] + wgt*eps*Lx  #( x[i-1,j]+x[ip,j]+x[i,j-1]+x[i,j+1] ) / 4.0
             ynew[i,j] =  y[i,j] + wgt*eps*Ly  #( y[i-1,j]+y[ip,j]+y[i,j-1]+y[i,j+1] ) / 4.0
 
     return [xnew,ynew]
-    
+
 
 def roundTrailingEdge(xnaca,ynaca,teRad):
     X = xnaca
     Y = ynaca
-    npts = ( len(X)-1 ) / 2
+    npts = int(( len(X)-1 ) / 2)
     gap = 0.0
     te_in = -1
-    while gap < teRad:            
+    while gap < teRad:
         te_in += 1
         xl = X[te_in]
         xu = X[2*npts-te_in]
         yl = Y[te_in]
-        yu = Y[2*npts-te_in]            
+        yu = Y[2*npts-te_in]
         gap = npy.sqrt( (xu-xl)**2 + (yu-yl)**2 )
 
     # This chops off the trailing edge
@@ -95,7 +95,7 @@ def roundTrailingEdge(xnaca,ynaca,teRad):
     Y = Y[te_in:-te_in]
 
     # Now add a parabola for smooth TE
-    # USE POLYFIT 
+    # USE POLYFIT
     xpoly = []
     xpoly.append( Y[1] )
     xpoly.append( Y[0] )
@@ -140,12 +140,12 @@ def roundTrailingEdge(xnaca,ynaca,teRad):
 
     return[X,Y]
 
-   
+
 
 def naca_omesh(NACA,nx,ny,
                te=.05,dratio=10,teSig=40,
                dr0=.001,fact=1.05,iS=20,PLOT=True):
-    
+
     #NACA = '2412' # NACA airfoil code
     #te = .05      # Radius of Trailing Edge
     #dratio = 10   # TE grid spacing ratio (Coord:TE)
@@ -184,8 +184,8 @@ def naca_omesh(NACA,nx,ny,
     wgt = []
     wsum = 0
     for i in range(Fpts):
-        wgt.append( wsum )   
-        dd = min( i , ((Fpts-1)-i) ) 
+        wgt.append( wsum )
+        dd = min( i , ((Fpts-1)-i) )
         exp0 = npy.exp( - dd*dd / ( Fpts/float(teSig) )**2 )  # 1 @ refine, 0 else
         exp0 *= (1.0 - 1.0 / dratio)
         dr = 1.0 - exp0
@@ -228,12 +228,12 @@ def naca_omesh(NACA,nx,ny,
     if PLOT:
         plt.plot(xgrid, ygrid, 'k-', lw=0.5, alpha=0.5)
         plt.plot(xgrid.T, ygrid.T, 'k-', lw=0.5, alpha=0.5)
-        plt.axis('equal')                              
+        plt.axis('equal')
         plt.show()
 
 
     return [xgrid,ygrid]
-        
+
 
 if __name__ == "__main__":
 
