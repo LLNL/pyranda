@@ -8,7 +8,7 @@
 #
 # Written by: Britton J. Olson, olson45@llnl.gov
 ################################################################################
-import numpy 
+import numpy
 from .pyrandaPackage import pyrandaPackage
 
 
@@ -23,7 +23,7 @@ class pyrandaBC(pyrandaPackage):
 
         self.BCdata = {}
 
-        
+
 
     def get_sMap(self):
         sMap = {}
@@ -34,15 +34,15 @@ class pyrandaBC(pyrandaPackage):
         sMap['bc.field(']  =  "self.packages['BC'].applyBC('field',"
         sMap['bc.farfield(']  =  "self.packages['BC'].farfieldbc("
         self.sMap = sMap
-        
+
 
     def applyBC(self,func,var,direction,val=None):
 
         pFunc = eval('self.' + func)
-        
+
         if type(var) != type([]):
             var = [var]
-        
+
         if type(direction) != type([]):
             direction = [direction]
 
@@ -52,8 +52,8 @@ class pyrandaBC(pyrandaPackage):
                     pFunc( v, d , val )
                 else:
                     pFunc( v, d  )
-        
-        
+
+
     def extrap(self,var,direction,order=2):
 
         if type(var) != type([]):
@@ -65,8 +65,8 @@ class pyrandaBC(pyrandaPackage):
         for d in direction:
             for v in var:
                 self.extrapolate( v , d ,order)
-            
-        
+
+
 
     def extrapolate(self,var,direction,order):
         # Direction switch
@@ -74,9 +74,9 @@ class pyrandaBC(pyrandaPackage):
         if direction == 'x1':
             if self.pyranda.PyMPI.x1proc:
                 if order == 2:
-                    self.pyranda.variables[var].data[0,:,:] = 2*self.pyranda.variables[var].data[1,:,:] - self.pyranda.variables[var].data[2,:,:] 
+                    self.pyranda.variables[var].data[0,:,:] = 2*self.pyranda.variables[var].data[1,:,:] - self.pyranda.variables[var].data[2,:,:]
                 else:
-                    self.pyranda.variables[var].data[0,:,:] = self.pyranda.variables[var].data[1,:,:] 
+                    self.pyranda.variables[var].data[0,:,:] = self.pyranda.variables[var].data[1,:,:]
 
         if direction == 'xn':
             if self.pyranda.PyMPI.xnproc:
@@ -99,7 +99,7 @@ class pyrandaBC(pyrandaPackage):
                 else:
                     self.pyranda.variables[var].data[:,-1,:] = self.pyranda.variables[var].data[:,-2,:]
 
-                
+
     def const(self,var,direction,val):
 
         if type(var) != type([]):
@@ -111,26 +111,26 @@ class pyrandaBC(pyrandaPackage):
         for d in direction:
             for v in var:
                 self.constant( v , d , val)
-                
-                
+
+
     def constant(self,var,direction,val):
-        
+
         # Direction switch
         if direction == 'x1':
             if self.pyranda.PyMPI.x1proc:
                 self.pyranda.variables[var].data[0,:,:] = val
-                
-            
+
+
         if direction == 'xn':
             if self.pyranda.PyMPI.xnproc:
                 self.pyranda.variables[var].data[-1,:,:] = val
-            
+
 
         if direction == 'y1':
             if self.pyranda.PyMPI.y1proc:
                 self.pyranda.variables[var].data[:,0,:] = val
-                
-            
+
+
         if direction == 'yn':
             if self.pyranda.PyMPI.ynproc:
                 self.pyranda.variables[var].data[:,-1,:] = val
@@ -138,30 +138,30 @@ class pyrandaBC(pyrandaPackage):
     def field(self,var,direction,field):
 
         val = field
-        
+
         # Direction switch
         if direction == 'x1':
             if self.pyranda.PyMPI.x1proc:
                 self.pyranda.variables[var].data[0,:,:] = val[0,:,:]
-                
-            
+
+
         if direction == 'xn':
             if self.pyranda.PyMPI.xnproc:
                 self.pyranda.variables[var].data[-1,:,:] = val[-1,:,:]
-            
+
 
         if direction == 'y1':
             if self.pyranda.PyMPI.y1proc:
                 self.pyranda.variables[var].data[:,0,:] = val[:,0,:]
-                
-            
+
+
         if direction == 'yn':
             if self.pyranda.PyMPI.ynproc:
                 self.pyranda.variables[var].data[:,-1,:] = val[:,-1,:]
 
-        
 
-                 
+
+
 
     def slipbc(self,var,direction):
 
@@ -191,7 +191,7 @@ class pyrandaBC(pyrandaPackage):
         detJ = self.pyranda.getVar("dtJ")
 
         metrics = {}
-        
+
         metrics['dxdA'] = (-dBdz*dCdy + dBdy*dCdz)*detJ
         metrics['dxdB'] = ( dAdz*dCdy - dAdy*dCdz)*detJ
         metrics['dxdC'] = (-dAdz*dBdy + dAdy*dBdz)*detJ
@@ -219,11 +219,11 @@ class pyrandaBC(pyrandaPackage):
         else:
             d1 = 'A'
             d2 = 'B'
-                    
+
         a1 = metrics['dxd'+d1]
         a2 = metrics['dyd'+d1]
         a3 = metrics['dzd'+d1]
-        
+
         b1 = metrics['dxd'+d2]
         b2 = metrics['dyd'+d2]
         b3 = metrics['dzd'+d2]
@@ -238,8 +238,8 @@ class pyrandaBC(pyrandaPackage):
         n3 /= mag
 
         return [n1,n2,n3]
-        
-        
+
+
     def slipvelbc(self,velocity,direction):
         """
         Allow tangential velocities
@@ -248,10 +248,11 @@ class pyrandaBC(pyrandaPackage):
         ax = self.pyranda.PyMPI.ax
         ay = self.pyranda.PyMPI.ay
         az = self.pyranda.PyMPI.az
-        
+
         if direction == 'y1':
 
-            if not self.BCdata.has_key('slipbc-y1'):
+            #if not self.BCdata.has_key('slipbc-y1'): code for python 2.7
+            if not 'slipbc-y1' in self.BCdata.keys():
 
                 [n1,n2,n3] = self.getNorms(direction)
                 norms = []
@@ -261,11 +262,11 @@ class pyrandaBC(pyrandaPackage):
                 self.BCdata['slipbc-y1'] = norms
             else:
                 norms = self.BCdata['slipbc-y1']
-                
+
             # For free slip, always extrapolate first
             for uu in velocity:
                 self.extrapolate(uu,'y1',order=2)
-                
+
             if self.pyranda.PyMPI.y1proc:
 
                 udotn = 0.0
@@ -278,8 +279,8 @@ class pyrandaBC(pyrandaPackage):
                 for uu in range(len(velocity)):
                     mag0 += self.pyranda.variables[velocity[uu]].data[:,0,:]**2
                 mag0 = numpy.sqrt( mag0 ) #+ 1.0e-12
-                    
-                for uu in range(len(velocity)):                    
+
+                for uu in range(len(velocity)):
                     self.pyranda.variables[velocity[uu]].data[:,0,:] -= udotn*norms[uu]
 
                 # magnitude after
@@ -289,7 +290,7 @@ class pyrandaBC(pyrandaPackage):
                 magF = numpy.sqrt( magF ) #+ 1.0e-12
 
                 # Make sure magnitude is NOT larger
-                for uu in range(len(velocity)):                    
+                for uu in range(len(velocity)):
                     self.pyranda.variables[velocity[uu]].data[:,0,:] = numpy.where(
                         magF > mag0,
                         self.pyranda.variables[velocity[uu]].data[:,0,:]*mag0/magF,
@@ -297,7 +298,8 @@ class pyrandaBC(pyrandaPackage):
 
         if direction == 'yn':
 
-            if not self.BCdata.has_key('slipbc-yn'):                
+            #if not self.BCdata.has_key('slipbc-yn'):
+            if not 'slipbc-yn' in self.BCdata.keys():
 
                 [n1,n2,n3] = self.getNorms(direction)
                 norms = []
@@ -305,15 +307,15 @@ class pyrandaBC(pyrandaPackage):
                 norms.append( n2[:,-1,:] )
                 norms.append( n3[:,-1,:] )
                 self.BCdata['slipbc-yn'] = norms
-                
+
             else:
                 norms = self.BCdata['slipbc-yn']
 
-                
+
             # For free slip, always extrapolate first
             for uu in velocity:
                 self.extrapolate(uu,'yn',order=2)
-                
+
             if self.pyranda.PyMPI.ynproc:
 
                 udotn = 0.0
@@ -326,8 +328,8 @@ class pyrandaBC(pyrandaPackage):
                 for uu in range(len(velocity)):
                     mag0 += self.pyranda.variables[velocity[uu]].data[:,-1,:]**2
                 mag0 = numpy.sqrt( mag0 ) #+ 1.0e-12
-                    
-                for uu in range(len(velocity)):                    
+
+                for uu in range(len(velocity)):
                     self.pyranda.variables[velocity[uu]].data[:,-1,:] -= udotn*norms[uu]
 
                 # magnitude after
@@ -337,7 +339,7 @@ class pyrandaBC(pyrandaPackage):
                 magF = numpy.sqrt( magF ) #+ 1.0e-12
 
                 # Make sure magnitude is NOT larger
-                for uu in range(len(velocity)):                    
+                for uu in range(len(velocity)):
                     self.pyranda.variables[velocity[uu]].data[:,-1,:] = numpy.where(
                         magF > mag0,
                         self.pyranda.variables[velocity[uu]].data[:,-1,:]*mag0/magF,
@@ -345,8 +347,9 @@ class pyrandaBC(pyrandaPackage):
 
         if direction == 'x1':
 
-            if not self.BCdata.has_key('slipbc-x1'):
-                
+            #if not self.BCdata.has_key('slipbc-x1'):
+            if not 'slipbc-x1' in self.BCdata.keys():
+
                 [n1,n2,n3] = self.getNorms(direction)
                 norms = []
                 norms.append( n1[0,:,:] )
@@ -356,11 +359,11 @@ class pyrandaBC(pyrandaPackage):
             else:
                 norms = self.BCdata['slipbc-x1']
 
-                
+
             # For free slip, always extrapolate first
             for uu in velocity:
                 self.extrapolate(uu,'x1',order=2)
-                
+
             if self.pyranda.PyMPI.x1proc:
 
                 udotn = 0.0
@@ -373,8 +376,8 @@ class pyrandaBC(pyrandaPackage):
                 for uu in range(len(velocity)):
                     mag0 += self.pyranda.variables[velocity[uu]].data[0,:,:]**2
                 mag0 = numpy.sqrt( mag0 ) #+ 1.0e-12
-                    
-                for uu in range(len(velocity)):                    
+
+                for uu in range(len(velocity)):
                     self.pyranda.variables[velocity[uu]].data[0,:,:] -= udotn*norms[uu]
 
                 # magnitude after
@@ -384,7 +387,7 @@ class pyrandaBC(pyrandaPackage):
                 magF = numpy.sqrt( magF ) #+ 1.0e-12
 
                 # Make sure magnitude is NOT larger
-                for uu in range(len(velocity)):                    
+                for uu in range(len(velocity)):
                     self.pyranda.variables[velocity[uu]].data[0,:,:] = numpy.where(
                         magF > mag0,
                         self.pyranda.variables[velocity[uu]].data[0,:,:]*mag0/magF,
@@ -392,22 +395,23 @@ class pyrandaBC(pyrandaPackage):
 
         if direction == 'xn':
 
-            if not self.BCdata.has_key('slipbc-xn'):
-                
+            #if not self.BCdata.has_key('slipbc-xn'):
+            if not 'slipbc-xn' in self.BCdata.keys():
+
                 [n1,n2,n3] = self.getNorms(direction)
                 norms = []
                 norms.append( n1[-1,:,:] )
                 norms.append( n2[-1,:,:] )
                 norms.append( n3[-1,:,:] )
                 self.BCdata['slipbc-xn'] = norms
-                
+
             else:
                 norms = self.BCdata['slipbc-xn']
-                
+
             # For free slip, always extrapolate first
             for uu in velocity:
                 self.extrapolate(uu,'xn',order=2)
-                
+
             if self.pyranda.PyMPI.xnproc:
 
                 udotn = 0.0
@@ -420,8 +424,8 @@ class pyrandaBC(pyrandaPackage):
                 for uu in range(len(velocity)):
                     mag0 += self.pyranda.variables[velocity[uu]].data[-1,:,:]**2
                 mag0 = numpy.sqrt( mag0 ) #+ 1.0e-12
-                    
-                for uu in range(len(velocity)):                    
+
+                for uu in range(len(velocity)):
                     self.pyranda.variables[velocity[uu]].data[-1,:,:] -= udotn*norms[uu]
 
                 # magnitude after
@@ -431,16 +435,16 @@ class pyrandaBC(pyrandaPackage):
                 magF = numpy.sqrt( magF ) #+ 1.0e-12
 
                 # Make sure magnitude is NOT larger
-                for uu in range(len(velocity)):                    
+                for uu in range(len(velocity)):
                     self.pyranda.variables[velocity[uu]].data[-1,:,:] = numpy.where(
                         magF > mag0,
                         self.pyranda.variables[velocity[uu]].data[-1,:,:]*mag0/magF,
                         self.pyranda.variables[velocity[uu]].data[-1,:,:] )
-                    
 
-                    
 
-                    
+
+
+
     def exitbc(self,var,direction,norm=False):
 
         if type(var) != type([]):
@@ -460,25 +464,25 @@ class pyrandaBC(pyrandaPackage):
             if self.pyranda.PyMPI.x1proc:
                 u1 = self.pyranda.variables[var].data[0,:,:]
                 u2 = self.pyranda.variables[var].data[1,:,:]
-                u3 = self.pyranda.variables[var].data[2,:,:]                
+                u3 = self.pyranda.variables[var].data[2,:,:]
                 self.pyranda.variables[var].data[0,:,:] = self.BENO(u1,u2,u3,norm)
         if direction == 'xn':
             if self.pyranda.PyMPI.xnproc:
                 u1 = self.pyranda.variables[var].data[-1,:,:]
                 u2 = self.pyranda.variables[var].data[-2,:,:]
-                u3 = self.pyranda.variables[var].data[-3,:,:]                
+                u3 = self.pyranda.variables[var].data[-3,:,:]
                 self.pyranda.variables[var].data[-1,:,:] = self.BENO(u1,u2,u3,norm)
         if direction == 'y1':
             if self.pyranda.PyMPI.y1proc:
                 u1 = self.pyranda.variables[var].data[:,0,:]
                 u2 = self.pyranda.variables[var].data[:,1,:]
-                u3 = self.pyranda.variables[var].data[:,2,:]                
+                u3 = self.pyranda.variables[var].data[:,2,:]
                 self.pyranda.variables[var].data[:,0,:] = self.BENO(u1,u2,u3,norm)
         if direction == 'yn':
             if self.pyranda.PyMPI.ynproc:
                 u1 = self.pyranda.variables[var].data[:,-1,:]
                 u2 = self.pyranda.variables[var].data[:,-2,:]
-                u3 = self.pyranda.variables[var].data[:,-3,:]                
+                u3 = self.pyranda.variables[var].data[:,-3,:]
                 self.pyranda.variables[var].data[:,-1,:] = self.BENO(u1,u2,u3,norm)
 
 
@@ -489,8 +493,8 @@ class pyrandaBC(pyrandaPackage):
 
         beno = numpy.where( numpy.abs(d1) <= numpy.abs(d2), u1+d1, u1+d2)
         beno = numpy.where(d1*d2 <= 0.0, u1, beno)
-              
-        if norm:        
+
+        if norm:
             beno = numpy.maximum( numpy.minimum( beno, numpy.maximum(0.0,u2) ), numpy.minimum( 0.0, u2) )
 
         return beno
@@ -498,12 +502,13 @@ class pyrandaBC(pyrandaPackage):
 
 
     def getnormal(self,direction):
-        
+
 
         [n1,n2,n3] = self.getNorms(direction)
-        
+
         dataKey = "farfield-%s" % direction
-        if self.BCdata.has_key( dataKey ):
+        #if self.BCdata.has_key( dataKey ):
+        if dataKey in self.BCdata.keys():
             [xnormal,ynormal,znormal] = self.BCdata[dataKey]
 
         else:
@@ -560,14 +565,14 @@ class pyrandaBC(pyrandaPackage):
 
         Vni = Ui*nx+Vi*ny+Wi*nz
         Vno = Uo*nx+Vo*ny+Wo*nz
-        SSo = numpy.sqrt(gamma*Po/rhoo)   
+        SSo = numpy.sqrt(gamma*Po/rhoo)
         SSi = numpy.sqrt(gamma*Pi/rhoi)
-        tmp = numpy.sqrt(Ui**2+Vi**2+Wi**2)/SSi   
+        tmp = numpy.sqrt(Ui**2+Vi**2+Wi**2)/SSi
 
         # Compute Riemann invariants for supersonic and subsonic cases
         Rplus  = numpy.where( tmp >= 1.0 ,  Vno + 2.0*SSo/(gamma -1.0) , Vni + 2.0*SSi/(gamma -1.0) )
         Rminus = numpy.where( tmp >= 1.0 ,  Vni - 2.0*SSi/(gamma -1.0) , Vno - 2.0*SSo/(gamma -1.0) )
-        
+
         Vnormal = (Rminus + Rplus)*0.5
         SSb = (Rplus - Rminus)*(gamma-1.0)*0.25
         Ub = numpy.where( Vnormal >= 0.0 ,  Ui+(Vnormal-Vni)*nx , Uo+(Vnormal-Vno)*nx )
@@ -586,10 +591,10 @@ class pyrandaBC(pyrandaPackage):
 
 
     def farfieldbc(self,direction):
-        
+
         if type(direction) != type([]):
             direction = [direction]
-        
+
         for d in direction:
             self.farfield( d )
 
@@ -615,7 +620,7 @@ class pyrandaBC(pyrandaPackage):
         if direction == 'x1':
             if self.pyranda.PyMPI.x1proc:
                 rhoi = self.pyranda.variables[rho].data[1,:,:]
-                Ui   = self.pyranda.variables[u].data[1,:,:]           
+                Ui   = self.pyranda.variables[u].data[1,:,:]
                 Vi   = self.pyranda.variables[v].data[1,:,:]
                 Wi   = self.pyranda.variables[w].data[1,:,:]
                 Pi   = self.pyranda.variables[p].data[1,:,:]
@@ -629,12 +634,12 @@ class pyrandaBC(pyrandaPackage):
                 self.pyranda.variables[w].data[0,:,:] = Wb
                 self.pyranda.variables[p].data[0,:,:] = Pb
 
-                
+
 
         if direction == 'xn':
             if self.pyranda.PyMPI.xnproc:
                 rhoi = self.pyranda.variables[rho].data[-2,:,:]
-                Ui   = self.pyranda.variables[u].data[-2,:,:]           
+                Ui   = self.pyranda.variables[u].data[-2,:,:]
                 Vi   = self.pyranda.variables[v].data[-2,:,:]
                 Wi   = self.pyranda.variables[w].data[-2,:,:]
                 Pi   = self.pyranda.variables[p].data[-2,:,:]
@@ -652,7 +657,7 @@ class pyrandaBC(pyrandaPackage):
         if direction == 'y1':
             if self.pyranda.PyMPI.y1proc:
                 rhoi = self.pyranda.variables[rho].data[:,1,:]
-                Ui   = self.pyranda.variables[u].data[:,1,:]           
+                Ui   = self.pyranda.variables[u].data[:,1,:]
                 Vi   = self.pyranda.variables[v].data[:,1,:]
                 Wi   = self.pyranda.variables[w].data[:,1,:]
                 Pi   = self.pyranda.variables[p].data[:,1,:]
@@ -665,7 +670,7 @@ class pyrandaBC(pyrandaPackage):
                 self.pyranda.variables[v].data[:,0,:] = Vb
                 self.pyranda.variables[w].data[:,0,:] = Wb
                 self.pyranda.variables[p].data[:,0,:] = Pb
-                
+
 
         if direction == 'yn':
             if self.pyranda.PyMPI.ynproc:
@@ -682,13 +687,13 @@ class pyrandaBC(pyrandaPackage):
                 self.pyranda.variables[u].data[:,-1,:] = Ub
                 self.pyranda.variables[v].data[:,-1,:] = Vb
                 self.pyranda.variables[w].data[:,-1,:] = Wb
-                self.pyranda.variables[p].data[:,-1,:] = Pb                                 
+                self.pyranda.variables[p].data[:,-1,:] = Pb
 
 
         if direction == 'z1':
             if self.pyranda.PyMPI.z1proc:
                 rhoi = self.pyranda.variables[rho].data[:,:,1]
-                Ui   = self.pyranda.variables[u].data[:,:,1]           
+                Ui   = self.pyranda.variables[u].data[:,:,1]
                 Vi   = self.pyranda.variables[v].data[:,:,1]
                 Wi   = self.pyranda.variables[w].data[:,:,1]
                 Pi   = self.pyranda.variables[p].data[:,:,1]
@@ -700,16 +705,16 @@ class pyrandaBC(pyrandaPackage):
                 self.pyranda.variables[u].data[:,:,0] = Ub
                 self.pyranda.variables[v].data[:,:,0] = Vb
                 self.pyranda.variables[w].data[:,:,0] = Wb
-                self.pyranda.variables[p].data[:,:,0] = Pb                  
-                
+                self.pyranda.variables[p].data[:,:,0] = Pb
+
 
         if direction == 'zn':
             if self.pyranda.PyMPI.znproc:
                 rhoi = self.pyranda.variables[rho].data[:,:,-2]
-                Ui   = self.pyranda.variables[u].data[:,:,-2]           
+                Ui   = self.pyranda.variables[u].data[:,:,-2]
                 Vi   = self.pyranda.variables[v].data[:,:,-2]
                 Wi   = self.pyranda.variables[w].data[:,:,-2]
-                Pi   = self.pyranda.variables[p].data[:,:,-2] 
+                Pi   = self.pyranda.variables[p].data[:,:,-2]
 
                 [rhob,Ub,Vb,Wb,Etb,Pb]=self.Reimann(direction,Rhoref,Uref,Vref,Wref,Pref,gamma,rhoi,Ui,Vi,Wi,Pi)
 
@@ -718,4 +723,4 @@ class pyrandaBC(pyrandaPackage):
                 self.pyranda.variables[u].data[:,:,-1] = Ub
                 self.pyranda.variables[v].data[:,:,-1] = Vb
                 self.pyranda.variables[w].data[:,:,-1] = Wb
-                self.pyranda.variables[p].data[:,:,-1] = Pb    
+                self.pyranda.variables[p].data[:,:,-1] = Pb
