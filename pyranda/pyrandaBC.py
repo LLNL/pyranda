@@ -251,7 +251,6 @@ class pyrandaBC(pyrandaPackage):
 
         if direction == 'y1':
 
-            #if not self.BCdata.has_key('slipbc-y1'): code for python 2.7
             if not 'slipbc-y1' in self.BCdata.keys():
 
                 [n1,n2,n3] = self.getNorms(direction)
@@ -346,7 +345,6 @@ class pyrandaBC(pyrandaPackage):
 
         if direction == 'x1':
 
-            #if not self.BCdata.has_key('slipbc-x1'):
             if not 'slipbc-x1' in self.BCdata.keys():
 
                 [n1,n2,n3] = self.getNorms(direction)
@@ -394,7 +392,6 @@ class pyrandaBC(pyrandaPackage):
 
         if direction == 'xn':
 
-            #if not self.BCdata.has_key('slipbc-xn'):
             if not 'slipbc-xn' in self.BCdata.keys():
 
                 [n1,n2,n3] = self.getNorms(direction)
@@ -506,7 +503,6 @@ class pyrandaBC(pyrandaPackage):
         [n1,n2,n3] = self.getNorms(direction)
 
         dataKey = "farfield-%s" % direction
-        #if self.BCdata.has_key( dataKey ):
         if dataKey in self.BCdata.keys():
             [xnormal,ynormal,znormal] = self.BCdata[dataKey]
 
