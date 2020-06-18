@@ -196,7 +196,7 @@ class pyrandaSim:
         Higher level wrapper to make equations of motion from a single string
         Will add eqautions and variables as needed.
         """
-        print(eomDict)
+        
         # Apply a dictionary to the string
         if eomDict:
             for eomd in eomDict:
@@ -210,7 +210,6 @@ class pyrandaSim:
         
         # Split up the equation lines
         eom_lines = filter(None,eom.split('\n'))
-        print(eom_lines)
         eom_lines = [el for el in eom_lines if el.strip()[0] != '#']  # Comments work
         var_names = []
 
