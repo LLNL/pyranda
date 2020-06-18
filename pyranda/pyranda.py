@@ -196,7 +196,7 @@ class pyrandaSim:
         Higher level wrapper to make equations of motion from a single string
         Will add eqautions and variables as needed.
         """
-
+        
         # Apply a dictionary to the string
         if eomDict:
             for eomd in eomDict:
@@ -847,12 +847,14 @@ class pyrandaSim:
         tmp1 = {}
         tmp2 = {}
 
+        if not PHI:
+            PHI  = {}
+            for U in self.conserved: 
+                PHI[U]  = numpy.asfortranarray( numpy.zeros(  shape ) )
+        
         for U in self.conserved: 
             tmp1[U] = numpy.asfortranarray( numpy.zeros(  shape ) )
             tmp2[U] = numpy.asfortranarray( numpy.zeros(  shape ) )
-            if not PHI:
-                PHI  = {}
-                PHI[U]  = numpy.asfortranarray( numpy.zeros(  shape ) )
         
         # Get primative flow variables
 
