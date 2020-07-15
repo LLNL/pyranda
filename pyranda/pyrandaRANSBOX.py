@@ -9,8 +9,11 @@
 # Written by: Britton J. Olson, olson45@llnl.gov
 ################################################################################
 import numpy
-import ransbox
-from ransbox import *
+try:
+    import ransbox
+    from ransbox import *
+except:
+    pass
 from .pyrandaPackage import pyrandaPackage
 
 
