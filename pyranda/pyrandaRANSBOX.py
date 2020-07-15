@@ -13,6 +13,7 @@ import ransbox
 from ransbox import *
 from .pyrandaPackage import pyrandaPackage
 
+
 class pyrandaRANSBOX(pyrandaPackage):
     """
     RANSBOX package api
@@ -42,11 +43,109 @@ class pyrandaRANSBOX(pyrandaPackage):
         for ii in self.outputList:
             exec("self.%s = None" % ii)
 
+        # Available Models
+        self.modPrefix = "RANSBox_ModelType_"
+        self.availableModels = self.getModelsList()
+
+        # Available Coordsys
+        self.coordPrefix = "RANSBox_Coord_"
+        self.availableCoords = self.getCoordsList()
+
+        
         self.inputs  = inputs
         self.outputs = outputs
-
         self.allocated = False
 
+    def createModel(self,modelName,coordName):
+        """Given a model name, create the model"""
+
+        # Check that model is valid
+        modelName = modelName.replace( self.modPrefix, "")
+        RBmodelName = self.modPrefix + modelName
+        valid = False
+        for mt in self.availableModels:
+            if RBmodelName in mt:
+                valid = True
+
+        if not valid:
+            self.pysim.iprint("Selected model: %s -- (%s) is Not valid" % (modelName,RBmodelName))
+            self.pysim.iprint("Valid models are (select either string):")
+            self.printModels()
+            return
+
+        model = eval(RBmodelName)
+
+        # Check that coords is valid
+        coordName = coordName.replace( self.coordPrefix, "")
+        RBcoordName = self.coordPrefix + coordName
+        valid = False
+        for mt in self.availableCoords:
+            if RBcoordName in mt:
+                valid = True
+
+        if not valid:
+            self.pysim.iprint("Selected coord system: %s --- (%s) is Not valid" % (coordName,RBcoordName))
+            self.pysim.iprint("Valid coordinate are (select either string):")
+            self.printCoords()
+            return
+
+        coord = eval(RBcoordName)
+        
+        # Make the model
+        self.model = RANSBox_CreateModel(model,coord)
+        
+        
+
+    def getCoordsList(self):
+        """ Get available RANSBOX coordinate types"""
+        availableCoords = []
+        for d in dir(ransbox):
+            if self.coordPrefix in d:
+                availableCoords.append(d)
+        return availableCoords
+
+    def printCoords(self):
+        """ Prints available RANSBOX coords"""
+        for d in self.availableCoords:
+            self.pysim.iprint("%s --- %s" % (d.replace(self.coordPrefix,''),d))
+                                                        
+    def getModelsList(self):
+        """ Get available RANSBOX models"""
+        availableModels = []
+        for d in dir(ransbox):
+            if self.modPrefix in d:
+                availableModels.append(d)
+        return availableModels
+
+    def printModels(self):
+        """ Prints available RANSBOX models"""
+        for d in self.availableModels:
+            self.pysim.iprint("%s --- %s" % (d.replace(self.modPrefix,''),d))
+
+    def getSelfSimilarity(self):
+        """Get an object for setting SS parameters"""
+        parms = ransbox.RANSBoxSimilarityParams()
+        err = ransbox.RANSBox_GetSelfSimilarityParams(self.model, parms)
+        if ( err == 1 ):
+            self.pysim.iprint("Error getting RANSBOX self similarity object")
+            raise ValueError()
+        return parms
+
+    def setSelfSimilarity(self,parms):
+        """Set the parms object as SS parameters"""
+        err = ransbox.RANSBox_SetSelfSimilarModelCoeffs(self.model,parms)
+        if ( err == 1 ):
+            self.pysim.iprint("Error setting RANSBOX self similarity object")
+            raise ValueError()
+
+    def setModelCoeff(self,name,val):
+        err = ransbox.RANSBox_SetModelCoeffByName(self.model,name,val)
+        if ( err == 1 ):
+            self.pysim.iprint("Error setting RANSBOX Coefficient: %s not valid" % name)
+            raise ValueError()
+        
+        
+                
     def allocate(self):
 
         # Allocate some space for RANSBox outputs
