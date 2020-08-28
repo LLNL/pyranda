@@ -22,7 +22,7 @@ class pyrandaIO:
         
         self.rootname = rootname
         self.PyMPI = pympi
-        
+        self.ioformat = "BINARY" # "BINARY" or "ASCII" only
         self.variables = []  # List of variables to be included
         
         if self.PyMPI.master == 1:
@@ -50,8 +50,74 @@ class pyrandaIO:
         data.tofile(fd)
         fd.close()
 
+    def makeDumpVTK(self,mesh,variables,varList,dumpFile,cycle,time):
 
-    def makeDumpVTK(self,mesh,variables,varList,dumpFile):
+        if self.ioformat == "BINARY":
+            self.makeDumpVTKbin(mesh,variables,varList,dumpFile,cycle,time)
+        elif self.ioformat == "ASCII":
+            self.makeDumpVTKascii(mesh,variables,varList,dumpFile,cycle,time)                
+        
+    def makeDumpVTKascii(self,mesh,variables,varList,dumpFile,cycle,time):
+
+        ghost = True
+
+        if ghost:
+            fx = self.PyMPI.ghost(mesh.coords[0].data[:,:,:] )
+            fy = self.PyMPI.ghost(mesh.coords[1].data[:,:,:] )
+            fz = self.PyMPI.ghost(mesh.coords[2].data[:,:,:] )
+        else:
+            fx = mesh.coords[0].data[:,:,:]
+            fy = mesh.coords[1].data[:,:,:]
+            fz = mesh.coords[2].data[:,:,:]
+
+        ax = fx.shape[0]
+        ay = fx.shape[1]
+        az = fx.shape[2]
+
+        fid = open(dumpFile + '.vtk','w')
+
+        fid.write("# vtk DataFile Version 3.0 \n")
+        fid.write("vtk output \n")
+        fid.write("ASCII \n")
+        fid.write("DATASET STRUCTURED_GRID \n")
+
+        # For ASCII vtk, this gives proper time stamps
+        fid.write("FIELD FieldData 2 \n")
+        fid.write("CYCLE 1 1 int \n")
+        fid.write("%d \n" % cycle )
+        fid.write("TIME 1 1 double \n")
+        fid.write("%s \n" % time )
+        
+        fid.write("DIMENSIONS  %s %s %s  \n" % (ax,ay,az))
+        fid.write("POINTS %s float  \n" % (ax*ay*az))
+
+        for k in range(az):
+            for j in range(ay):
+                for i in range(ax):
+                    fid.write("%s " % fx[i,j,k])
+                    fid.write("%s " % fy[i,j,k])
+                    fid.write("%s " % fz[i,j,k])
+
+        fid.write("\nPOINT_DATA %s  " % (ax*ay*az) )
+
+        
+        for var in varList:
+            fid.write("\nSCALARS %s float \n" % var)
+            fid.write("LOOKUP_TABLE default \n")
+            if ghost:
+                gdata = self.PyMPI.ghost( variables[var].data )
+            else:
+                gdata = variables[var].data
+            fid = open(dumpFile + '.vtk','a')
+            for k in range(az):
+                for j in range(ay):
+                    for i in range(ax):     
+                        fid.write("%s " % gdata[i,j,k] )
+                        
+        fid.close()
+
+
+    def makeDumpVTKbin(self,mesh,variables,varList,dumpFile,cycle,time):
 
         ghost = True
 
@@ -73,7 +139,7 @@ class pyrandaIO:
         fid.write("# vtk DataFile Version 3.0 \n")
         fid.write("vtk output \n")
         fid.write("BINARY \n")
-        fid.write("DATASET STRUCTURED_GRID \n")
+        fid.write("DATASET STRUCTURED_GRID \n")    
         fid.write("DIMENSIONS  %s %s %s  \n" % (ax,ay,az))
         fid.write("POINTS %s float  \n" % (ax*ay*az))
 
@@ -86,6 +152,7 @@ class pyrandaIO:
                     fid.write(struct.pack(">f", fx[i,j,k]))
                     fid.write(struct.pack(">f", fy[i,j,k]))
                     fid.write(struct.pack(">f", fz[i,j,k]))
+
         fid.close()
 
         fid = open(dumpFile + '.vtk','a')
@@ -93,7 +160,7 @@ class pyrandaIO:
         fid.close()
         
         for var in varList:
-            fid = open(dumpFile + '.vtk','a')
+            fid = open(dumpFile + '.vtk','ab')
             fid.write("\nSCALARS %s float \n" % var)
             fid.write("LOOKUP_TABLE default \n")
             fid.close()
@@ -106,7 +173,8 @@ class pyrandaIO:
                 for j in range(ay):
                     for i in range(ax):
                         fid.write(struct.pack(">f", gdata[i,j,k]))
-            fid.close()        
+            fid.close()
+
         
 
     def makeDumpTec(self,mesh,variables,varList,dumpFile):
