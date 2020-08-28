@@ -91,7 +91,7 @@ class pyrandaSim:
         self.mesh.makeMesh()
         
         # IO setup
-        self.PyIO = pyrandaIO( self.name, self.PyMPI )
+        self.PyIO = pyrandaIO( self.name, self.PyMPI)
 
         # Plotting setup
         self.plot = pyrandaPlot( self )
@@ -272,7 +272,7 @@ class pyrandaSim:
                 #pdb.set_trace()
         return svars
 
-    def setIC(self,ics,icDict=False):
+    def setIC(self,ics,icDict=False,addOnly=False):
         """
         Evaluate the initial conditions and then update variables
         """
@@ -302,12 +302,18 @@ class pyrandaSim:
 
         var_names = list(set(var_names))
 
-        #import pdb
-        #pdb.set_trace()
         for evar in var_names:
             self.addVar(evar,kind='conserved')   # Todo: classify variables
         self.allocate()
-            
+
+
+        for ic in ic_lines:
+            self.initial_conditions.append( ic )
+        
+        # For addOnly option (used for restarts) dont evaluate or update
+        if addOnly:
+            return        
+        
         # Actually compute the Initial Conditions
         for ic in ic_lines:
             ic_mod = ic #+ '+self.emptyScalar()'
@@ -319,8 +325,6 @@ class pyrandaSim:
                 self.iprint("Error message: %s" % e )
                 exit()
         
-        for ic in ic_lines:
-            self.initial_conditions.append( ic )
             
         # Check for nans here
         snans = self.checkForNan( var_names )
@@ -418,7 +422,7 @@ class pyrandaSim:
 
 
         suff = 'vtk'
-        self.PyIO.makeDumpVTK(self.mesh,self.variables,wVars,dumpFile)
+        self.PyIO.makeDumpVTK(self.mesh,self.variables,wVars,dumpFile,self.cycle, self.time)
 
         self.vizDumpHistory.append( [self.cycle, self.time] )
 
@@ -428,6 +432,7 @@ class pyrandaSim:
             vid.write("!NBLOCKS %s \n" % self.PyMPI.comm.Get_size() )
             for vdump in self.vizDumpHistory:
                 iv = vdump[0]
+                vid.write("!TIME %s \n" % vdump[1] )  # DOES NOT WORK, EITHER.
                 for p in range(self.PyMPI.comm.Get_size()):
                     vid.write("%s\n" % os.path.join('vis' + str(iv).zfill(visInt),
                                                     'proc-%s.%s.%s' % (str(p).zfill(procInt),str(iv).zfill(visInt),suff ) ) )
@@ -983,7 +988,7 @@ def pyrandaRestart(rootname,suffix=None):
 
     # EOM and IC's
     pysim.EOM( serial_data['EOM'] )
-    pysim.setIC( serial_data['ICs'] )
+    pysim.setIC( serial_data['ICs'], addOnly=True )
 
     # Simulation state data
     pysim.time = serial_data['time']
