@@ -136,10 +136,6 @@ class pyrandaMesh:
         self.d2 = parcop.parcop.dygrid(ax,ay,az)
         self.d3 = parcop.parcop.dzgrid(ax,ay,az)
         
-        #import pdb
-        #pdb.set_trace()
-        #self.PyMPI.setPatch()
-            
         # Mesh data
         self.CellVol = parcop.parcop.mesh_getcellvol(
             self.PyMPI.ax,
@@ -182,5 +178,6 @@ def defaultMeshOptions():
     options['dim'] = 1
     options['coordsys'] = 0
     options['function'] = None
+    options['id'] = 0
     
     return options
