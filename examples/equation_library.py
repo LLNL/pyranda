@@ -17,6 +17,27 @@ ddt(:Et:)   =  -ddx( (:Et: + :p: - :tau:)*:u: )
 :tau:       =  :beta:*:div:
 """
 
+euler_2d = """
+# Primary Equations of motion here
+ddt(:rho:)  =  -ddx(:rho:*:u:)                  - ddy(:rho:*:v:)
+ddt(:rhou:) =  -ddx(:rhou:*:u: + :p: - :tau:)   - ddy(:rhou:*:v:)
+ddt(:rhov:) =  -ddx(:rhov:*:u:)                 - ddy(:rhov:*:v: + :p: - :tau:)
+ddt(:Et:)   =  -ddx( (:Et: + :p: - :tau:)*:u: ) - ddy( (:Et: + :p: - :tau:)*:v: )
+# Conservative filter of the EoM
+:rho:       =  fbar( :rho:  )
+:rhou:      =  fbar( :rhou: )
+:rhov:      =  fbar( :rhov: )
+:Et:        =  fbar( :Et:   )
+# Update the primatives and enforce the EOS
+:u:         =  :rhou: / :rho:
+:v:         =  :rhov: / :rho:
+:p:         =  ( :Et: - .5*:rho:*(:u:*:u: + :v:*:v:) ) * ( :gamma: - 1.0 )
+# Artificial bulk viscosity (old school way)
+:div:       =  ddx(:u:) + ddy(:v:)
+:beta:      =  gbar(abs(ring(:div:))) * :rho: * 7.0e-2
+:tau:       =  :beta:*:div:
+"""
+
 
 euler_3d ="""
 # Primary Equations of motion here

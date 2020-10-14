@@ -25,8 +25,7 @@ LEVEL_MAX = 10
 
 class pyrandaMPI():
 
-    def __init__(self,mesh):
-
+    def __init__(self,mesh,comm=None):
 
         meshOptions = mesh.options
         self.nx = meshOptions['nn'][0]
@@ -57,11 +56,15 @@ class pyrandaMPI():
             self.meshFunction = meshOptions['meshFunction']
         except:
             self.meshFunction = None
+
+        # If explicit comm it given, use that communicator
+        if comm:
+            self.comm  = comm
+        else:
+            self.comm  = MPI.COMM_WORLD
             
-        self.comm  = MPI.COMM_WORLD
         self.fcomm = self.comm.py2f()
-            
-            
+                        
         self.order = (10,10,10)
         self.filter_type = ('compact', 'compact', 'compact')
         
@@ -72,12 +75,15 @@ class pyrandaMPI():
 
         if (px*py*pz != self.comm.Get_size()):
             if self.comm.Get_rank() == 0:
+                print("Problem size = (%s,%s,%s)" % (self.nx,self.ny,self.nz))
                 print("Tried (px,py,pz) = (%s,%s,%s)" % (px,py,pz))
                 print("Nprocs = %s" % (px*py*pz))
                 print("Available procs = %s" % self.comm.Get_size())
                 print('Error: Processor under/over utilization not allowed')
                 exit()
-                
+            else:
+                print("Problem size = (%s,%s,%s)" % (self.nx,self.ny,self.nz))
+                print("  (px,py,pz) = (%s,%s,%s)" % (px,py,pz))
         
         
         bx1 = "NONE"

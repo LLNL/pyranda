@@ -71,7 +71,7 @@ class pyrandaSim:
         self.nz = nz
         self.npts = nx*ny*nz
 
-        # Initialze some lists/dictionaries
+        # Initialize some lists/dictionaries
         self.equations = []
         self.conserved = []
         self.variables = {}
@@ -83,8 +83,13 @@ class pyrandaSim:
         self.mesh.options = meshOptions
         self.mesh.dims  = meshOptions['dim']
 
+        if ("comm" in meshOptions):
+            my_comm = meshOptions['comm']
+        else:
+            my_comm = None
+            
         # Setup mpi (and parcop)
-        self.PyMPI = pyrandaMPI( self.mesh )
+        self.PyMPI = pyrandaMPI( self.mesh, comm=my_comm )
         self.mesh.PyMPI = self.PyMPI
 
         # Create the mesh
@@ -268,8 +273,7 @@ class pyrandaSim:
                     svars += ivar + ' '
             except:
                 self.iprint("%s is not a variable" % ivar)
-                #import pdb
-                #pdb.set_trace()
+
         return svars
 
     def setIC(self,ics,icDict=False,addOnly=False):
@@ -380,8 +384,6 @@ class pyrandaSim:
                     self.variables[eq.LHS[0]].data = rhs
                 else:
                     for ii in range(len(rhs)):
-                        #import pdb
-                        #pdb.set_trace()
                         self.variables[eq.LHS[ii]].data = rhs[ii]
 
             # Solve an elliptical PDE
@@ -401,8 +403,8 @@ class pyrandaSim:
         """ 
         Write viz file 
         """
-        procInt = 5
-        visInt  = 5
+        procInt = 6
+        visInt  = 7
         if not wVars:
             wVars = self.conserved
 
@@ -449,8 +451,9 @@ class pyrandaSim:
         """
 
         # Use cycle number if no suffix is given
+        restartInt = 7
         if not suffix:
-            suffix = '_' + str(self.cycle).zfill(6)
+            suffix = '_' + str(self.cycle).zfill(restartInt)
 
         # Prep directory
         dumpDir = os.path.join(self.PyIO.rootname, "restart" + suffix)
@@ -516,12 +519,11 @@ class pyrandaSim:
         if 'function' in serial_data['mesh']:
             if serial_data['mesh']['function']:
                 serial_data['mesh']['function'] = None
-        #        import pdb
-        #        pdb.set_trace()
-        #        serial_data['mesh']['function'] = inspect.getsource(
-        #            self.meshOptions['function'] )
-        #        serial_data['mesh']['function-name'] = self.meshOptions['function'].__name__
-            
+
+        if 'comm' in serial_data['mesh']:
+            serial_data["mesh"]["comm"] =  "user specified"
+                
+                
         # Variable map
         serial_data['vars'] = {}
         cnt = 0
@@ -737,8 +739,6 @@ class pyrandaSim:
         #self.updateVars()
         time_i = time
         self.deltat = dt
-        #import pdb
-        #pdb.set_trace()
         for ii in range(5):
             #    ii
             FLUX = self.updateFlux()
@@ -920,7 +920,7 @@ class pyrandaSim:
         
 
 
-def pyrandaRestart(rootname,suffix=None):
+def pyrandaRestart(rootname,suffix=None,comm=None):
     from numpy import array,int32
     
     """
@@ -948,16 +948,6 @@ def pyrandaRestart(rootname,suffix=None):
 
     message = ''
     
-    # Unpack the mesh function (not needed?)
-    #if ( 'function' in serial_data['mesh'] ):
-    #    if serial_data['mesh']['function']:
-    #        fname = serial_data['mesh']['function-name']
-    #        exec( serial_data['mesh']['function'] )
-    #        serial_data['mesh']['function'] = eval(fname)
-    #    else:
-    #        # clip functions
-    #        serial_data['mesh'].pop('function',None)
-    #        serial_data['mesh'].pop('function-name',None)
 
     # Unpack any local vars that have been serialized to pickel
     my_local_vars = {}
@@ -975,6 +965,16 @@ def pyrandaRestart(rootname,suffix=None):
             message += "    numpy array %s added \n" % na
             
         serial_data.pop("local_vars",None)
+
+    # Add user supplied comm to mesh dictionary
+    if comm:
+        serial_data["mesh"]["comm"] = comm
+
+    if "comm" in serial_data["mesh"]:
+        if (type(serial_data["mesh"]["comm"]) != type(MPI.COMM_WORLD) ):
+            print("Error: valid comm is not present")
+            exit()
+        
         
     pysim = pyrandaSim(rootname,serial_data['mesh'])
 
