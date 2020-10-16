@@ -514,6 +514,7 @@ class pyrandaSim:
         serial_data['time'] = self.time
         serial_data['deltat'] = self.deltat
         serial_data['cycle']  = self.cycle
+        serial_data['vizDumpHistory'] = self.vizDumpHistory
         
         # Serialize the mesh function (if it exists)
         if 'function' in serial_data['mesh']:
@@ -1002,7 +1003,9 @@ def pyrandaRestart(rootname,suffix=None,comm=None):
     ProcFiles = range(procs[0]*procs[1]*procs[2])
     nshape = (pysim.PyMPI.ax,pysim.PyMPI.ay,pysim.PyMPI.az,len(pysim.variables))
 
-
+    # Vizualization time history
+    pysim.vizDumpHistory = serial_data['vizDumpHistory']
+    
     readChunk(pysim,procs,procMap,dump,serial_data)
 
     # Recompute the mesh metrics
@@ -1010,6 +1013,10 @@ def pyrandaRestart(rootname,suffix=None,comm=None):
                         yr=pysim.y().data,
                         zr=pysim.z().data)
 
+    # Re-init packages when there is grid dependence
+    for pack in pysim.packages:
+        pysim.packages[pack].__init__(pysim)
+    
     # Print restart summary
     pysim.iprint("Successful read of restart file: %s " % dump )
     pysim.iprint(message)
