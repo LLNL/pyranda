@@ -108,6 +108,9 @@ class pyrandaSim:
         self.packages = {}
         self.packagesRestart = []
 
+        # User functions
+        self.userDefined = {}
+        
         # Compute sMap
         self.get_sMap()
 
@@ -145,7 +148,15 @@ class pyrandaSim:
         self.packagesRestart.append( package.__module__ )
         package.get_sMap()
         self.sMap.update( package.sMap )
-            
+
+    def addUserDefinedFunction(self,name,equation):
+        if name in self.sMap:
+            self.iprint("Error: Cant add user-defined equation '%s', it already exists" % name)
+        self.userDefined[name] = equation
+        imap = { "%s(" % name: "self.userDefined['%s'](self," % name  }
+        self.sMap.update( imap )
+    
+        
     def allocate(self):
         """
         Loop over vars and allocate the data
