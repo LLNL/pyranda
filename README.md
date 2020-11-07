@@ -25,7 +25,7 @@ A few tutorials are included on the [project wiki page](https://github.com/LLNL/
 
 
 ## Example Usage - Solve the 1D advection equation in less than 10 lines of code
-[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://github.com/LLNL/pyranda/blob/master/examples/tutorials/notebooks/advection.ipynb)
+[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/LLNL/pyranda/blob/master/examples/tutorials/notebooks/advection.ipynb)
 
 The one-dimensional advection equation is written as:
 
