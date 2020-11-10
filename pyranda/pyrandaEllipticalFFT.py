@@ -35,7 +35,7 @@ class pyrandaPoissonFFT(pyrandaPackage):
         # Setup 1/k^2 array
         pi=numpy.pi
         self.ksqinv = numpy.ones((self.nx,self.ny,int(self.nz/2+1)))
-        for k in range(0,self.nz/2):
+        for k in range(0,int(self.nz/2)):
             for j in range(0,self.ny):
                 for i in range(0, self.nx):
                     kx=2.*pi*i
