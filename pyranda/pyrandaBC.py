@@ -99,7 +99,21 @@ class pyrandaBC(pyrandaPackage):
                 else:
                     self.pyranda.variables[var].data[:,-1,:] = self.pyranda.variables[var].data[:,-2,:]
 
+        if direction == 'z1':
+            if self.pyranda.PyMPI.z1proc:
+                if order == 2:
+                    self.pyranda.variables[var].data[:,:,0] = 2*self.pyranda.variables[var].data[:,:,1] - self.pyranda.variables[var].data[:,:,2]
+                else:
+                    self.pyranda.variables[var].data[:,:,0] = self.pyranda.variables[var].data[:,:,1]
 
+        if direction == 'zn':
+            if self.pyranda.PyMPI.znproc:
+                if order == 2:
+                    self.pyranda.variables[var].data[:,:,-1] = 2*self.pyranda.variables[var].data[:,:,-2] - self.pyranda.variables[var].data[:,:,-3]
+                else:
+                    self.pyranda.variables[var].data[:,:,-1] = self.pyranda.variables[var].data[:,:,-2]
+
+                    
     def const(self,var,direction,val):
 
         if type(var) != type([]):
@@ -134,6 +148,15 @@ class pyrandaBC(pyrandaPackage):
         if direction == 'yn':
             if self.pyranda.PyMPI.ynproc:
                 self.pyranda.variables[var].data[:,-1,:] = val
+
+        if direction == 'z1':
+            if self.pyranda.PyMPI.z1proc:
+                self.pyranda.variables[var].data[:,:,0] = val
+
+
+        if direction == 'zn':
+            if self.pyranda.PyMPI.znproc:
+                self.pyranda.variables[var].data[:,:,-1] = val
 
     def field(self,var,direction,field):
 
