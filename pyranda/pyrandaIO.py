@@ -160,7 +160,7 @@ class pyrandaIO:
         fid.close()
         
         for var in varList:
-            fid = open(dumpFile + '.vtk','ab')
+            fid = open(dumpFile + '.vtk','a')
             fid.write("\nSCALARS %s float \n" % var)
             fid.write("LOOKUP_TABLE default \n")
             fid.close()
