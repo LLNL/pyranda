@@ -7,3 +7,4 @@ from .pyrandaTBL import pyrandaTBL
 from .pyrandaRANSBOX import pyrandaRANSBOX
 from .pyrandaEllipticalFFT import pyrandaPoissonFFT
 from .pyranda import pyrandaRestart
+from .pyrandaMirandaReader import mirandaReader
