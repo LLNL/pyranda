@@ -66,6 +66,7 @@ class pyrandaPlot:
 
         if self.pyranda.PyMPI.master:
             plt.plot(xdata,vdata,style,**kwargs)
+            plt.title("Plot of %s (t=%4.4e and cycle=%d)" % (var,self.pyranda.time,self.pyranda.cycle) )
             plt.pause(.01)
         
             
@@ -107,6 +108,7 @@ class pyrandaPlot:
                     levels = numpy.linspace(vdata.min(),vdata.max(),levels)
                 plt.contour(xdata,ydata,vdata,levels,**kwargs)
             plt.axis('equal')
+            plt.title("Contours of %s (t=%4.4e and cycle=%d)" % (var,self.pyranda.time,self.pyranda.cycle) )
             plt.pause(.01)
 
             
