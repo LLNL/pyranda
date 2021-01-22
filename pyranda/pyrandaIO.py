@@ -141,6 +141,26 @@ class pyrandaIO:
         fid.write("BINARY \n")
         fid.write("DATASET STRUCTURED_GRID \n")    
         fid.write("DIMENSIONS  %s %s %s  \n" % (ax,ay,az))
+
+        # Add time/cycle stamps to vtk files
+        fid.write("FIELD FieldData 2 \n")
+        # Time meta
+        fid.write("TIME 1 1 float \n")
+        fid.close()
+        # Time in binary
+        fid = open(dumpFile + '.vtk','ab')
+        fid.write(struct.pack(">f",time))
+        fid.close()
+        # Cycle meta
+        fid = open(dumpFile + '.vtk','a')
+        fid.write("CYCLE 1 1 int \n")
+        fid.close()
+        # Cycle in binary
+        fid = open(dumpFile + '.vtk','ab')
+        fid.write(struct.pack(">i",cycle))
+        fid.close()
+
+        fid = open(dumpFile + '.vtk','a')
         fid.write("POINTS %s float  \n" % (ax*ay*az))
 
         fid.close()

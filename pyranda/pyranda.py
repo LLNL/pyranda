@@ -1011,8 +1011,6 @@ def pyrandaRestart(rootname,suffix=None,comm=None):
     # Loop through variables
     procs = serial_data['decomp']
     procMap = serial_data['procMap']
-    ProcFiles = range(procs[0]*procs[1]*procs[2])
-    nshape = (pysim.PyMPI.ax,pysim.PyMPI.ay,pysim.PyMPI.az,len(pysim.variables))
 
     # Vizualization time history
     pysim.vizDumpHistory = serial_data['vizDumpHistory']
