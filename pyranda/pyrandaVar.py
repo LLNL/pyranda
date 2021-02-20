@@ -44,14 +44,61 @@ class pyrandaVar:
         self.allocated = True
 
 
-    def sum(self):
+    def sum(self,axis=None,idata=None):
+
+        if ( type(idata) != type(self.data) ):
+            idata = self.data 
         
-        if self.rank == 'scalar':
-            return self.PyMPI.sum3D( self.data )
-        elif self.rank == 'vector':
-            return  [ self.PyMPI.sum3D( self.data[:,:,:,0] ) , 
-                      self.PyMPI.sum3D( self.data[:,:,:,1] ) ,
-                      self.PyMPI.sum3D( self.data[:,:,:,2] ) ]
+        # Vector variables not  fully supported with axis
+        if self.rank == 'vector':
+            return  [ self.PyMPI.sum3D( idata[:,:,:,0] ) , 
+                      self.PyMPI.sum3D( idata[:,:,:,1] ) ,
+                      self.PyMPI.sum3D( idata[:,:,:,2] ) ]
+
+        # For no axis, return global sum
+        if (axis==None):
+            return self.PyMPI.sum3D( idata )
+
+        # Sum along 2 directions
+        if ( type(axis) == type( () ) or type(axis) == type( [] ) ): 
+            if ( len(axis) == 2 ):
+                if (   (0 in axis) and (1 in axis) ):
+                    return self.PyMPI.xysum( idata )
+                elif ( (0 in axis) and (2 in axis) ):
+                    return self.PyMPI.xzsum( idata )
+                elif ( (1 in axis) and (2 in axis) ):
+                    return self.PyMPI.yzsum( idata )
+            else:
+                self.PyMPI.iprint("Error: length of axis argument cant be larger than 2")
+                return None
+        # Sum along 1 directions
+        elif ( type(axis) == type(0) ):
+            if ( axis==0 ):
+                return self.PyMPI.xsum( idata )
+            if ( axis==1 ):
+                return self.PyMPI.ysum( idata )
+            if ( axis==2 ):
+                return self.PyMPI.zsum( idata )
+        else:
+            self.PyMPI.iprint("Error: unknown type given as axis")
+            return None
+        
+    
+    def mean(self,axis=None,idata=None):
+
+        npts = float(self.PyMPI.nx * self.PyMPI.ny * self.PyMPI.nz )
+        rdata = self.sum(axis=axis,idata=idata)        
+        return rdata * rdata.size / npts
+
+    def var(self,axis=None):
+        
+        bar  = self.mean(axis=axis)
+        bar2 = self.mean(axis=axis, idata = self.data**2)
+
+        return  bar*bar - bar2
+    
+
+        
 
     # Allow global access via indices
     def __getitem__(self, given):
