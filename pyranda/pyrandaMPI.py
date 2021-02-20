@@ -244,10 +244,22 @@ class pyrandaMPI():
         gsum = self.xzcom.allreduce( lsum, op=MPI.SUM )
         Gsum = self.ycom.allgather( gsum )
         return numpy.concatenate(Gsum)
-        
 
     
-    def sum2D(self,data,com,n2,n3,index,g2,g3):
+    def sum1D(self,data,com2,com1,indices):
+        lsum = numpy.sum( data, indices )
+        gsum = com2.allreduce( lsum, op=MPI.SUM )
+        Gsum = com1.allgather( gsum )
+        return numpy.concatenate(Gsum)            
+
+    def sum2D(self,data,com2,com1,index):
+        lsum = numpy.sum( data, index)
+        gsum = com1.allreduce( lsum, op=MPI.SUM )
+        Gsum = com2.allgather( gsum )
+        return numpy.concatenate( Gsum )
+
+    
+    def sum2Dold(self,data,com,n2,n3,index,g2,g3):
 
         a2 = g2[1] - g2[0]
         a3 = g3[1] - g3[0]
@@ -281,20 +293,39 @@ class pyrandaMPI():
 
         return tmin
 
-    def xbar(self,data):        
-        return self.sum2D( data, self.comm,self.ny,self.nz,0,
-                           [ self.chunk_3d_lo[1] , self.chunk_3d_hi[1]+1 ],
-                           [ self.chunk_3d_lo[2] , self.chunk_3d_hi[2]+1 ]  )
-  
+
+    # Deprecated functions
+    def xbar(self,data):
+        return self.xsum(data)
+
     def ybar(self,data):
-        return self.sum2D( data, self.comm,self.nx,self.nz,1,
-                           [self.chunk_3d_lo[0] , self.chunk_3d_hi[0]+1 ],
-                           [self.chunk_3d_lo[2] , self.chunk_3d_hi[2]+1 ])
-    
+        return self.ysum(data)
+
     def zbar(self,data):
-        return self.sum2D( data, self.comm,self.nx,self.ny,2,
-                           [self.chunk_3d_lo[0],self.chunk_3d_hi[0]+1 ],
-                           [self.chunk_3d_lo[1],self.chunk_3d_hi[1]+1 ])
+        return self.zsum(data)
+    
+    # Reduction along 1 direction
+    def xsum(self,data):
+        return self.sum2D( data, self.yzcom,self.xcom,0)
+  
+    def ysum(self,data):
+        return self.sum2D( data, self.xzcom,self.ycom,1)
+    
+    def zsum(self,data):
+        return self.sum2D( data, self.xycom,self.zcom,2)
+
+    # Reduction along 2 directions
+    def xysum(self,data):
+        return self.sum1D( data, self.xycom, self.zcom, (0,1) )
+
+    def xzsum(self,data):
+        return self.sum1D( data, self.xzcom, self.ycom, (0,2) )
+
+    def yzsum(self,data):
+        return self.sum1D( data, self.yzcom, self.xcom, (1,2) )
+
+    
+    
     def iprint(self,sprnt):
         if self.master:
             print(sprnt)
