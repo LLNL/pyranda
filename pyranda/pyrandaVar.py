@@ -95,7 +95,7 @@ class pyrandaVar:
         bar  = self.mean(axis=axis)
         bar2 = self.mean(axis=axis, idata = self.data**2)
 
-        return  bar*bar - bar2
+        return  bar2 - bar*bar
     
 
         
