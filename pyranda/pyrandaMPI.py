@@ -13,6 +13,7 @@ import numpy
 import sys
 from functools import reduce
 
+from .pyrandaVar import pyrandaVar
 from . import parcop
 
 # Global patch/levels to create new instances
@@ -323,6 +324,56 @@ class pyrandaMPI():
 
     def yzsum(self,data):
         return self.sum1D( data, self.yzcom, self.xcom, (1,2) )
+
+    def mean3D(self,data,axis=None):
+        """
+        Compute the global mean of "data" and project it back onto the distributed
+        3D data array
+        """
+        # Get the global mean 
+        tmpVar = pyrandaVar('tmp_mean3d_var','mesh','scalar')
+        tmpVar.__allocate__( self )
+        meanG = tmpVar.mean(axis=axis, idata= data)
+
+        # Loop over local data and make it the mean
+        if ( axis == None ):
+            tmpVar.data[:,:,:] = meanG
+        else:
+            if (axis == 0):
+                for k in range(self.az):
+                    for j in range(self.ay):
+                        jj = j + self.chunk_3d_lo[1]
+                        kk = k + self.chunk_3d_lo[2]
+                        tmpVar.data[:,j,k] = meanG[jj,kk]
+            elif ( axis == 1):
+                for k in range(self.az):
+                    for i in range(self.ax):
+                        ii = i + self.chunk_3d_lo[0]
+                        kk = k + self.chunk_3d_lo[2]
+                        tmpVar.data[i,:,k] = meanG[ii,kk]
+            elif ( axis == 2):
+                for j in range(self.ay):
+                    for i in range(self.ax):
+                        ii = i + self.chunk_3d_lo[0]
+                        jj = j + self.chunk_3d_lo[1]
+                        tmpVar.data[i,j,:] = meanG[ii,jj]
+            elif ( axis == (0,1)):
+                for k in range(self.az):
+                    kk = k + self.chunk_3d_lo[2]
+                    tmpVar.data[:,:,k] = meanG[kk]
+            elif ( axis == (0,2)):
+                for j in range(self.ay):
+                    jj = j + self.chunk_3d_lo[1]
+                    tmpVar.data[:,j,:] = meanG[jj]
+            elif ( axis == (1,2)):
+                for i in range(self.ax):
+                    ii = i + self.chunk_3d_lo[0]
+                    tmpVar.data[i,:,:] = meanG[ii]            
+            else:
+                self.iprint("Error: unknown type given as axis")
+                return None                
+
+    return tmpVar.data
 
     
     
