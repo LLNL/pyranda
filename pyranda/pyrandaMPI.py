@@ -373,7 +373,7 @@ class pyrandaMPI():
                 self.iprint("Error: unknown type given as axis")
                 return None                
 
-    return tmpVar.data
+        return tmpVar.data
 
     
     
