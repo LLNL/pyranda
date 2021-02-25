@@ -799,6 +799,7 @@ class pyrandaSim:
         sMap['dd4z(' ] = 'self.dd4z('
         sMap['sum(' ] = 'self.PyMPI.sum3D('
         sMap['mean('] = '1.0/float(self.npts) * self.PyMPI.sum3D('
+        sMap['mean3D('] = 'self.PyMPI.mean3D('
         sMap['sign(' ] = 'numpy.sign('
         sMap['dot(' ] = 'numpy.dot('
         sMap['abs(' ] = 'numpy.abs('
@@ -934,7 +935,8 @@ class pyrandaSim:
 
 def pyrandaRestart(rootname,suffix=None,comm=None):
     from numpy import array,int32
-    
+    import numpy as npy
+    npy.set_printoptions(threshold=npy.inf)
     """
     Non-member function; return a valid pyrandaSim object
     with data from restart
