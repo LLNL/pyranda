@@ -9,7 +9,7 @@
 # Written by: Britton J. Olson, olson45@llnl.gov
 ################################################################################
 import numpy 
-import sys,os
+import sys,os,glob
 from os.path import join
 from .pyranda import pyrandaSim
 
@@ -27,12 +27,36 @@ path_grid  = '/sidre/groups/marbl/groups/miranda/groups/blueprint/groups/coordse
 path_field = '/sidre/external/marbl/miranda/blueprint/fields/'
 path_mats  = '/sidre/external/marbl/miranda/blueprint/matsets/mats/volume_fractions/'
 
+# Hard code in miranda native variable names/list
+miranda_viz_names = {}
+miranda_viz_names['u'] = 0
+miranda_viz_names['v'] = 1
+miranda_viz_names['w'] = 2
+miranda_viz_names['density']  = 3
+miranda_viz_names['energy']      = 4
+miranda_viz_names['pressure']    = 5
+miranda_viz_names['e_pressure']  = 6
+miranda_viz_names['sound_speed']     = 7
+miranda_viz_names['shear_viscosity'] = 8
+miranda_viz_names['bulk_viscosity']  = 9
+miranda_viz_names['thermal_conductivity'] = 10
+
+# if ns > 1
+miranda_viz_names['diffusivity'] = 11
+
+# if there are no other physics
+miranda_viz_names['mat1'] = 12
+miranda_viz_names['mat2'] = 13
+
+
 class mirandaReader:
 
     def __init__(self, rootdir, var_list, periodic=[False,False,False]):
         
-        self.rootdir = rootdir
-        self.var_list = var_list
+        self.rootdir = rootdir      # Directory containing restart dirs
+        self.var_list = var_list    # List of variables to be read in
+        self.native_viz_files = []  # List of available viz files to be read in
+        self.var_index_dict = {}
         
         # Rootfile is directory where the marbl_* files are located
         cycle = 0
@@ -64,9 +88,9 @@ class mirandaReader:
 
         # Import data as numpy array
         # Grab grid size for verificiation  - Static location in blueprint?
-        ax = int(f[header + path_coord + 'i/value'].value) - 1
-        ay = int(f[header + path_coord + 'j/value'].value) - 1
-        az = int(f[header + path_coord + 'k/value'].value) - 1
+        self.ax = ax = int(f[header + path_coord + 'i/value'].value) - 1
+        self.ay = ay = int(f[header + path_coord + 'j/value'].value) - 1
+        self.az = az = int(f[header + path_coord + 'k/value'].value) - 1
 
         # Need to get a mesh object here
         x1,xn = 0, dx*ax*px
@@ -107,24 +131,43 @@ class mirandaReader:
                     
                     ipp += 1
                     
-    def update(self, cycle):
+    def update(self, cycle,fileType=0):
         """
         Import Miranda data from specified cycle
         """
         
         # Update data directory to current cycle
-        self.data_dir = join(self.rootdir,'marbl_' + str(cycle).zfill(7))
+        if fileType == 0:  # marbl retart files
+            self.data_dir = join(self.rootdir,'marbl_' + str(cycle).zfill(7))
+        elif fileType == 1: # native miranda vis files
+            self.data_dir = join(self.rootdir,'vis' + str(cycle).zfill(7))
+
 
         # Check if file exists
         if not os.path.isdir( self.data_dir ):
             self.pysim.iprint("Error: Cant read restart file %s" % self.data_dir )
             return None
 
-        readChunkMiranda( self.pysim, self.procs, self.procMap, self.data_dir, cycle, self.var_list)
+        readChunkMiranda( self.pysim, self.procs, self.procMap, 
+                          self.data_dir, cycle, self.var_list,self.var_index_dict,
+                          fileType=fileType)
 
         return self.pysim
+
+    def getNativeVizFiles(self):
+
+        # Use glob to find list of native viz files and sort
+        self.native_viz_files = glob.glob( join( self.rootdir, "vis0*") )
+        self.native_viz_files.sort()
+
+    def setNativeVizDict(self,rosetta):
+        varDict = {}
+        cnt = 0
+        for ii in self.var_list:
+            varDict[ii] = miranda_viz_names[ rosetta[ii] ]
+        self.var_index_dict = varDict
         
-def readChunkMiranda(pysim,procs,procMap,dump,cycle,var_list):
+def readChunkMiranda(pysim,procs,procMap,dump,cycle,var_list,var_index_dict,fileType=0):
     """
     Same as readData but only reads in global range of data given by
     irange.
@@ -192,20 +235,46 @@ def readChunkMiranda(pysim,procs,procMap,dump,cycle,var_list):
 
             # Read proc file
             proc_num = iproc          
-            filename = join(dump,'marbl_' + 
-                            str(cycle).zfill(7) + '_' + 
-                            str(proc_num).zfill(7) + '.hdf5')
+            if fileType == 0:  # MARBL restart files
+                filename = join(dump,'marbl_' + 
+                                str(cycle).zfill(7) + '_' + 
+                                str(proc_num).zfill(7) + '.hdf5')
+                # Load hdf5 file
+                f = h5py.File(filename,'r')
 
-            # Load hdf5 file
-            f = h5py.File(filename,'r')
+                for var in var_list:
+                    DATA = import_field(f,iproc,var)    
+                    pysim.variables[var].data[Ki1:Kif,
+                                              Kj1:Kjf,
+                                              Kk1:Kkf] = DATA[Li1:Lif,
+                                                              Lj1:Ljf,
+                                                              Lk1:Lkf]
 
-            for var in var_list:
-                DATA = import_field(f,iproc,var)    
-                pysim.variables[var].data[Ki1:Kif,
-                                          Kj1:Kjf,
-                                          Kk1:Kkf] = DATA[Li1:Lif,
-                                                          Lj1:Ljf,
-                                                          Lk1:Lkf]
+            elif fileType == 1: # Miranda native graphics files
+                filename = join(dump, 'p' + str(proc_num).zfill(8) )
+                
+                # Load in the binary file
+                fd = open(filename,'rb')        
+                f = numpy.fromfile(file=fd,dtype=numpy.single)    
+                fd.close()
+                
+                ibx = 0
+                iby = 0
+                ibz = 0
+
+                shape = ( int(ax + ibx) ,int(ay + iby),int(az + ibz) )
+                stride = numpy.product( shape ) + 2
+                for var in var_list:
+                    ivar = var_index_dict[var]
+                    istart = int(ivar  * stride + 1)
+                    iend   = int((ivar+1)* stride - 1)
+                    DATA = f[istart:iend].reshape(shape,order="F")
+                    pysim.variables[var].data[Ki1:Kif,
+                                              Kj1:Kjf,
+                                              Kk1:Kkf] = DATA[Li1:Lif,
+                                                              Lj1:Ljf,
+                                                              Lk1:Lkf]
+                    
             
 def convert(str_array):     # Convert numpy array of binary encoded chars to string
     s = ""
