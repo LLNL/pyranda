@@ -27,16 +27,16 @@ def execfile(file_name):
     exec(compile(open(file_name, "rb").read(), file_name, 'exec'))
     
 # Add tests here
-#execfile('cases/testUnit.py')
-#execfile('cases/test1DAdvection.py')
-#execfile('cases/testIntegration.py')
-#execfile('cases/testMM_simple.py')
-#execfile('cases/test2deuler.py')
+execfile('cases/testUnit.py')
+execfile('cases/test1DAdvection.py')
+execfile('cases/testIntegration.py')
+execfile('cases/testMM_simple.py')
+execfile('cases/test2deuler.py')
 execfile('cases/testCylinder.py')
-#execfile('cases/testHeat1D.py')
-#execfile('cases/testTaylorGreen.py')
-#execfile('cases/testShuOsher.py')
-#execfile('cases/testElliptic.py')
+execfile('cases/testHeat1D.py')
+execfile('cases/testTaylorGreen.py')
+execfile('cases/testShuOsher.py')
+execfile('cases/testElliptic.py')
 
 
 summary = ''
