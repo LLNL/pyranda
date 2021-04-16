@@ -3,6 +3,7 @@ baselines = """
 cylinder-2d-32 -- cylinder-2d-32.dat
 cylinder-2d-64 -- cylinder-2d-64.dat
 cylinder_curved-2d-64 -- cylinder_curved-2d-64.dat
+cylinder_omesh-2d-64 -- cylinder_omesh-2d-64.dat
 """
 
 # Update dictionary of baseline scalars
