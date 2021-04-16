@@ -31,7 +31,7 @@ L = numpy.pi * 2.0
 dim = 2
 gamma = 1.4
 
-problem = 'cylinder_curvilinear2'
+problem = 'cylinder_omesh'
 
 Lp = L * (Npts-1.0) / Npts
 
@@ -53,8 +53,8 @@ def cylMesh(i,j,k):
 mesh_options = {}
 mesh_options['coordsys'] = 3
 mesh_options['function'] = cylMesh
-mesh_options['periodic'] = numpy.array([True, False, True])
-mesh_options['gridPeriodic'] = numpy.array([True, False, False])
+mesh_options['periodic'] = numpy.array([True, False, False])
+mesh_options['periodicGrid'] = False
 mesh_options['dim'] = 3
 mesh_options['x1'] = [ -2*Lp , -2*Lp  ,  0.0 ]
 mesh_options['xn'] = [ 2*Lp   , 2*Lp    ,  Lp ]
