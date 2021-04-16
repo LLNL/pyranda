@@ -106,6 +106,7 @@ ERROR += errorX
 # Periodic
 print("sine wave")
 expr = "mean( abs(fbar(sin(meshx)) - sin(meshx)  ) )" 
+pysim.PyMPI.setPatch()
 errorX = pysim.eval(expr)
 print('Error X = %s' % errorX)
 ERROR += errorX
@@ -127,6 +128,7 @@ print("Filters-gbar")
 # Zero
 print("Zero ")
 expr = "mean( abs(gbar(meshx*0.0)) )" 
+pysim2.PyMPI.setPatch()
 errorX = pysim2.eval(expr)
 print('Error X = %s' % errorX)
 ERROR += errorX
@@ -148,6 +150,7 @@ ERROR += errorX
 # Periodic
 print("sine wave")
 expr = "mean( abs(gbar(sin(meshx)) - sin(meshx)  ) )" 
+pysim.PyMPI.setPatch()
 errorX = pysim.eval(expr)
 print('Error X = %s' % errorX)
 ERROR += errorX
