@@ -1,6 +1,6 @@
 # Copy and paste baselines here
 baselines = """
-unit-test-3D -- 0.0239409398345
+unit-test-3D -- 0.017490746954566275
 """
 
 # Update dictionary of baseline scalars

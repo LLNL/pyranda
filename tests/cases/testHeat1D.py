@@ -4,7 +4,7 @@ heat1D-analytic-16 -- 0.0
 heat1D-analytic-32 -- 0.0
 heat1D-analytic-64 -- 0.0
 heat1D-analytic-128 -- 0.0
-heat1D-analytic-256 -- 8.881784197e-16 -- 1.0e-4
+heat1D-analytic-256 -- 0.0
 """
 
 # Update dictionary of baseline scalars
