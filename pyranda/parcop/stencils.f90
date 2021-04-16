@@ -35,6 +35,7 @@ module LES_stencils
     REAL(KIND=c_double), DIMENSION(:,:,:), ALLOCATABLE :: arb1,arb2  ! rhs telescoped boundary weights
   contains
     procedure :: info => write_weight_info
+    procedure :: remove => lose_weight
   END TYPE compact_weight
   
   INTEGER(c_int), PARAMETER :: nderiv1=2
@@ -45,8 +46,9 @@ module LES_stencils
   TYPE(compact_weight), target :: compact_weight_d4(nderiv4)
   INTEGER(c_int), PARAMETER :: nderiv8=1
   TYPE(compact_weight), target :: compact_weight_d8(nderiv8)
-  INTEGER(c_int), PARAMETER :: nfilter=8
+  INTEGER(c_int), PARAMETER :: nfilter=11
   TYPE(compact_weight), target :: compact_weight_ff(nfilter)
+#if 0
   INTEGER(c_int), PARAMETER :: nimcf=1
   TYPE(compact_weight), target :: compact_weight_imcf(nimcf)
   INTEGER(c_int), PARAMETER :: nimfc=1
@@ -56,6 +58,7 @@ module LES_stencils
   REAL(KIND=c_double), DIMENSION(nis) :: shift=[ -1.0_c_double/3.0_c_double, 1.0_c_double/3.0_c_double ]
   INTEGER(c_int), PARAMETER :: nfamr=2
   TYPE(compact_weight), target :: compact_weight_famr(nfamr)
+#endif
   
   interface lower_symm_weights
     module procedure lower_symm_weights_int, lower_symm_weights_gen, lower_symm_weights_both
@@ -114,29 +117,92 @@ contains
 !    verbose = verb
     if( verbose) print *,'available compact weights:'
     call c10d1(compact_weight_d1(1))  ! 1st derivative
+    call e6d1( compact_weight_d1(2))  ! 1st derivative (explicit, 6th order)
     call c10d2(compact_weight_d2(1))  ! 2nd derivative
-    call e4d4( compact_weight_d4(1))  ! 4th derivative (explicit)
+    call e4d4( compact_weight_d4(1))  ! 4th derivative (explicit, 4th order)
     call c10d8(compact_weight_d8(1))  ! 8th derivative
-    call c8ff9(compact_weight_ff(1))  ! 9/10 filter
-    call c8ff8(compact_weight_ff(2))  ! 8/10 filter
+    call c8ff9(compact_weight_ff(1))  ! 9/10 filter with telescoped boundaries
+    call c8ff8(compact_weight_ff(2))  ! 9/10 filter with telescoping or constant or linear extrapolation
     call c8ff7(compact_weight_ff(3))  ! 7/10 filter
-    call c8ff6(compact_weight_ff(4))  ! 2/3 filter
+    call c8ff6(compact_weight_ff(4))  ! 0.589223 (natural 8th-order) filter
     call cgft4(compact_weight_ff(5))  ! gaussian filter
     call cgfs4(compact_weight_ff(6))  ! gaussian filter w/ symmetry bcs
     call cgfc4(compact_weight_ff(7))  ! gaussian filter w/ constant bcs
     call ctfs4(compact_weight_ff(8))  ! tophat filter
+    call cgfc3(compact_weight_ff(9))  ! gaussian filter (3pt)
+    call cgfs3(compact_weight_ff(10)) ! gaussian filter (3pt)
+    call ecfs3(compact_weight_ff(11)) ! 6th order conservative (exp) filter
+#if 0
     call c10imcf(compact_weight_imcf(1))  ! center-to-face midpoint interpolation
     call c10imfc(compact_weight_imfc(1))  ! face-to-center midpoint interpolation
-!    do s = 1,size(sh)
-!      if( s > nis ) exit
     do s = 1,nis
       call c10ish(compact_weight_ish(s),shift(s))  ! interpolation w/ arbitrary shift
     end do
     call cfamrcf(compact_weight_famr(1))  ! coarse-to-fine AMR filter
     call cfamrfc(compact_weight_famr(2))  ! fine-to-coarse AMR filter
-!    print *,' '
+#endif
     stencils_set = .true.
   end subroutine setup_stencils
+
+!   subroutine remove_stencil(stencil)  ! deallocate generic weights
+!     implicit none
+!     TYPE(compact_weight), intent(out) :: stencil
+!     if (allocated(stencil%ali))  deallocate(stencil%ali)
+!     if (allocated(stencil%ari))  deallocate(stencil%ari)
+!     if (allocated(stencil%alb1)) deallocate(stencil%alb1) 
+!     if (allocated(stencil%alb2)) deallocate(stencil%alb2)
+!     if (allocated(stencil%arb1)) deallocate(stencil%arb1)
+!     if (allocated(stencil%arb2)) deallocate(stencil%arb2)
+!   end subroutine remove_stencil
+!   
+!   subroutine remove_stencils() 
+!     implicit none
+!     integer :: s
+!     call remove_stencil(compact_weight_d1(1)) 
+!     call remove_stencil(compact_weight_d2(1)) 
+!     call remove_stencil(compact_weight_d4(1)) 
+!     call remove_stencil(compact_weight_d8(1))
+!     do s=1,nfilter
+!       call remove_stencil(compact_weight_ff(s))
+!     end do
+! #if 0
+!     call remove_stencil(compact_weight_imcf(1))
+!     call remove_stencil(compact_weight_imfc(1))
+!     do s = 1,nis
+!       call remove_stencil(compact_weight_ish(s))
+!     enddo
+!     call remove_stencil(compact_weight_famr(1))
+!     call remove_stencil(compact_weight_famr(2))
+! #endif
+!     stencils_set = .false.
+!   end subroutine remove_stencils
+
+  subroutine lose_weight(weight)  ! deallocates stencil arrays
+    class(compact_weight), intent(out) :: weight
+    weight%description = compact_descriptor('fat','bastard',0,0)
+  end subroutine lose_weight
+
+  subroutine remove_stencils()  ! remove => lose_weight
+    implicit none
+    integer :: s
+    call compact_weight_d1(1)%remove()
+    call compact_weight_d2(1)%remove() 
+    call compact_weight_d4(1)%remove() 
+    call compact_weight_d8(1)%remove()
+    do s=1,nfilter
+      call compact_weight_ff(s)%remove()
+    end do
+#if 0
+    call compact_weight_imcf(1)%remove()
+    call compact_weight_imfc(1)%remove()
+    do s = 1,nis
+      call compact_weight_ish(s)%remove()
+    enddo
+    call compact_weight_famr(1)%remove()
+    call compact_weight_famr(2)%remove()
+#endif
+    stencils_set = .false.
+  end subroutine remove_stencils
 
   subroutine c10d1(d1)  ! setup compact 10th order 1st derivative weights
     implicit none
@@ -209,6 +275,85 @@ contains
     d1%arb2(:,3,2) = -d1%arb1(ncr:1:-1,2,2)
     d1%arb2(:,4,2) = -d1%arb1(ncr:1:-1,1,2)
   end subroutine c10d1
+
+
+  subroutine e6d1(d1)  ! setup 1st derivative, explicit, 6th order
+    implicit none
+    TYPE(compact_weight), intent(out) :: d1
+    INTEGER(c_int), PARAMETER :: nol = 0, nor = 3, nir = 3
+    INTEGER(c_int), PARAMETER :: ncl=2*nol+1, ncr=nor+nir+1, nci=2*nol
+    INTEGER(c_int), PARAMETER :: nst = 0, nbc1 = 3, nbc2 = 3
+    LOGICAL(c_bool),PARAMETER :: implicit_op = .false.
+    INTEGER :: i,j,k
+    d1%description = compact_descriptor('d1exp','explicit',0,0)
+    if( implicit_op ) d1%description%complicity = 'implicit'
+     if( verbose) call d1%description%info()
+    allocate( d1%ali(2*nol+1) )
+    allocate( d1%ari(2*nor+1) )
+    allocate( d1%alb1(2*nol+1,nbc1,-1:2), d1%alb2(2*nol+1,nbc2,-1:2) )
+    allocate( d1%arb1(2*nor+1,nbc1,-1:2), d1%arb2(2*nor+1,nbc2,-1:2) )
+    d1%nol = nol
+    d1%nor = nor
+    d1%nir = nir
+    d1%ncl = ncl
+    d1%ncr = ncr
+    d1%nci = nci
+    d1%nst = nst
+    d1%nbc1 = nbc1
+    d1%nbc2 = nbc2
+    d1%null_option = 0 ! copy if null_op
+    d1%implicit_op = implicit_op
+    if( nol == 0 ) d1%implicit_op = .false.
+    d1%sh = 0.0d0  ! shift
+  ! interior weights
+    !    d1%ali = 1.0D0
+    !    d1%ari = [ dgau , cgau , bgau , agau , bgau , cgau , dgau ]
+    d1%ali = 1.0D0
+    d1%ari = [ -1.0D0/60.0D0 , 9.0D0/60.0D0 , -45.0D0/60.0D0 , &
+         0.0D0 , 45.0D0/60.0D0, -9.0D0/60.0D0, 1.0D0/60.0D0 ]
+  ! one-sided weights, band-diagonal style
+    d1%alb1(:,1,0) = 1.0D0  ! Non-unity values dont seem to work here...
+    d1%alb1(:,2,0) = 1.0D0
+    d1%alb1(:,3,0) = 1.0D0
+    d1%alb2(:,1,0) = d1%alb1(ncl:1:-1,3,0)
+    d1%alb2(:,2,0) = d1%alb1(ncl:1:-1,2,0)
+    d1%alb2(:,3,0) = d1%alb1(ncl:1:-1,1,0)
+    d1%arb1(:,1,0) = [ 0.0D0        , 0.0D0         , -3.0D0/2.0D0   , 4.0D0/2.0D0   , -1.0D0/2.0D0   ]
+    d1%arb1(:,2,0) = [ 0.0D0        , -2.0D0/6.0D0  , -3.0D0/6.0D0   , 6.0D0/6.0D0   , -1.0D0/6.0D0   ]
+    d1%arb1(:,3,0) = [ 1.0D0/12.0D0 ,-8.0D0/12.0D0  , 0.0D0          , 8.0D0/12.0D0  , -1.0D0/12.0D0  ]
+    d1%arb2(:,1,0) = -d1%arb1(ncr:1:-1,3,0)
+    d1%arb2(:,2,0) = -d1%arb1(ncr:1:-1,2,0)
+    d1%arb2(:,3,0) = -d1%arb1(ncr:1:-1,1,0)
+  ! symmetric weights
+    call lower_symm_weights(d1%alb1(:,:,+1),d1%arb1(:,:,+1),d1%ali,d1%ari,nol,nor,0,0,+1,+1)
+    call lower_symm_weights(d1%alb1(:,:,-1),d1%arb1(:,:,-1),d1%ali,d1%ari,nol,nor,0,0,-1,-1)
+    call upper_symm_weights(d1%alb2(:,:,+1),d1%arb2(:,:,+1),d1%ali,d1%ari,nol,nor,0,0,+1,+1)
+    call upper_symm_weights(d1%alb2(:,:,-1),d1%arb2(:,:,-1),d1%ali,d1%ari,nol,nor,0,0,-1,-1)
+  ! with extended boundary data
+    d1%alb1(:,1,2) = 1.0D0
+    d1%alb1(:,2,2) = 1.0D0
+    d1%alb1(:,3,2) = 1.0D0
+    d1%arb1(:,1,2) = d1%ari
+    d1%arb1(:,2,2) = d1%ari
+    d1%arb1(:,3,2) = d1%ari
+    d1%alb2(:,1,2) = d1%alb1(ncl:1:-1,3,2)
+    d1%alb2(:,2,2) = d1%alb1(ncl:1:-1,2,2)
+    d1%alb2(:,3,2) = d1%alb1(ncl:1:-1,1,2)
+    d1%arb2(:,1,2) = -d1%arb1(ncr:1:-1,3,2)
+    d1%arb2(:,2,2) = -d1%arb1(ncr:1:-1,2,2)
+    d1%arb2(:,3,2) = -d1%arb1(ncr:1:-1,1,2)    
+    !d1%alb1(:,4,2) = 1.0D0
+    !d1%arb1(:,4,2) = d1%ari
+    !d1%alb2(:,1,2) = d1%alb1(ncl:1:-1,4,2)
+    !d1%alb2(:,2,2) = d1%alb1(ncl:1:-1,3,2)
+    !d1%alb2(:,3,2) = d1%alb1(ncl:1:-1,2,2)
+    !d1%alb2(:,4,2) = d1%alb1(ncl:1:-1,1,2)
+    !d1%arb2(:,1,2) = -d1%arb1(ncr:1:-1,4,2)
+    !d1%arb2(:,2,2) = -d1%arb1(ncr:1:-1,3,2)
+    !d1%arb2(:,3,2) = -d1%arb1(ncr:1:-1,2,2)
+    !d1%arb2(:,4,2) = -d1%arb1(ncr:1:-1,1,2)
+  end subroutine e6d1
+
   
   subroutine c10d2(d2)  ! setup compact 10th order 2nd derivative weights
     implicit none
@@ -282,9 +427,123 @@ contains
     d2%arb2(:,4,2) = d2%arb1(ncr:1:-1,1,2)
   end subroutine c10d2
 
+  subroutine e4d4(d4)  ! setup 4th derivative, explicit
+    implicit none
+    TYPE(compact_weight), intent(out) :: d4
+    INTEGER(c_int), PARAMETER :: nol = 0, nor = 3, nir = 3
+    INTEGER(c_int), PARAMETER :: ncl=2*nol+1, ncr=nor+nir+1, nci=2*nol
+    INTEGER(c_int), PARAMETER :: nst = 0, nbc1 = 4, nbc2 = 4
+    LOGICAL(c_bool),PARAMETER :: implicit_op = .false.
+    ! Fourth order 4th derivative
+    DOUBLE PRECISION, PARAMETER :: agau = 28.0D0/3.0D0
+    DOUBLE PRECISION, PARAMETER :: bgau = -6.5D0
+    DOUBLE PRECISION, PARAMETER :: cgau = 2.0D0
+    DOUBLE PRECISION, PARAMETER :: dgau = -1.0D0/6.0D0
+    ! Second order 4th derivative
+    DOUBLE PRECISION, PARAMETER :: a3gau = 6.0D0
+    DOUBLE PRECISION, PARAMETER :: b3gau = -4.0D0
+    DOUBLE PRECISION, PARAMETER :: c3gau = 1.0D0
+    ! Symmetry
+    DOUBLE PRECISION, PARAMETER :: cgau13 = cgau + dgau
+    DOUBLE PRECISION, PARAMETER :: bgau12 = bgau + cgau
+    DOUBLE PRECISION, PARAMETER :: agau22 = agau + dgau
+    DOUBLE PRECISION, PARAMETER :: agau11 = agau + bgau
+    DOUBLE PRECISION, PARAMETER :: bgau21 = bgau + cgau
+    DOUBLE PRECISION, PARAMETER :: cgau31 = cgau + dgau
+    INTEGER :: i,j,k
+    d4%description = compact_descriptor('d4exp','explicit',0,0)
+    if( implicit_op ) d4%description%complicity = 'implicit'
+     if( verbose) call d4%description%info()
+    allocate( d4%ali(2*nol+1) )
+    allocate( d4%ari(2*nor+1) )
+    allocate( d4%alb1(2*nol+1,nbc1,-1:2), d4%alb2(2*nol+1,nbc2,-1:2) )
+    allocate( d4%arb1(2*nor+1,nbc1,-1:2), d4%arb2(2*nor+1,nbc2,-1:2) )
+    d4%nol = nol
+    d4%nor = nor
+    d4%nir = nir
+    d4%ncl = ncl
+    d4%ncr = ncr
+    d4%nci = nci
+    d4%nst = nst
+    d4%nbc1 = nbc1
+    d4%nbc2 = nbc2
+    d4%null_option = 0 ! copy if null_op
+    d4%implicit_op = implicit_op
+    if( nol == 0 ) d4%implicit_op = .false.
+    d4%sh = 0.0d0  ! shift
+  ! interior weights
+    !    d4%ali = 1.0D0
+    !    d4%ari = [ dgau , cgau , bgau , agau , bgau , cgau , dgau ]
+    d4%ali = 1.0D0
+    d4%ari = [ dgau , cgau , bgau , agau , bgau , cgau , dgau ]
+  ! one-sided weights, band-diagonal style
+    d4%alb1(:,1,0) = 1.0D0
+    d4%alb1(:,2,0) = 1.0D0
+    d4%alb1(:,3,0) = 1.0D0
+    d4%alb2(:,1,0) = d4%alb1(ncl:1:-1,3,0)
+    d4%alb2(:,2,0) = d4%alb1(ncl:1:-1,2,0)
+    d4%alb2(:,3,0) = d4%alb1(ncl:1:-1,1,0)
+
+    d4%arb1(:,1,0) = [ 0.0D0   , 0.0D0    , 0.0D0   , agau11   , bgau21, cgau31   , dgau   ]
+    d4%arb1(:,2,0) = [ 0.0D0   , 0.0D0    , bgau12  , agau22   , bgau  , 0.0D0    , 0.0D0  ]
+    d4%arb1(:,3,0) = [ 0.0D0   , cgau13   , bgau    , agau     , bgau  , cgau     , 0.0D0  ]
+
+    d4%arb2(:,1,0) = d4%arb1(ncr:1:-1,3,0)
+    d4%arb2(:,2,0) = d4%arb1(ncr:1:-1,2,0)
+    d4%arb2(:,3,0) = d4%arb1(ncr:1:-1,1,0)
+
+  ! symmetric weights
+    call lower_symm_weights(d4%alb1(:,:,+1),d4%arb1(:,:,+1),d4%ali,d4%ari,nol,nor,0,0,+1,+1)
+    call lower_symm_weights(d4%alb1(:,:,-1),d4%arb1(:,:,-1),d4%ali,d4%ari,nol,nor,0,0,-1,-1)
+    call upper_symm_weights(d4%alb2(:,:,+1),d4%arb2(:,:,+1),d4%ali,d4%ari,nol,nor,0,0,+1,+1)
+    call upper_symm_weights(d4%alb2(:,:,-1),d4%arb2(:,:,-1),d4%ali,d4%ari,nol,nor,0,0,-1,-1)
+  ! with extended boundary data
+    d4%alb1(:,1,2) = 1.0D0
+    d4%alb1(:,2,2) = 1.0D0
+    d4%alb1(:,3,2) = 1.0D0
+    d4%alb2(:,1,2) = d4%alb1(ncl:1:-1,3,2)
+    d4%alb2(:,2,2) = d4%alb1(ncl:1:-1,2,2)
+    d4%alb2(:,3,2) = d4%alb1(ncl:1:-1,1,2)
+    d4%arb1(:,1,2) = d4%ari
+    d4%arb1(:,2,2) = d4%ari
+    d4%arb1(:,3,2) = d4%ari
+    d4%arb2(:,1,2) = d4%arb1(ncr:1:-1,3,2)
+    d4%arb2(:,2,2) = d4%arb1(ncr:1:-1,2,2)
+    d4%arb2(:,3,2) = d4%arb1(ncr:1:-1,1,2)
+  end subroutine e4d4
+
   subroutine c10d8(d8)  ! setup compact 10th (?) order 8th derivative weights
     implicit none
     TYPE(compact_weight), intent(out) :: d8
+! Interior ---------------------------------------------------------------------
+    REAL(c_double), PARAMETER :: zeta  =    29.0D0
+    REAL(c_double), PARAMETER :: alpha =    14.0D0
+    REAL(c_double), PARAMETER :: beta  =     1.5D0
+    REAL(c_double), PARAMETER :: aa    =  4200.0D0
+    REAL(c_double), PARAMETER :: bb    = -3360.0D0
+    REAL(c_double), PARAMETER :: cc    =  1680.0D0
+    REAL(c_double), PARAMETER :: dd    =  -480.0D0
+    REAL(c_double), PARAMETER :: ee    =    60.0D0
+! Symmetry boundaries ----------------------------------------------------------
+    REAL(c_double), PARAMETER :: alpha2 =  beta + alpha
+    
+    REAL(c_double), PARAMETER :: zeta1  =  alpha + zeta
+    REAL(c_double), PARAMETER :: alpha1 =  beta + alpha
+           
+    REAL(c_double), PARAMETER :: dd4   =  ee + dd
+    
+    REAL(c_double), PARAMETER :: cc3   =  dd + cc
+    REAL(c_double), PARAMETER :: bb3   =  ee + bb
+    
+    REAL(c_double), PARAMETER :: bb2   =  cc + bb 
+    REAL(c_double), PARAMETER :: aa2   =  dd + aa
+    REAL(c_double), PARAMETER :: b22   =  ee + bb
+    
+    REAL(c_double), PARAMETER :: aa1   =  bb + aa
+    REAL(c_double), PARAMETER :: bb1   =  cc + bb 
+    REAL(c_double), PARAMETER :: cc1   =  dd + cc 
+    REAL(c_double), PARAMETER :: dd1   =  ee + dd         
+!------------------------------------------------------------------------------- 
     INTEGER(c_int), PARAMETER :: nol = 2, nor = 4, nir = 4
     INTEGER(c_int), PARAMETER :: ncl=2*nol+1, ncr=nor+nir+1, nci=2*nol
     INTEGER(c_int), PARAMETER :: nst = 0, nbc1 = 4, nbc2 = 4
@@ -311,25 +570,32 @@ contains
     if( nol == 0 ) d8%implicit_op = .false.
     d8%sh = 0.0d0  ! shift
   ! interior weights
-    d8%ali = [ 1.5D0    ,  14.0D0   , 29.0D0   ,   14.0D0   , 1.5D0 ]
-    d8%ari = [ 60.0D0   , -480.0D0  , 1680.0D0  , -3360.0D0 , 4200.0D0  , -3360.0D0 , 1680.0D0  , -480.0D0  , 60.0D0 ]
+    d8%ali = [         beta, alpha, zeta, alpha, beta         ]
+    d8%ari = [ ee, dd,   cc,    bb,   aa,    bb,   cc, dd, ee ]
   ! one-sided weights, band-diagonal style
-    d8%alb1(:,1,0) = [ 0.0D0 ,  0.0D0  , 1.0D0 ,  0.0D0 , 0.0D0 ]
-    d8%alb1(:,2,0) = [ 0.0D0 ,  0.0D0  , 1.0D0 ,  0.0D0 , 0.0D0 ]
-    d8%alb1(:,3,0) = [ 0.0D0 , -1.0D0  , 2.0D0 , -1.0D0 , 0.0D0 ]
-    d8%alb1(:,4,0) = [ 1.0D0 , -4.0D0  , 6.0D0 , -4.0D0 , 1.0D0 ]
+    d8%alb1(:,1,0) = [ 0.0D0,  0.0D0,  zeta1, alpha1, beta ]
+    d8%alb1(:,2,0) = [ 0.0D0, alpha2,   zeta,  alpha, beta ]
+    d8%alb1(:,3,0) = [  beta,  alpha,   zeta,  alpha, beta ]
+    d8%alb1(:,4,0) = [  beta,  alpha,   zeta,  alpha, beta ]
     d8%alb2(:,1,0) = d8%alb1(ncl:1:-1,4,0)
     d8%alb2(:,2,0) = d8%alb1(ncl:1:-1,3,0)
     d8%alb2(:,3,0) = d8%alb1(ncl:1:-1,2,0)
     d8%alb2(:,4,0) = d8%alb1(ncl:1:-1,1,0)
-    d8%arb1(:,1,0) = 0.0D0
-    d8%arb1(:,2,0) = 0.0D0
-    d8%arb1(:,3,0) = 0.0D0
-    d8%arb1(:,4,0) = 0.0D0
+    d8%arb1(:,1,0) = [ 0.0D0, 0.0D0, 0.0D0,  0.0D0,  aa1,  bb1, cc1, dd1, ee ]
+    d8%arb1(:,2,0) = [ 0.0D0, 0.0D0, 0.0D0,    bb2,  aa2,  b22,  cc,  dd, ee ]
+    d8%arb1(:,3,0) = [ 0.0D0, 0.0D0,   cc3,    bb3,   aa,   bb,  cc,  dd, ee ]
+    d8%arb1(:,4,0) = [ 0.0D0,   dd4,    cc,     bb,   aa,   bb,  cc,  dd, ee ]
     d8%arb2(:,1,0) = d8%arb1(ncr:1:-1,4,0)
     d8%arb2(:,2,0) = d8%arb1(ncr:1:-1,3,0)
     d8%arb2(:,3,0) = d8%arb1(ncr:1:-1,2,0)
     d8%arb2(:,4,0) = d8%arb1(ncr:1:-1,1,0)
+! DIAGNOSTICS--------
+!    WRITE(6,*) "Interior:", SUM(d8%ali        ),' - ',SUM(d8%ari        ),' = ',SUM(d8%ali)         - SUM(d8%ari)
+!    WRITE(6,*) "      j4:", SUM(d8%alb1(:,4,0)),' - ',SUM(d8%arb1(:,4,0)),' = ',SUM(d8%alb1(:,4,0)) - SUM(d8%arb1(:,4,0))
+!    WRITE(6,*) "      j3:", SUM(d8%alb1(:,3,0)),' - ',SUM(d8%arb1(:,3,0)),' = ',SUM(d8%alb1(:,3,0)) - SUM(d8%arb1(:,3,0))
+!    WRITE(6,*) "      j2:", SUM(d8%alb1(:,2,0)),' - ',SUM(d8%arb1(:,2,0)),' = ',SUM(d8%alb1(:,2,0)) - SUM(d8%arb1(:,2,0))
+!    WRITE(6,*) "      j1:", SUM(d8%alb1(:,1,0)),' - ',SUM(d8%arb1(:,1,0)),' = ',SUM(d8%alb1(:,1,0)) - SUM(d8%arb1(:,1,0))
+!--------------------
   ! symmetric weights
     call lower_symm_weights(d8%alb1(:,:,+1),d8%arb1(:,:,+1),d8%ali,d8%ari,nol,nor,0,0,+1,+1)
     call lower_symm_weights(d8%alb1(:,:,-1),d8%arb1(:,:,-1),d8%ali,d8%ari,nol,nor,0,0,-1,-1)
@@ -354,7 +620,7 @@ contains
     d8%arb2(:,4,2) = d8%arb1(ncr:1:-1,1,2)
   end subroutine c10d8
   
-  subroutine c8ff9(ff)  ! setup compact 8th order 9/10 filter weights
+  subroutine c8ff9(ff)  ! setup compact 8th order 9/10 filter weights with telescoped boundaries
     implicit none
     TYPE(compact_weight), intent(out) :: ff
     INTEGER(c_int), PARAMETER :: nol = 2, nor = 4, nir = 4
@@ -402,7 +668,7 @@ contains
     ff%arb2(:,2,0) = ff%arb1(ncr:1:-1,3,0)
     ff%arb2(:,3,0) = ff%arb1(ncr:1:-1,2,0)
     ff%arb2(:,4,0) = ff%arb1(ncr:1:-1,1,0)
-  ! symmetric weights
+ ! symmetric weights
     call lower_symm_weights(ff%alb1(:,:,+1),ff%arb1(:,:,+1),ff%ali,ff%ari,nol,nor,0,0,+1,+1)
     call lower_symm_weights(ff%alb1(:,:,-1),ff%arb1(:,:,-1),ff%ali,ff%ari,nol,nor,0,0,-1,-1)
     call upper_symm_weights(ff%alb2(:,:,+1),ff%arb2(:,:,+1),ff%ali,ff%ari,nol,nor,0,0,+1,+1)
@@ -438,11 +704,32 @@ contains
     ff%arb2(:,2,2) = ff%arb1(ncr:1:-1,3,2)
     ff%arb2(:,3,2) = ff%arb1(ncr:1:-1,2,2)
     ff%arb2(:,4,2) = ff%arb1(ncr:1:-1,1,2)
+    ! difference
+    ff%ari(3:7) = ff%ari(3:7)-ff%ali(1:5)
+    ff%arb1(3:7,:,:) = ff%arb1(3:7,:,:)-ff%alb1(1:5,:,:)
+    ff%arb2(3:7,:,:) = ff%arb2(3:7,:,:)-ff%alb2(1:5,:,:)
   end subroutine c8ff9
 
-  subroutine c8ff8(ff)  ! setup compact 8th order 8/10 filter weights
+  subroutine c8ff8(ff)  ! setup compact 8th-order 9/10 dealiasing filter with telescoping or assumed extension
     implicit none
     TYPE(compact_weight), intent(out) :: ff
+! INTEGRAL_0_PI(TRANSFER_FUNCTION) = 9/10 ---------------------------------------
+    REAL(c_double), PARAMETER :: beta  =  1.6688D-1
+    REAL(c_double), PARAMETER :: alpha =  6.6624D-1
+    REAL(c_double), PARAMETER :: zeta  =  1.0D0
+    REAL(c_double), PARAMETER :: aa    =  9.9965D-1
+    REAL(c_double), PARAMETER :: bb    =  6.6652D-1
+    REAL(c_double), PARAMETER :: cc    =  1.6674D-1
+    REAL(c_double), PARAMETER :: dd    =  4.0D-5
+    REAL(c_double), PARAMETER :: ee    = -5.0D-6
+    ! constant extrapolation    
+    REAL(c_double), PARAMETER :: dd4   =  ee + dd
+    REAL(c_double), PARAMETER :: cc3   =  ee + dd + cc
+    REAL(c_double), PARAMETER :: bb2   =  ee + dd + cc + bb
+    REAL(c_double), PARAMETER :: aa1   =  ee + dd + cc + bb + aa
+    REAL(c_double), PARAMETER :: alpha2 =  beta + alpha
+    REAL(c_double), PARAMETER :: zeta1  =  beta + alpha + zeta           
+!------------------------------------------------------------------------------- 
     INTEGER(c_int), PARAMETER :: nol = 2, nor = 4, nir = 4
     INTEGER(c_int), PARAMETER :: ncl=2*nol+1, ncr=nor+nir+1, nci=2*nol
     INTEGER(c_int), PARAMETER :: nst = 0, nbc1 = 4, nbc2 = 4
@@ -469,47 +756,82 @@ contains
     if( nol == 0 ) ff%implicit_op = .false.
     ff%sh = 0.0d0  ! shift
   ! interior weights
-    ff%ali = [ 1.7136D-1 , 6.5728D-1 , 1.0D0     , 6.5728D-1 , 1.7136D-1 ]
-    ff%ari = [ -1.1D-4   , 8.8D-4    , 1.6828D-1 , 6.6344D-1 , 9.923D-1  , 6.6344D-1 , 1.6828D-1 , 8.8D-4 , -1.1D-4 ]
+    ff%ali = [         beta, alpha, zeta, alpha, beta         ]
+    ff%ari = [ ee, dd,   cc,    bb,   aa,    bb,   cc, dd, ee ]
   ! one-sided weights, band-diagonal style
-    ff%alb1(:,1,0) = [ 0.0D0     , 0.0D0     , 1.0D0 , 0.0D0     , 0.0D0    ]
-    ff%alb1(:,2,0) = [ 0.0D0     , 0.0D0     , 1.0D0 , 0.0D0     , 0.0D0    ]
-    ff%alb1(:,3,0) = [ 1.6666666666666667D-1, 6.5585333333333333D-1, 1.0D0 , 6.5585333333333333D-1, 1.6666666666666667D-1 ]
-    ff%alb1(:,4,0) = [ 1.6872D-1 , 6.564D-1  , 1.0D0 , 6.564D-1 , 1.6872D-1 ]
+    ! telescoping-------------------------------------------------------------------------------
+    ff%alb1(:,1,0) = [ 0.0D0     , 0.0D0     , 1.0D0 , 0.0D0     , 0.0D0 ]
+    ff%alb1(:,2,0) = [ 0.0D0     , 4.997D-1  , 1.0D0 , 4.997D-1  , 0.0D0 ]
+    ff%alb1(:,3,0) = [ 1.6688D-1 , 6.6624D-1 , 1.0D0 , 6.6624D-1 , 1.6688D-1 ]
+    ff%alb1(:,4,0) = [ 1.6688D-1 , 6.6624D-1 , 1.0D0 , 6.6624D-1 , 1.6688D-1 ]
+    ! constant extrapolation--------------------------------------------------------------------
+!    ff%alb1(:,1,0) = [ 0.0D0, 0.0D0,  zeta1, alpha, beta ]
+!    ff%alb1(:,2,0) = [ 0.0D0, alpha2,  zeta, alpha, beta ]
+!    ff%alb1(:,3,0) = [  beta, alpha,   zeta, alpha, beta ]
+!    ff%alb1(:,4,0) = [  beta, alpha,   zeta, alpha, beta ]
+    ! linear extrapolation----------------------------------------------------------------------  
+!    ff%alb1(:,1,0) = [ 0.0D0,            0.0D0, 4.0D0*beta+2.0D0*alpha+zeta, -3.0D0*beta, beta ]
+!    ff%alb1(:,2,0) = [ 0.0D0, 2.0D0*beta+alpha,                  -beta+zeta,       alpha, beta ]
+!    ff%alb1(:,3,0) = [  beta,            alpha,                        zeta,       alpha, beta ]
+!    ff%alb1(:,4,0) = [  beta,            alpha,                        zeta,       alpha, beta ]
+    !-------------------------------------------------------------------------------------------    
     ff%alb2(:,1,0) = ff%alb1(ncl:1:-1,4,0)
     ff%alb2(:,2,0) = ff%alb1(ncl:1:-1,3,0)
     ff%alb2(:,3,0) = ff%alb1(ncl:1:-1,2,0)
     ff%alb2(:,4,0) = ff%alb1(ncl:1:-1,1,0)
-    ff%arb1(:,1,0) = [ 0.0D0 , 0.0D0   , 0.0D0      , 0.0D0      , 9.375D-1  , 2.5D-1     , -3.75D-1   , 2.5D-1  , -6.25D-2  ]
-    ff%arb1(:,2,0) = [ 0.0D0 , 0.0D0   , 0.0D0      , 6.25D-2    , 7.5D-1    , 3.75D-1    , -2.5D-1    , 6.25D-2 , 0.0D0     ]
-    ff%arb1(:,3,0) = [ 0.0D0 , 0.0D0   , 1.65315D-1 , 6.6126D-1  , 9.9189D-1 , 6.6126D-1  , 1.65315D-1 , 0.0D0   , 0.0D0     ]
-    ff%arb1(:,4,0) = [ 0.0D0 , 3.85D-4 , 1.6641D-1  , 6.62175D-1 , 9.923D-1  , 6.62175D-1 , 1.6641D-1  , 3.85D-4 , 0.0D0     ]
+    ! telescoping-----------------------------------------------------------------------------------------------------------------------------------------------------------------
+    ff%arb1(:,1,0) = [ 0.0D0 , 0.0D0  , 0.0D0     , 0.0D0     , 1.0D0     , 0.0D0     , 0.0D0     , 0.0D0  , 0.0D0  ]
+    ff%arb1(:,2,0) = [ 0.0D0 , 0.0D0  , 0.0D0     , 4.9985D-1 , 9.997D-1  , 4.9985D-1 , 0.0D0     , 0.0D0  , 0.0D0  ]
+    ff%arb1(:,3,0) = [ 0.0D0 , 0.0D0  , 1.668D-1  , 6.6656D-1 , 9.9952D-1 , 6.6656D-1 , 1.668D-1  , 0.0D0  , 0.0D0  ]
+    ff%arb1(:,4,0) = [ 0.0D0 , 4.0D-5 , 1.6672D-1 , 6.6652D-1 , 9.9968D-1 , 6.6652D-1 , 1.6672D-1 , 4.0D-5 , 0.0D0  ]
+    ! constant extrapolation------------------------------------------------------------------------------------------------------------------------------------------------------
+!    ff%arb1(:,1,0) = [ 0.0D0, 0.0D0, 0.0D0, 0.0D0, aa1, bb, cc, dd, ee ]
+!    ff%arb1(:,2,0) = [ 0.0D0, 0.0D0, 0.0D0,   bb2,  aa, bb, cc, dd, ee ]
+!    ff%arb1(:,3,0) = [ 0.0D0, 0.0D0,   cc3,    bb,  aa, bb, cc, dd, ee ]
+!    ff%arb1(:,4,0) = [ 0.0D0,   dd4,    cc,    bb,  aa, bb, cc, dd, ee ]
+    ! linear extrapolation--------------------------------------------------------------------------------------------------------------------------------------------------------
+!    ff%arb1(:,1,0) = [ 0.0D0,       0.0D0,                0.0D0,                         0.0D0, 8.0D0*ee+6.0D0*dd+4.0D0*cc+2.0D0*bb+aa, -7.0D0*ee-5.0D0*dd-3.0D0*cc, cc, dd, ee ]
+!    ff%arb1(:,2,0) = [ 0.0D0,       0.0D0,                0.0D0, 6.0D0*ee+4.0D0*dd+2.0D0*cc+bb,               -5.0D0*ee-3.0D0*dd-cc+aa,                          bb, cc, dd, ee ]
+!    ff%arb1(:,3,0) = [ 0.0D0,       0.0D0, 4.0D0*ee+2.0D0*dd+cc,               -3.0D0*ee-dd+bb,                                     aa,                          bb, cc, dd, ee ]
+!    ff%arb1(:,4,0) = [ 0.0D0, 2.0D0*ee+dd,               -ee+cc,                            bb,                                     aa,                          bb, cc, dd, ee ]
+    !-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------
     ff%arb2(:,1,0) = ff%arb1(ncr:1:-1,4,0)
     ff%arb2(:,2,0) = ff%arb1(ncr:1:-1,3,0)
     ff%arb2(:,3,0) = ff%arb1(ncr:1:-1,2,0)
     ff%arb2(:,4,0) = ff%arb1(ncr:1:-1,1,0)
+! Diagnostics-------------------------------------------------------------------------------------------------------------    
+!    WRITE(6,*) "Interior:", SUM(ff%ali        ),' - ',SUM(ff%ari        ),' = ',SUM(ff%ali)         - SUM(ff%ari)
+!    WRITE(6,*) "      j4:", SUM(ff%alb1(:,4,0)),' - ',SUM(ff%arb1(:,4,0)),' = ',SUM(ff%alb1(:,4,0)) - SUM(ff%arb1(:,4,0))
+!    WRITE(6,*) "      j3:", SUM(ff%alb1(:,3,0)),' - ',SUM(ff%arb1(:,3,0)),' = ',SUM(ff%alb1(:,3,0)) - SUM(ff%arb1(:,3,0))
+!    WRITE(6,*) "      j2:", SUM(ff%alb1(:,2,0)),' - ',SUM(ff%arb1(:,2,0)),' = ',SUM(ff%alb1(:,2,0)) - SUM(ff%arb1(:,2,0))
+!    WRITE(6,*) "      j1:", SUM(ff%alb1(:,1,0)),' - ',SUM(ff%arb1(:,1,0)),' = ',SUM(ff%alb1(:,1,0)) - SUM(ff%arb1(:,1,0))
+!-------------------------------------------------------------------------------------------------------------------------
   ! symmetric weights
     call lower_symm_weights(ff%alb1(:,:,+1),ff%arb1(:,:,+1),ff%ali,ff%ari,nol,nor,0,0,+1,+1)
     call lower_symm_weights(ff%alb1(:,:,-1),ff%arb1(:,:,-1),ff%ali,ff%ari,nol,nor,0,0,-1,-1)
     call upper_symm_weights(ff%alb2(:,:,+1),ff%arb2(:,:,+1),ff%ali,ff%ari,nol,nor,0,0,+1,+1)
     call upper_symm_weights(ff%alb2(:,:,-1),ff%arb2(:,:,-1),ff%ali,ff%ari,nol,nor,0,0,-1,-1)
   ! with extended boundary data -- needs work
-    ff%alb1(:,1,2) = [ 0.0D0     , 0.0D0     , 1.0D0 , 0.0D0     , 0.0D0    ]
-    ff%alb1(:,2,2) = [ 0.0D0     , 0.0D0     , 1.0D0 , 0.0D0     , 0.0D0    ]
-    ff%alb1(:,3,2) = [ 1.6666666666666667D-1, 6.5585333333333333D-1, 1.0D0 , 6.5585333333333333D-1, 1.6666666666666667D-1 ]
-    ff%alb1(:,4,2) = [ 1.6872D-1 , 6.564D-1  , 1.0D0 , 6.564D-1 , 1.6872D-1 ]
-    ff%alb2(:,1,2) = ff%alb1(ncl:1:-1,4,2)
-    ff%alb2(:,2,2) = ff%alb1(ncl:1:-1,3,2)
-    ff%alb2(:,3,2) = ff%alb1(ncl:1:-1,2,2)
-    ff%alb2(:,4,2) = ff%alb1(ncl:1:-1,1,2)
-    ff%arb1(:,1,2) = [ 0.0D0 , 0.0D0   , 0.0D0      , 0.0D0      , 9.375D-1  , 2.5D-1     , -3.75D-1   , 2.5D-1  , -6.25D-2  ]
-    ff%arb1(:,2,2) = [ 0.0D0 , 0.0D0   , 0.0D0      , 6.25D-2    , 7.5D-1    , 3.75D-1    , -2.5D-1    , 6.25D-2 , 0.0D0     ]
-    ff%arb1(:,3,2) = [ 0.0D0 , 0.0D0   , 1.65315D-1 , 6.6126D-1  , 9.9189D-1 , 6.6126D-1  , 1.65315D-1 , 0.0D0   , 0.0D0     ]
-    ff%arb1(:,4,2) = [ 0.0D0 , 3.85D-4 , 1.6641D-1  , 6.62175D-1 , 9.923D-1  , 6.62175D-1 , 1.6641D-1  , 3.85D-4 , 0.0D0     ]
-    ff%arb2(:,1,2) = ff%arb1(ncr:1:-1,4,2)
-    ff%arb2(:,2,2) = ff%arb1(ncr:1:-1,3,2)
-    ff%arb2(:,3,2) = ff%arb1(ncr:1:-1,2,2)
-    ff%arb2(:,4,2) = ff%arb1(ncr:1:-1,1,2)
+!    ff%alb1(:,1,2) = [ 0.0D0     , 0.0D0     , 1.0D0 , 0.0D0     , 0.0D0    ]
+!    ff%alb1(:,2,2) = [ 0.0D0     , 0.0D0     , 1.0D0 , 0.0D0     , 0.0D0    ]
+!    ff%alb1(:,3,2) = [ 1.6666666666666667D-1, 6.5585333333333333D-1, 1.0D0 , 6.5585333333333333D-1, 1.6666666666666667D-1 ]
+!    ff%alb1(:,4,2) = [ 1.6872D-1 , 6.564D-1  , 1.0D0 , 6.564D-1 , 1.6872D-1 ]
+!    ff%alb2(:,1,2) = ff%alb1(ncl:1:-1,4,2)
+!    ff%alb2(:,2,2) = ff%alb1(ncl:1:-1,3,2)
+!    ff%alb2(:,3,2) = ff%alb1(ncl:1:-1,2,2)
+!    ff%alb2(:,4,2) = ff%alb1(ncl:1:-1,1,2)
+!    ff%arb1(:,1,2) = [ 0.0D0 , 0.0D0   , 0.0D0      , 0.0D0      , 9.375D-1  , 2.5D-1     , -3.75D-1   , 2.5D-1  , -6.25D-2  ]
+!    ff%arb1(:,2,2) = [ 0.0D0 , 0.0D0   , 0.0D0      , 6.25D-2    , 7.5D-1    , 3.75D-1    , -2.5D-1    , 6.25D-2 , 0.0D0     ]
+!    ff%arb1(:,3,2) = [ 0.0D0 , 0.0D0   , 1.65315D-1 , 6.6126D-1  , 9.9189D-1 , 6.6126D-1  , 1.65315D-1 , 0.0D0   , 0.0D0     ]
+!    ff%arb1(:,4,2) = [ 0.0D0 , 3.85D-4 , 1.6641D-1  , 6.62175D-1 , 9.923D-1  , 6.62175D-1 , 1.6641D-1  , 3.85D-4 , 0.0D0     ]
+!    ff%arb2(:,1,2) = ff%arb1(ncr:1:-1,4,2)
+!    ff%arb2(:,2,2) = ff%arb1(ncr:1:-1,3,2)
+!    ff%arb2(:,3,2) = ff%arb1(ncr:1:-1,2,2)
+!    ff%arb2(:,4,2) = ff%arb1(ncr:1:-1,1,2)
+    ! difference
+    ff%ari(3:7) = ff%ari(3:7)-ff%ali(1:5)
+    ff%arb1(3:7,:,:) = ff%arb1(3:7,:,:)-ff%alb1(1:5,:,:)
+    ff%arb2(3:7,:,:) = ff%arb2(3:7,:,:)-ff%alb2(1:5,:,:)
   end subroutine c8ff8
 
   subroutine c8ff7(ff)  ! setup compact 8th order 7/10 filter weights
@@ -583,11 +905,33 @@ contains
     ff%arb2(:,2,2) = ff%arb1(ncr:1:-1,3,2)
     ff%arb2(:,3,2) = ff%arb1(ncr:1:-1,2,2)
     ff%arb2(:,4,2) = ff%arb1(ncr:1:-1,1,2)
+    ! difference
+    ff%ari(3:7) = ff%ari(3:7)-ff%ali(1:5)
+    ff%arb1(3:7,:,:) = ff%arb1(3:7,:,:)-ff%alb1(1:5,:,:)
+    ff%arb2(3:7,:,:) = ff%arb2(3:7,:,:)-ff%alb2(1:5,:,:)
   end subroutine c8ff7
 
-  subroutine c8ff6(ff)  ! setup compact 8th order 2/3 filter weights
+  subroutine c8ff6(ff)  ! setup compact 8th-order 0.589223 filter weights
     implicit none
     TYPE(compact_weight), intent(out) :: ff
+! INTEGRAL_0_PI(TRANSFER_FUNCTION) = 0.58922306641137577971 ---------------------------------------
+    REAL(c_double), PARAMETER :: beta  =  96.0D0
+    REAL(c_double), PARAMETER :: alpha = 128.0D0
+    REAL(c_double), PARAMETER :: zeta  = 320.0D0
+    REAL(c_double), PARAMETER :: aa    = 250.0D0
+    REAL(c_double), PARAMETER :: bb    = 184.0D0
+    REAL(c_double), PARAMETER :: cc    =  68.0D0
+    REAL(c_double), PARAMETER :: dd    =   8.0D0
+    REAL(c_double), PARAMETER :: ee    =  -1.0D0
+    
+    REAL(c_double), PARAMETER :: dd4   =  ee + dd
+    REAL(c_double), PARAMETER :: cc3   =  ee + dd + cc
+    REAL(c_double), PARAMETER :: bb2   =  ee + dd + cc + bb
+    REAL(c_double), PARAMETER :: aa1   =  ee + dd + cc + bb + aa
+    
+    REAL(c_double), PARAMETER :: alpha2 =  beta + alpha
+    REAL(c_double), PARAMETER :: zeta1  =  beta + alpha + zeta             
+!------------------------------------------------------------------------------- 
     INTEGER(c_int), PARAMETER :: nol = 2, nor = 4, nir = 4
     INTEGER(c_int), PARAMETER :: ncl=2*nol+1, ncr=nor+nir+1, nci=2*nol
     INTEGER(c_int), PARAMETER :: nst = 0, nbc1 = 4, nbc2 = 4
@@ -614,25 +958,30 @@ contains
     if( nol == 0 ) ff%implicit_op = .false.
     ff%sh = 0.0d0  ! shift
   ! interior weights
-    ff%ali = [ 2.2384D-1 , 5.5232D-1 , 1.0D0     , 5.5232D-1 , 2.2384D-1 ]
-    ff%ari = [ -1.34D-3  , 1.072D-2  , 1.8632D-1 , 6.2736D-1 , 9.062D-1 , 6.2736D-1 , 1.8632D-1 , 1.072D-2 , -1.34D-3 ]
+    ff%ali = [         beta, alpha, zeta, alpha, beta         ]
+    ff%ari = [ ee, dd,   cc,    bb,   aa,    bb,   cc, dd, ee ]
   ! one-sided weights, band-diagonal style
-    ff%alb1(:,1,0) = [ 0.0D0    , 0.0D0   , 1.0D0 , 0.0D0   , 0.0D0    ]
-    ff%alb1(:,2,0) = [ 0.0D0    , 0.0D0   , 1.0D0 , 0.0D0   , 0.0D0    ]
-    ff%alb1(:,3,0) = [ 0.25D0   , 0.836D0 , 1.5D0 , 0.836D0 , 0.25D0   ]
-    ff%alb1(:,4,0) = [ 1.912D-1 , 5.44D-1 , 1.0D0 , 5.44D-1 , 1.912D-1 ]
+    ff%alb1(:,1,0) = [ 0.0D0, 0.0D0,  zeta1, alpha, beta ]
+    ff%alb1(:,2,0) = [ 0.0D0, alpha2,  zeta, alpha, beta ]
+    ff%alb1(:,3,0) = [  beta, alpha,   zeta, alpha, beta ]
+    ff%alb1(:,4,0) = [  beta, alpha,   zeta, alpha, beta ]
     ff%alb2(:,1,0) = ff%alb1(ncl:1:-1,4,0)
     ff%alb2(:,2,0) = ff%alb1(ncl:1:-1,3,0)
     ff%alb2(:,3,0) = ff%alb1(ncl:1:-1,2,0)
     ff%alb2(:,4,0) = ff%alb1(ncl:1:-1,1,0)
-    ff%arb1(:,1,0) = [ 0.0D0 , 0.0D0   , 0.0D0    , 0.0D0    , 0.9375D0 ,  0.25D0 , -0.375D0 , 0.25D0   , -0.0625D0 ]
-    ff%arb1(:,2,0) = [ 0.0D0 , 0.0D0   , 0.0D0    , 0.0625D0 ,  0.75D0  , 0.375D0 , -0.25D0  , 0.0625D0 , 0.0D0     ]
-    ff%arb1(:,3,0) = [ 0.0D0 , 0.0D0   , 0.2295D0 , 0.918D0  , 1.377D0  , 0.918D0 , 0.2295D0 , 0.0D0    , 0.0D0     ]
-    ff%arb1(:,4,0) = [ 0.0D0 , 4.6D-3  , 1.636D-1 , 6.13D-1  , 9.08D-1  , 6.13D-1 , 1.636D-1 , 4.6D-3   , 0.0D0     ]
+    ff%arb1(:,1,0) = [ 0.0D0, 0.0D0, 0.0D0, 0.0D0, aa1, bb, cc, dd, ee ]
+    ff%arb1(:,2,0) = [ 0.0D0, 0.0D0, 0.0D0,   bb2,  aa, bb, cc, dd, ee ]
+    ff%arb1(:,3,0) = [ 0.0D0, 0.0D0,   cc3,    bb,  aa, bb, cc, dd, ee ]
+    ff%arb1(:,4,0) = [ 0.0D0,   dd4,    cc,    bb,  aa, bb, cc, dd, ee ]
     ff%arb2(:,1,0) = ff%arb1(ncr:1:-1,4,0)
     ff%arb2(:,2,0) = ff%arb1(ncr:1:-1,3,0)
     ff%arb2(:,3,0) = ff%arb1(ncr:1:-1,2,0)
     ff%arb2(:,4,0) = ff%arb1(ncr:1:-1,1,0)
+!    WRITE(6,*) "Interior:", SUM(ff%ali        ),' - ',SUM(ff%ari        ),' = ',SUM(ff%ali)         - SUM(ff%ari)
+!    WRITE(6,*) "      j4:", SUM(ff%alb1(:,4,0)),' - ',SUM(ff%arb1(:,4,0)),' = ',SUM(ff%alb1(:,4,0)) - SUM(ff%arb1(:,4,0))
+!    WRITE(6,*) "      j3:", SUM(ff%alb1(:,3,0)),' - ',SUM(ff%arb1(:,3,0)),' = ',SUM(ff%alb1(:,3,0)) - SUM(ff%arb1(:,3,0))
+!    WRITE(6,*) "      j2:", SUM(ff%alb1(:,2,0)),' - ',SUM(ff%arb1(:,2,0)),' = ',SUM(ff%alb1(:,2,0)) - SUM(ff%arb1(:,2,0))
+!    WRITE(6,*) "      j1:", SUM(ff%alb1(:,1,0)),' - ',SUM(ff%arb1(:,1,0)),' = ',SUM(ff%alb1(:,1,0)) - SUM(ff%arb1(:,1,0))
   ! symmetric weights
     call lower_symm_weights(ff%alb1(:,:,+1),ff%arb1(:,:,+1),ff%ali,ff%ari,nol,nor,0,0,+1,+1)
     call lower_symm_weights(ff%alb1(:,:,-1),ff%arb1(:,:,-1),ff%ali,ff%ari,nol,nor,0,0,-1,-1)
@@ -655,6 +1004,10 @@ contains
     ff%arb2(:,2,2) = ff%arb1(ncr:1:-1,3,2)
     ff%arb2(:,3,2) = ff%arb1(ncr:1:-1,2,2)
     ff%arb2(:,4,2) = ff%arb1(ncr:1:-1,1,2)
+    ! difference
+    ff%ari(3:7) = ff%ari(3:7)-ff%ali(1:5)
+    ff%arb1(3:7,:,:) = ff%arb1(3:7,:,:)-ff%alb1(1:5,:,:)
+    ff%arb2(3:7,:,:) = ff%arb2(3:7,:,:)-ff%alb2(1:5,:,:)
   end subroutine c8ff6
 
   subroutine cgft4(ff)  ! setup 4-point Gaussian with telescoped boundaries
@@ -743,11 +1096,113 @@ contains
     ff%arb2(:,2,2) = ff%arb1(ncr:1:-1,3,2)
     ff%arb2(:,3,2) = ff%arb1(ncr:1:-1,2,2)
     ff%arb2(:,4,2) = ff%arb1(ncr:1:-1,1,2)
+    ! difference
+    ff%ari(5) = ff%ari(5)-ff%ali(1)
+    ff%arb1(5,:,:) = ff%arb1(5,:,:)-ff%alb1(1,:,:)
+    ff%arb2(5,:,:) = ff%arb2(5,:,:)-ff%alb2(1,:,:)
   end subroutine cgft4
 
-  subroutine c4ff3(ff)  ! setup compact 4th order 1/3 filter weights for AMR coarsening
+  subroutine c4ff3(ff)  ! setup compact filter for AMR coarsening
     implicit none
     TYPE(compact_weight), intent(out) :: ff
+! 4th-order spectral-like truncation, INTEGRAL_0_PI(TRANSFER_FUNCTION) = 1/3 --------------------    
+!    REAL(c_double), PARAMETER :: beta  =  2.23821506802394181098015D-1
+!    REAL(c_double), PARAMETER :: alpha = -5.52356986395211637803970D-1
+!    REAL(c_double), PARAMETER :: aa    =  9.37696595976779533639305D-2
+!    REAL(c_double), PARAMETER :: bb    =  7.50157276781423626911445D-2
+!    REAL(c_double), PARAMETER :: cc    =  3.75078638390711813455722D-2
+!    REAL(c_double), PARAMETER :: dd    =  1.07165325254489089558778D-2
+!    REAL(c_double), PARAMETER :: ee    =  1.33956656568111361948472D-3
+
+!    REAL(c_double), PARAMETER :: beta4  =  1.91513075197821311011201D-1    
+!    REAL(c_double), PARAMETER :: alpha4 = -5.42434624010893444943994D-1
+!    REAL(c_double), PARAMETER :: aa4    =  9.31740319918299162920046D-2
+!    REAL(c_double), PARAMETER :: bb4    =  6.98805239938724372190035D-2
+!    REAL(c_double), PARAMETER :: cc4    =  2.79522095975489748876014D-2
+!    REAL(c_double), PARAMETER :: dd4    =  4.65870159959149581460023D-3
+!    REAL(c_double), PARAMETER :: ee4    =  0.0D0
+ 
+!    REAL(c_double), PARAMETER :: beta3  =  1.66666666666666666666667D-1   
+!    REAL(c_double), PARAMETER :: alpha3 = -5.53321656014580882896828D-1
+!    REAL(c_double), PARAMETER :: aa3    =  8.50087579890643378273788D-2
+!    REAL(c_double), PARAMETER :: bb3    =  5.66725053260428918849190D-2
+!    REAL(c_double), PARAMETER :: cc3    =  1.41681263315107229712298D-2
+!    REAL(c_double), PARAMETER :: dd3    =  0.0D0
+!    REAL(c_double), PARAMETER :: ee3    =  0.0D0
+ 
+!    REAL(c_double), PARAMETER :: alpha2 = beta3 + alpha3
+!    REAL(c_double), PARAMETER :: aa2    =  aa3
+!    REAL(c_double), PARAMETER :: bb2    =  bb3 + cc3
+    
+!    REAL(c_double), PARAMETER :: albe1 = alpha2 + 1.0D0
+!    REAL(c_double), PARAMETER :: aa1   =  bb2 + aa3
+! 4th-order spectral-like truncation, INTEGRAL_0_PI(TRANSFER_FUNCTION) = 1/6 ---------------
+!    REAL(c_double), PARAMETER :: beta  =  1.68654918954361280788190D-1 
+!    REAL(c_double), PARAMETER :: alpha = -6.62690162091277438423621D-1
+!    REAL(c_double), PARAMETER :: aa    =  3.26197640949897629312343D-3
+!    REAL(c_double), PARAMETER :: bb    =  2.60958112759918103449875D-3
+!    REAL(c_double), PARAMETER :: cc    =  1.30479056379959051724938D-3
+!    REAL(c_double), PARAMETER :: dd    =  3.72797303942740147785536D-4
+!    REAL(c_double), PARAMETER :: ee    =  4.65996629928425184731920D-5
+    ! Adjust digits to get hard zero
+!    REAL(c_double), PARAMETER :: beta  =  1.68654918954361280788D-1 
+!    REAL(c_double), PARAMETER :: alpha = -6.62690162091277438423D-1
+!    REAL(c_double), PARAMETER :: aa    =     3.26197640949897629D-3
+!    REAL(c_double), PARAMETER :: bb    =     2.60958112759918103D-3
+!    REAL(c_double), PARAMETER :: cc    =     1.30479056379959051D-3
+!    REAL(c_double), PARAMETER :: dd    =       3.727973039427401D-4
+!    REAL(c_double), PARAMETER :: ee    =         4.6599662992856D-5
+! 4th-order spectral-like truncation, INTEGRAL_0_PI(TRANSFER_FUNCTION) = 1/12 --------------
+!    REAL(c_double), PARAMETER :: beta  =  1.67047241203727560757520D-1
+!    REAL(c_double), PARAMETER :: alpha = -6.65905517592544878484959D-1
+!    REAL(c_double), PARAMETER :: aa    =      6.24380099865529367806823D-4
+!    REAL(c_double), PARAMETER :: bb    =      4.99504079892423494245458D-4
+!    REAL(c_double), PARAMETER :: cc    =      2.49752039946211747122729D-4
+!    REAL(c_double), PARAMETER :: dd    =        7.13577256989176420350655D-5
+!    REAL(c_double), PARAMETER :: ee    =          8.91971571236470525438320D-6
+    ! Adjust digits to get hard zero
+!    REAL(c_double), PARAMETER :: beta  =  1.670472412037276D-1
+!    REAL(c_double), PARAMETER :: alpha = -6.659055175925449D-1
+!    REAL(c_double), PARAMETER :: aa    =  6.243800998655294D-4
+!    REAL(c_double), PARAMETER :: bb    =  4.995040798924235D-4
+!    REAL(c_double), PARAMETER :: cc    =  2.497520399462117D-4
+!    REAL(c_double), PARAMETER :: dd    =  7.135772569891764D-5
+!    REAL(c_double), PARAMETER :: ee    =  8.919715712381422D-6
+! 2th-order Gaussian, Delta/h = 6 ----------------------------------------------------------
+!    REAL(c_double), PARAMETER :: zeta  =  704.0D0
+!    REAL(c_double), PARAMETER :: alpha = -256.0D0
+!    REAL(c_double), PARAMETER :: beta  =   32.0D0
+!    REAL(c_double), PARAMETER :: aa    =   70.0D0
+!    REAL(c_double), PARAMETER :: bb    =   56.0D0
+!    REAL(c_double), PARAMETER :: cc    =   28.0D0
+!    REAL(c_double), PARAMETER :: dd    =    8.0D0
+!    REAL(c_double), PARAMETER :: ee    =    1.0D0
+! 2th-order Gaussian, Delta/h = 9 ---------------------------------------------------------
+!    REAL(c_double), PARAMETER :: zeta  =  6044.0D0
+!    REAL(c_double), PARAMETER :: alpha = -3656.0D0
+!    REAL(c_double), PARAMETER :: beta  =   762.0D0
+!    REAL(c_double), PARAMETER :: aa    =    70.0D0
+!    REAL(c_double), PARAMETER :: bb    =    56.0D0
+!    REAL(c_double), PARAMETER :: cc    =    28.0D0
+!    REAL(c_double), PARAMETER :: dd    =     8.0D0
+!    REAL(c_double), PARAMETER :: ee    =     1.0D0
+! 2th-order Gaussian, Delta/h = 12 ---------------------------------------------------------
+    REAL(c_double), PARAMETER :: zeta  =  22592.0D0
+    REAL(c_double), PARAMETER :: alpha = -14464.0D0
+    REAL(c_double), PARAMETER :: beta  =   3296.0D0
+    REAL(c_double), PARAMETER :: aa    =    70.0D0
+    REAL(c_double), PARAMETER :: bb    =    56.0D0
+    REAL(c_double), PARAMETER :: cc    =    28.0D0
+    REAL(c_double), PARAMETER :: dd    =     8.0D0
+    REAL(c_double), PARAMETER :: ee    =     1.0D0
+! boundaries-------------------------------------------------------------------------------    
+    REAL(c_double), PARAMETER :: dd4   =  ee + dd
+    REAL(c_double), PARAMETER :: cc3   =  ee + dd + cc
+    REAL(c_double), PARAMETER :: bb2   =  ee + dd + cc + bb
+    REAL(c_double), PARAMETER :: aa1   =  ee + dd + cc + bb + aa
+    REAL(c_double), PARAMETER :: alpha2 =  beta + alpha
+    REAL(c_double), PARAMETER :: clhs1  =  beta + alpha + zeta             
+!-------------------------------------------------------------------------------    
     INTEGER(c_int), PARAMETER :: nol = 2, nor = 4, nir = 4
     INTEGER(c_int), PARAMETER :: ncl=2*nol+1, ncr=nor+nir+1, nci=2*nol
     INTEGER(c_int), PARAMETER :: nst = 0, nbc1 = 4, nbc2 = 4
@@ -774,28 +1229,32 @@ contains
     if( nol == 0 ) ff%implicit_op = .false.
     ff%sh = 0.0d0  ! shift
   ! interior weights
-    ff%ali = [ 0.22382150680239417D0, -0.55235698639521165D0, 1.0D0, -0.55235698639521165D0, 0.22382150680239417D0 ]
-    ff%ari = [ 1.33956656568111D-3, 1.071653252544891D-2, 3.750786383907118D-2, 7.501572767814235D-2, 9.376965959767794D-2, &
-      7.501572767814235D-2, 3.750786383907118D-2, 1.071653252544891D-2, 1.33956656568111D-3 ]
+    ff%ali = [         beta, alpha, zeta, alpha, beta         ]
+    ff%ari = [ ee, dd,   cc,    bb,   aa,    bb,   cc, dd, ee ]
   ! one-sided weights, band-diagonal style
-    ff%alb1(:,1,0) = [ 0.0D0    , 0.0D0   , 1.0D0 , 0.0D0   , 0.0D0    ]
-    ff%alb1(:,2,0) = [ 0.0D0    , 0.5D0   , 1.0D0 , 0.5D0   , 0.0D0    ]
-    ff%alb1(:,3,0) = [ 0.1666666666666667D0, -0.5404638224773227D0, 1.0D0, -0.5404638224773227D0, 0.1666666666666667D0 ]
-    ff%alb1(:,4,0) = [ 0.1925352813232545D0, -0.5373235933837273D0, 1.0D0, -0.5373235933837273D0, 0.1925352813232545D0 ]
+    ff%alb1(:,1,0) = [ 0.0D0, 0.0D0,  clhs1, alpha, beta ]
+    ff%alb1(:,2,0) = [ 0.0D0, alpha2,  zeta, alpha, beta ]
+    ff%alb1(:,3,0) = [  beta, alpha,   zeta, alpha, beta ]
+    ff%alb1(:,4,0) = [  beta, alpha,   zeta, alpha, beta ]
     ff%alb2(:,1,0) = ff%alb1(ncl:1:-1,4,0)
     ff%alb2(:,2,0) = ff%alb1(ncl:1:-1,3,0)
     ff%alb2(:,3,0) = ff%alb1(ncl:1:-1,2,0)
     ff%alb2(:,4,0) = ff%alb1(ncl:1:-1,1,0)
-    ff%arb1(:,1,0) = [ 0.0D0 , 0.0D0   , 0.0D0    , 0.0D0    , 1.0D0 ,  0.0D0 , 0.0D0 , 0.0D0 , 0.0D0 ]
-    ff%arb1(:,2,0) = [ 0.0D0 , 0.0D0   , 0.0D0    , 0.5D0    , 1.0D0  , 0.5D0 , 0.0D0 , 0.0D0 , 0.0D0 ]
-    ff%arb1(:,3,0) = [ 0.0D0 , 0.0D0   , 1.57753555236680D-2, 6.31014220946720D-2, 9.46521331420080D-2, &
-      6.31014220946720D-2, 1.57753555236680D-2, 0.0D0, 0.0D0 ]
-    ff%arb1(:,4,0) = [ 0.0D0, 4.8503652481102D-3, 2.91021914886613D-2, 7.27554787216534D-2, 9.70073049622046D-2, &
-      7.27554787216534D-2, 2.91021914886613D-2, 4.8503652481102D-3, 0.0D0 ]
+    ff%arb1(:,1,0) = [ 0.0D0, 0.0D0, 0.0D0, 0.0D0, aa1, bb, cc, dd, ee ]
+    ff%arb1(:,2,0) = [ 0.0D0, 0.0D0, 0.0D0,   bb2,  aa, bb, cc, dd, ee ]
+    ff%arb1(:,3,0) = [ 0.0D0, 0.0D0,   cc3,    bb,  aa, bb, cc, dd, ee ]
+    ff%arb1(:,4,0) = [ 0.0D0,   dd4,    cc,    bb,  aa, bb, cc, dd, ee ]
     ff%arb2(:,1,0) = ff%arb1(ncr:1:-1,4,0)
     ff%arb2(:,2,0) = ff%arb1(ncr:1:-1,3,0)
     ff%arb2(:,3,0) = ff%arb1(ncr:1:-1,2,0)
     ff%arb2(:,4,0) = ff%arb1(ncr:1:-1,1,0)
+! DIAGNOSTICS--------
+!    WRITE(6,*) "Interior:", SUM(ff%ali        ),' - ',SUM(ff%ari        ),' = ',SUM(ff%ali)         - SUM(ff%ari)
+!    WRITE(6,*) "      j4:", SUM(ff%alb1(:,4,0)),' - ',SUM(ff%arb1(:,4,0)),' = ',SUM(ff%alb1(:,4,0)) - SUM(ff%arb1(:,4,0))
+!    WRITE(6,*) "      j3:", SUM(ff%alb1(:,3,0)),' - ',SUM(ff%arb1(:,3,0)),' = ',SUM(ff%alb1(:,3,0)) - SUM(ff%arb1(:,3,0))
+!    WRITE(6,*) "      j2:", SUM(ff%alb1(:,2,0)),' - ',SUM(ff%arb1(:,2,0)),' = ',SUM(ff%alb1(:,2,0)) - SUM(ff%arb1(:,2,0))
+!    WRITE(6,*) "      j1:", SUM(ff%alb1(:,1,0)),' - ',SUM(ff%arb1(:,1,0)),' = ',SUM(ff%alb1(:,1,0)) - SUM(ff%arb1(:,1,0))
+!--------------------
   ! symmetric weights
     call lower_symm_weights(ff%alb1(:,:,+1),ff%arb1(:,:,+1),ff%ali,ff%ari,nol,nor,0,0,+1,+1)
     call lower_symm_weights(ff%alb1(:,:,-1),ff%arb1(:,:,-1),ff%ali,ff%ari,nol,nor,0,0,-1,-1)
@@ -820,7 +1279,110 @@ contains
     ff%arb2(:,2,2) = ff%arb1(ncr:1:-1,3,2)
     ff%arb2(:,3,2) = ff%arb1(ncr:1:-1,2,2)
     ff%arb2(:,4,2) = ff%arb1(ncr:1:-1,1,2)
+    ! difference
+    ff%ari(3:7) = ff%ari(3:7)-ff%ali(1:5)
+    ff%arb1(3:7,:,:) = ff%arb1(3:7,:,:)-ff%alb1(1:5,:,:)
+    ff%arb2(3:7,:,:) = ff%arb2(3:7,:,:)-ff%alb2(1:5,:,:)
   end subroutine c4ff3
+
+  subroutine cgff2(ff)  ! funky 5x5 gaussian compact filter for AMR coarsening ~ exp(-2k^2/3)
+    implicit none
+    TYPE(compact_weight), intent(out) :: ff
+    REAL(c_double), PARAMETER :: zeta  = 19097.4D0/13419.0D0
+    REAL(c_double), PARAMETER :: alpha = -3017.6D0/13419.0D0
+    REAL(c_double), PARAMETER :: beta  =   178.4D0/13419.0D0
+    REAL(c_double), PARAMETER :: aa    =  5408.4D0/13419.0D0
+    REAL(c_double), PARAMETER :: bb    =  3126.4D0/13419.0D0
+    REAL(c_double), PARAMETER :: cc    =   878.9D0/13419.0D0
+    REAL(c_double), PARAMETER :: dd    =     0.0D0
+    REAL(c_double), PARAMETER :: ee    =     0.0D0
+! boundaries-------------------------------------------------------------------------------    
+    REAL(c_double), PARAMETER :: dd4   =  ee + dd
+    REAL(c_double), PARAMETER :: cc3   =  ee + dd + cc
+    REAL(c_double), PARAMETER :: bb2   =  ee + dd + cc + bb
+    REAL(c_double), PARAMETER :: aa1   =  ee + dd + cc + bb + aa
+    REAL(c_double), PARAMETER :: alpha2 =  beta + alpha
+    REAL(c_double), PARAMETER :: clhs1  =  beta + alpha + zeta             
+!-------------------------------------------------------------------------------    
+    INTEGER(c_int), PARAMETER :: nol = 2, nor = 2, nir = 2
+    INTEGER(c_int), PARAMETER :: ncl=2*nol+1, ncr=nor+nir+1, nci=2*nol
+    INTEGER(c_int), PARAMETER :: nst = 0, nbc1 = 4, nbc2 = 4
+    LOGICAL(c_bool),PARAMETER :: implicit_op = .true.
+    INTEGER :: i,j,k
+    ff%description = compact_descriptor('filterg2','explicit',2,0)
+    if( implicit_op ) ff%description%complicity = 'implicit'
+    if( verbose) call ff%description%info()
+    allocate( ff%ali(2*nol+1) )
+    allocate( ff%ari(2*nor+1) )
+    allocate( ff%alb1(2*nol+1,nbc1,-1:2), ff%alb2(2*nol+1,nbc2,-1:2) )
+    allocate( ff%arb1(2*nor+1,nbc1,-1:2), ff%arb2(2*nor+1,nbc2,-1:2) )
+    ff%nol = nol
+    ff%nor = nor
+    ff%nir = nir
+    ff%ncl = ncl
+    ff%ncr = ncr
+    ff%nci = nci
+    ff%nst = nst
+    ff%nbc1 = nbc1
+    ff%nbc2 = nbc2
+    ff%null_option = 1 ! copy if null_op
+    ff%implicit_op = implicit_op
+    if( nol == 0 ) ff%implicit_op = .false.
+    ff%sh = 0.0d0  ! shift
+  ! interior weights
+    ff%ali = [ beta, alpha, zeta, alpha, beta ]
+    ff%ari = [  cc,    bb,   aa,    bb,   cc  ]
+  ! one-sided weights, band-diagonal style
+    ff%alb1(:,1,0) = [ 0.0D0, 0.0D0,  clhs1, alpha, beta ]
+    ff%alb1(:,2,0) = [ 0.0D0, alpha2,  zeta, alpha, beta ]
+    ff%alb1(:,3,0) = [  beta, alpha,   zeta, alpha, beta ]
+    ff%alb1(:,4,0) = [  beta, alpha,   zeta, alpha, beta ]
+    ff%alb2(:,1,0) = ff%alb1(ncl:1:-1,4,0)
+    ff%alb2(:,2,0) = ff%alb1(ncl:1:-1,3,0)
+    ff%alb2(:,3,0) = ff%alb1(ncl:1:-1,2,0)
+    ff%alb2(:,4,0) = ff%alb1(ncl:1:-1,1,0)
+    ff%arb1(:,1,0) = [ 0.0D0, 0.0D0, aa1, bb, cc ]
+    ff%arb1(:,2,0) = [ 0.0D0,  bb2,  aa,  bb, cc ]
+    ff%arb1(:,3,0) = [ cc3,    bb,   aa,  bb, cc ]
+    ff%arb1(:,4,0) = [ cc,     bb,   aa,  bb, cc ]
+    ff%arb2(:,1,0) = ff%arb1(ncr:1:-1,4,0)
+    ff%arb2(:,2,0) = ff%arb1(ncr:1:-1,3,0)
+    ff%arb2(:,3,0) = ff%arb1(ncr:1:-1,2,0)
+    ff%arb2(:,4,0) = ff%arb1(ncr:1:-1,1,0)
+! DIAGNOSTICS--------
+!    WRITE(6,*) "Interior:", SUM(ff%ali        ),' - ',SUM(ff%ari        ),' = ',SUM(ff%ali)         - SUM(ff%ari)
+!    WRITE(6,*) "      j4:", SUM(ff%alb1(:,4,0)),' - ',SUM(ff%arb1(:,4,0)),' = ',SUM(ff%alb1(:,4,0)) - SUM(ff%arb1(:,4,0))
+!    WRITE(6,*) "      j3:", SUM(ff%alb1(:,3,0)),' - ',SUM(ff%arb1(:,3,0)),' = ',SUM(ff%alb1(:,3,0)) - SUM(ff%arb1(:,3,0))
+!    WRITE(6,*) "      j2:", SUM(ff%alb1(:,2,0)),' - ',SUM(ff%arb1(:,2,0)),' = ',SUM(ff%alb1(:,2,0)) - SUM(ff%arb1(:,2,0))
+!    WRITE(6,*) "      j1:", SUM(ff%alb1(:,1,0)),' - ',SUM(ff%arb1(:,1,0)),' = ',SUM(ff%alb1(:,1,0)) - SUM(ff%arb1(:,1,0))
+!--------------------
+  ! symmetric weights
+    call lower_symm_weights(ff%alb1(:,:,+1),ff%arb1(:,:,+1),ff%ali,ff%ari,nol,nor,0,0,+1,+1)
+    call lower_symm_weights(ff%alb1(:,:,-1),ff%arb1(:,:,-1),ff%ali,ff%ari,nol,nor,0,0,-1,-1)
+    call upper_symm_weights(ff%alb2(:,:,+1),ff%arb2(:,:,+1),ff%ali,ff%ari,nol,nor,0,0,+1,+1)
+    call upper_symm_weights(ff%alb2(:,:,-1),ff%arb2(:,:,-1),ff%ali,ff%ari,nol,nor,0,0,-1,-1)
+  ! with extended boundary data -- needs work
+    ff%alb1(:,1,2) = [ 0.0D0, 0.0D0,  clhs1, alpha, beta ]
+    ff%alb1(:,2,2) = [ 0.0D0, alpha2,  zeta, alpha, beta ]
+    ff%alb1(:,3,2) = [  beta, alpha,   zeta, alpha, beta ]
+    ff%alb1(:,4,2) = [  beta, alpha,   zeta, alpha, beta ]
+    ff%alb2(:,1,2) = ff%alb1(ncl:1:-1,4,2)
+    ff%alb2(:,2,2) = ff%alb1(ncl:1:-1,3,2)
+    ff%alb2(:,3,2) = ff%alb1(ncl:1:-1,2,2)
+    ff%alb2(:,4,2) = ff%alb1(ncl:1:-1,1,2)
+    ff%arb1(:,1,2) = [ 0.0D0, 0.0D0, aa1, bb, cc ]
+    ff%arb1(:,2,2) = [ 0.0D0,  bb2,  aa,  bb, cc ]
+    ff%arb1(:,3,2) = [ cc3,    bb,   aa,  bb, cc ]
+    ff%arb1(:,4,2) = [ cc,     bb,   aa,  bb, cc ]
+    ff%arb2(:,1,2) = ff%arb1(ncr:1:-1,4,2)
+    ff%arb2(:,2,2) = ff%arb1(ncr:1:-1,3,2)
+    ff%arb2(:,3,2) = ff%arb1(ncr:1:-1,2,2)
+    ff%arb2(:,4,2) = ff%arb1(ncr:1:-1,1,2)
+    ! difference
+    ff%ari(1:5) = ff%ari(1:5)-ff%ali(1:5)
+    ff%arb1(1:5,:,:) = ff%arb1(1:5,:,:)-ff%alb1(1:5,:,:)
+    ff%arb2(1:5,:,:) = ff%arb2(1:5,:,:)-ff%alb2(1:5,:,:)
+  end subroutine cgff2
 
   subroutine cgfs4(ff)  ! setup 4-point Gaussian with symmetry boundaries
     implicit none
@@ -907,6 +1469,10 @@ contains
     ff%arb2(:,2,2) = ff%arb1(ncr:1:-1,3,2)
     ff%arb2(:,3,2) = ff%arb1(ncr:1:-1,2,2)
     ff%arb2(:,4,2) = ff%arb1(ncr:1:-1,1,2)
+    ! difference
+    ff%ari(5) = ff%ari(5)-ff%ali(1)
+    ff%arb1(5,:,:) = ff%arb1(5,:,:)-ff%alb1(1,:,:)
+    ff%arb2(5,:,:) = ff%arb2(5,:,:)-ff%alb2(1,:,:)
   end subroutine cgfs4
 
   subroutine cgfc4(ff)  ! setup 4-point Gaussian with constant boundaries
@@ -988,8 +1554,266 @@ contains
     ff%arb2(:,2,2) = ff%arb1(ncr:1:-1,3,2)
     ff%arb2(:,3,2) = ff%arb1(ncr:1:-1,2,2)
     ff%arb2(:,4,2) = ff%arb1(ncr:1:-1,1,2)
+    ! difference
+    ff%ari(5) = ff%ari(5)-ff%ali(1)
+    ff%arb1(5,:,:) = ff%arb1(5,:,:)-ff%alb1(1,:,:)
+    ff%arb2(5,:,:) = ff%arb2(5,:,:)-ff%alb2(1,:,:)
   end subroutine cgfc4
 
+
+subroutine cgfc3(d1)  ! setup 3 point gaussian filter
+    implicit none
+    TYPE(compact_weight), intent(out) :: d1
+    INTEGER(c_int), PARAMETER :: nol = 0, nor = 3, nir = 3
+    INTEGER(c_int), PARAMETER :: ncl=2*nol+1, ncr=nor+nir+1, nci=2*nol
+    INTEGER(c_int), PARAMETER :: nst = 0, nbc1 = 3, nbc2 = 3
+    LOGICAL(c_bool),PARAMETER :: implicit_op = .false.
+    DOUBLE PRECISION, PARAMETER :: agau = .474833
+    DOUBLE PRECISION, PARAMETER :: bgau = .1746813
+    DOUBLE PRECISION, PARAMETER :: cgau = .06426166
+    DOUBLE PRECISION, PARAMETER :: dgau = .02364054
+    DOUBLE PRECISION, PARAMETER :: cbdry = cgau + dgau
+    DOUBLE PRECISION, PARAMETER :: bbdry = bgau + cbdry
+    DOUBLE PRECISION, PARAMETER :: abdry = agau + bbdry
+    INTEGER :: i,j,k
+    d1%description = compact_descriptor('fgau3','explicit',0,0)
+    if( implicit_op ) d1%description%complicity = 'implicit'
+     if( verbose) call d1%description%info()
+    allocate( d1%ali(2*nol+1) )
+    allocate( d1%ari(2*nor+1) )
+    allocate( d1%alb1(2*nol+1,nbc1,-1:2), d1%alb2(2*nol+1,nbc2,-1:2) )
+    allocate( d1%arb1(2*nor+1,nbc1,-1:2), d1%arb2(2*nor+1,nbc2,-1:2) )
+    d1%nol = nol
+    d1%nor = nor
+    d1%nir = nir
+    d1%ncl = ncl
+    d1%ncr = ncr
+    d1%nci = nci
+    d1%nst = nst
+    d1%nbc1 = nbc1
+    d1%nbc2 = nbc2
+    d1%null_option = 1 ! copy if null_op
+    d1%implicit_op = implicit_op
+    if( nol == 0 ) d1%implicit_op = .false.
+    d1%sh = 0.0d0  ! shift
+    d1%ali = 1.0D0
+    d1%ari = [ dgau , cgau , bgau , agau , bgau , cgau , dgau ]
+  ! one-sided weights, band-diagonal style
+    d1%alb1(:,1,0) = 6.0D0
+    d1%alb1(:,2,0) = 6.0D0
+    d1%alb1(:,3,0) = 12.0D0
+    d1%alb2(:,1,0) = d1%alb1(ncl:1:-1,3,0)
+    d1%alb2(:,2,0) = d1%alb1(ncl:1:-1,2,0)
+    d1%alb2(:,3,0) = d1%alb1(ncl:1:-1,1,0)
+    d1%arb1(:,1,0) = [ 0.0D0   , 0.0D0   , 0.0D0   , abdry    , bgau     , cgau     , dgau    ]
+    d1%arb1(:,2,0) = [ 0.0D0   , 0.0D0   , bbdry   , agau     , bgau     , cgau     , dgau    ]
+    d1%arb1(:,3,0) = [ 0.0D0   , cbdry   , bgau    , agau     , bgau     , cgau     , dgau    ]
+
+    d1%arb2(:,1,0) = d1%arb1(ncr:1:-1,3,0)
+    d1%arb2(:,2,0) = d1%arb1(ncr:1:-1,2,0)
+    d1%arb2(:,3,0) = d1%arb1(ncr:1:-1,1,0)
+  ! symmetric weights
+    call lower_symm_weights(d1%alb1(:,:,+1),d1%arb1(:,:,+1),d1%ali,d1%ari,nol,nor,0,0,+1,+1)
+    call lower_symm_weights(d1%alb1(:,:,-1),d1%arb1(:,:,-1),d1%ali,d1%ari,nol,nor,0,0,-1,-1)
+    call upper_symm_weights(d1%alb2(:,:,+1),d1%arb2(:,:,+1),d1%ali,d1%ari,nol,nor,0,0,+1,+1)
+    call upper_symm_weights(d1%alb2(:,:,-1),d1%arb2(:,:,-1),d1%ali,d1%ari,nol,nor,0,0,-1,-1)
+  ! with extended boundary data
+    d1%alb1(:,1,2) = 1.0D0
+    d1%alb1(:,2,2) = 1.0D0
+    d1%alb1(:,3,2) = 1.0D0
+    d1%alb2(:,1,2) = d1%alb1(ncl:1:-1,3,2)
+    d1%alb2(:,2,2) = d1%alb1(ncl:1:-1,2,2)
+    d1%alb2(:,3,2) = d1%alb1(ncl:1:-1,1,2)
+    d1%arb1(:,1,2) = d1%ari
+    d1%arb1(:,2,2) = d1%ari
+    d1%arb1(:,3,2) = d1%ari
+    d1%arb2(:,1,2) = d1%arb1(ncr:1:-1,3,2)
+    d1%arb2(:,2,2) = d1%arb1(ncr:1:-1,2,2)
+    d1%arb2(:,3,2) = d1%arb1(ncr:1:-1,1,2)
+  end subroutine cgfc3
+
+  subroutine cgfs3(ff)  ! setup 3-point Gaussian with symmetry boundaries (NOT DONE)
+    implicit none
+    TYPE(compact_weight), intent(out) :: ff
+    INTEGER(c_int), PARAMETER :: nol = 0, nor = 4, nir = 4
+    INTEGER(c_int), PARAMETER :: ncl=2*nol+1, ncr=nor+nir+1, nci=2*nol
+    INTEGER(c_int), PARAMETER :: nst = 0, nbc1 = 4, nbc2 = 4
+    LOGICAL(c_bool),PARAMETER :: implicit_op = .false.
+    DOUBLE PRECISION, PARAMETER :: agau = .474833
+    DOUBLE PRECISION, PARAMETER :: bgau = .1746813
+    DOUBLE PRECISION, PARAMETER :: cgau = .06426166
+    DOUBLE PRECISION, PARAMETER :: dgau = .02364054
+    DOUBLE PRECISION, PARAMETER :: egau = 0.0D0
+    !DOUBLE PRECISION, PARAMETER :: cbdry = cgau + dgau
+    !DOUBLE PRECISION, PARAMETER :: bbdry = bgau + cbdry
+    !DOUBLE PRECISION, PARAMETER :: abdry = agau + bbdry    
+    !DOUBLE PRECISION, PARAMETER :: agau = 3565.0D0/10368.0D0
+    !DOUBLE PRECISION, PARAMETER :: bgau = 3091.0D0/12960.0D0
+    !DOUBLE PRECISION, PARAMETER :: cgau = 1997.0D0/25920.0D0
+    !DOUBLE PRECISION, PARAMETER :: dgau = 149.0D0/12960.0D0
+    !DOUBLE PRECISION, PARAMETER :: egau = 107.0D0/103680.0D0
+    DOUBLE PRECISION, PARAMETER :: dg14 = dgau + egau
+    DOUBLE PRECISION, PARAMETER :: cg13 = cgau + dgau
+    DOUBLE PRECISION, PARAMETER :: bg23 = bgau + egau
+    DOUBLE PRECISION, PARAMETER :: bg12 = bgau + cgau
+    DOUBLE PRECISION, PARAMETER :: ag22 = agau + dgau
+    DOUBLE PRECISION, PARAMETER :: bg32 = bgau + egau
+    DOUBLE PRECISION, PARAMETER :: ag11 = agau + bgau
+    DOUBLE PRECISION, PARAMETER :: bg21 = bgau + cgau
+    DOUBLE PRECISION, PARAMETER :: cg31 = cgau + dgau
+    DOUBLE PRECISION, PARAMETER :: dg41 = dgau + egau
+    INTEGER :: i,j,k
+    ff%description = compact_descriptor('filtergs','explicit',0,0)
+    if( implicit_op ) ff%description%complicity = 'implicit'
+    if( verbose) call ff%description%info()
+    allocate( ff%ali(2*nol+1) )
+    allocate( ff%ari(2*nor+1) )
+    allocate( ff%alb1(2*nol+1,nbc1,-1:2), ff%alb2(2*nol+1,nbc2,-1:2) )
+    allocate( ff%arb1(2*nor+1,nbc1,-1:2), ff%arb2(2*nor+1,nbc2,-1:2) )
+    ff%nol = nol
+    ff%nor = nor
+    ff%nir = nir
+    ff%ncl = ncl
+    ff%ncr = ncr
+    ff%nci = nci
+    ff%nst = nst
+    ff%nbc1 = nbc1
+    ff%nbc2 = nbc2
+    ff%null_option = 1 ! copy if null_op
+    ff%implicit_op = implicit_op
+    if( nol == 0 ) ff%implicit_op = .false.
+    ff%sh = 0.0d0  ! shift
+  ! interior weights
+    ff%ali = 1.0D0
+    ff%ari = [ egau ,  dgau , cgau , bgau , agau , bgau , cgau , dgau , egau ]
+  ! one-sided weights, band-diagonal style
+    ff%alb1(:,1,0) = 1.0D0
+    ff%alb1(:,2,0) = 1.0D0
+    ff%alb1(:,3,0) = 1.0D0
+    ff%alb1(:,4,0) = 1.0D0
+    ff%alb2(:,1,0) = ff%alb1(ncl:1:-1,4,0)
+    ff%alb2(:,2,0) = ff%alb1(ncl:1:-1,3,0)
+    ff%alb2(:,3,0) = ff%alb1(ncl:1:-1,2,0)
+    ff%alb2(:,4,0) = ff%alb1(ncl:1:-1,1,0)
+    ff%arb1(:,1,0) = [ 0.0D0 , 0.0D0   , 0.0D0   , 0.0D0   , ag11    , bg21     , cg31     , dg41     , egau ]
+    ff%arb1(:,2,0) = [ 0.0D0 , 0.0D0   , 0.0D0   , bg12    , ag22    , bg32     , cgau     , dgau     , egau ]
+    ff%arb1(:,3,0) = [ 0.0D0 , 0.0D0   , cg13    , bg23    , agau    , bgau     , cgau     , dgau     , egau ]
+    ff%arb1(:,4,0) = [ 0.0D0 , dg14    , cgau    , bgau    , agau    , bgau     , cgau     , dgau     , egau ]
+    ff%arb2(:,1,0) = ff%arb1(ncr:1:-1,4,0)
+    ff%arb2(:,2,0) = ff%arb1(ncr:1:-1,3,0)
+    ff%arb2(:,3,0) = ff%arb1(ncr:1:-1,2,0)
+    ff%arb2(:,4,0) = ff%arb1(ncr:1:-1,1,0)
+  ! symmetric weights
+    call lower_symm_weights(ff%alb1(:,:,+1),ff%arb1(:,:,+1),ff%ali,ff%ari,nol,nor,0,0,+1,+1)
+    call lower_symm_weights(ff%alb1(:,:,-1),ff%arb1(:,:,-1),ff%ali,ff%ari,nol,nor,0,0,-1,-1)
+    call upper_symm_weights(ff%alb2(:,:,+1),ff%arb2(:,:,+1),ff%ali,ff%ari,nol,nor,0,0,+1,+1)
+    call upper_symm_weights(ff%alb2(:,:,-1),ff%arb2(:,:,-1),ff%ali,ff%ari,nol,nor,0,0,-1,-1)
+  ! with extended boundary data
+    ff%alb1(:,1,2) = 1.0D0
+    ff%alb1(:,2,2) = 1.0D0
+    ff%alb1(:,3,2) = 1.0D0
+    ff%alb1(:,4,2) = 1.0D0
+    ff%alb2(:,1,2) = ff%alb1(ncl:1:-1,4,2)
+    ff%alb2(:,2,2) = ff%alb1(ncl:1:-1,3,2)
+    ff%alb2(:,3,2) = ff%alb1(ncl:1:-1,2,2)
+    ff%alb2(:,4,2) = ff%alb1(ncl:1:-1,1,2)
+    ff%arb1(:,1,2) = ff%ari
+    ff%arb1(:,2,2) = ff%ari
+    ff%arb1(:,3,2) = ff%ari
+    ff%arb1(:,4,2) = ff%ari
+    ff%arb2(:,1,2) = ff%arb1(ncr:1:-1,4,0)
+    ff%arb2(:,2,2) = ff%arb1(ncr:1:-1,3,2)
+    ff%arb2(:,3,2) = ff%arb1(ncr:1:-1,2,2)
+    ff%arb2(:,4,2) = ff%arb1(ncr:1:-1,1,2)
+    ! difference
+    ff%ari(5) = ff%ari(5)-ff%ali(1)
+    ff%arb1(5,:,:) = ff%arb1(5,:,:)-ff%alb1(1,:,:)
+    ff%arb2(5,:,:) = ff%arb2(5,:,:)-ff%alb2(1,:,:)
+  end subroutine cgfs3
+
+
+    subroutine ecfs3(ff)  ! setup 3-point conservative filter
+    implicit none
+    TYPE(compact_weight), intent(out) :: ff
+    INTEGER(c_int), PARAMETER :: nol = 0, nor = 3, nir = 3
+    INTEGER(c_int), PARAMETER :: ncl=2*nol+1, ncr=nor+nir+1, nci=2*nol
+    INTEGER(c_int), PARAMETER :: nst = 0, nbc1 = 3, nbc2 = 3
+    LOGICAL(c_bool),PARAMETER :: implicit_op = .false.
+    DOUBLE PRECISION, PARAMETER :: agau = 44.0D0 / 64.0D0
+    DOUBLE PRECISION, PARAMETER :: bgau = 15.0D0 / 64.0D0
+    DOUBLE PRECISION, PARAMETER :: cgau = -6.0D0 / 64.0D0
+    DOUBLE PRECISION, PARAMETER :: dgau = 1.0D0  / 64.0D0
+    DOUBLE PRECISION, PARAMETER :: egau = 0.0D0
+
+    DOUBLE PRECISION, PARAMETER :: dg14 = dgau + egau
+    DOUBLE PRECISION, PARAMETER :: cg13 = cgau + dgau
+    DOUBLE PRECISION, PARAMETER :: bg23 = bgau + egau
+    DOUBLE PRECISION, PARAMETER :: bg12 = bgau + cgau
+    DOUBLE PRECISION, PARAMETER :: ag22 = agau + dgau
+    DOUBLE PRECISION, PARAMETER :: bg32 = bgau + egau
+    DOUBLE PRECISION, PARAMETER :: ag11 = agau + bgau
+    DOUBLE PRECISION, PARAMETER :: bg21 = bgau + cgau
+    DOUBLE PRECISION, PARAMETER :: cg31 = cgau + dgau
+    DOUBLE PRECISION, PARAMETER :: dg41 = dgau + egau
+    INTEGER :: i,j,k
+    ff%description = compact_descriptor('filtergs','explicit',0,0)
+    if( implicit_op ) ff%description%complicity = 'implicit'
+    if( verbose) call ff%description%info()
+    allocate( ff%ali(2*nol+1) )
+    allocate( ff%ari(2*nor+1) )
+    allocate( ff%alb1(2*nol+1,nbc1,-1:2), ff%alb2(2*nol+1,nbc2,-1:2) )
+    allocate( ff%arb1(2*nor+1,nbc1,-1:2), ff%arb2(2*nor+1,nbc2,-1:2) )
+    ff%nol = nol
+    ff%nor = nor
+    ff%nir = nir
+    ff%ncl = ncl
+    ff%ncr = ncr
+    ff%nci = nci
+    ff%nst = nst
+    ff%nbc1 = nbc1
+    ff%nbc2 = nbc2
+    ff%null_option = 1 ! copy if null_op
+    ff%implicit_op = implicit_op
+    if( nol == 0 ) ff%implicit_op = .false.
+    ff%sh = 0.0d0  ! shift
+  ! interior weights
+    ff%ali = 1.0D0
+    ff%ari = [ dgau , cgau , bgau , agau , bgau , cgau , dgau ]
+  ! one-sided weights, band-diagonal style
+    ff%alb1(:,1,0) = 1.0D0
+    ff%alb1(:,2,0) = 1.0D0
+    ff%alb1(:,3,0) = 1.0D0
+    ff%alb2(:,1,0) = ff%alb1(ncl:1:-1,3,0)
+    ff%alb2(:,2,0) = ff%alb1(ncl:1:-1,2,0)
+    ff%alb2(:,3,0) = ff%alb1(ncl:1:-1,1,0)
+    ff%arb1(:,1,0) = [ 0.0D0   , 0.0D0   , 0.0D0   , ag11    , bg21     , cg31     , dg41    ]
+    ff%arb1(:,2,0) = [ 0.0D0   , 0.0D0   , bg12    , ag22    , bg32     , cgau     , dgau    ]
+    ff%arb1(:,3,0) = [ 0.0D0   , cg13    , bg23    , agau    , bgau     , cgau     , dgau    ]    
+    ff%arb2(:,1,0) = ff%arb1(ncr:1:-1,3,0)
+    ff%arb2(:,2,0) = ff%arb1(ncr:1:-1,2,0)
+    ff%arb2(:,3,0) = ff%arb1(ncr:1:-1,1,0)
+  ! symmetric weights
+    call lower_symm_weights(ff%alb1(:,:,+1),ff%arb1(:,:,+1),ff%ali,ff%ari,nol,nor,0,0,+1,+1)
+    call lower_symm_weights(ff%alb1(:,:,-1),ff%arb1(:,:,-1),ff%ali,ff%ari,nol,nor,0,0,-1,-1)
+    call upper_symm_weights(ff%alb2(:,:,+1),ff%arb2(:,:,+1),ff%ali,ff%ari,nol,nor,0,0,+1,+1)
+    call upper_symm_weights(ff%alb2(:,:,-1),ff%arb2(:,:,-1),ff%ali,ff%ari,nol,nor,0,0,-1,-1)
+  ! with extended boundary data
+    ff%alb1(:,1,2) = 1.0D0
+    ff%alb1(:,2,2) = 1.0D0
+    ff%alb1(:,3,2) = 1.0D0
+    ff%alb2(:,1,2) = ff%alb1(ncl:1:-1,3,2)
+    ff%alb2(:,2,2) = ff%alb1(ncl:1:-1,2,2)
+    ff%alb2(:,3,2) = ff%alb1(ncl:1:-1,1,2)
+    ff%arb1(:,1,2) = ff%ari
+    ff%arb1(:,2,2) = ff%ari
+    ff%arb1(:,3,2) = ff%ari
+    ff%arb2(:,1,2) = ff%arb1(ncr:1:-1,3,0)
+    ff%arb2(:,2,2) = ff%arb1(ncr:1:-1,2,2)
+    ff%arb2(:,3,2) = ff%arb1(ncr:1:-1,1,2)
+
+  end subroutine ecfs3
+
+  
   subroutine ctfs4(ff)  ! setup 4-point tophat with symmetry boundaries
     implicit none
     TYPE(compact_weight), intent(out) :: ff
@@ -1075,8 +1899,13 @@ contains
     ff%arb2(:,2,2) = ff%arb1(ncr:1:-1,3,2)
     ff%arb2(:,3,2) = ff%arb1(ncr:1:-1,2,2)
     ff%arb2(:,4,2) = ff%arb1(ncr:1:-1,1,2)
+    ! difference
+    ff%ari(5) = ff%ari(5)-ff%ali(1)
+    ff%arb1(5,:,:) = ff%arb1(5,:,:)-ff%alb1(1,:,:)
+    ff%arb2(5,:,:) = ff%arb2(5,:,:)-ff%alb2(1,:,:)
   end subroutine ctfs4
 
+#if 0
   subroutine c10imcf(im)  ! setup compact 10th order center-to-face interpolation weights
     implicit none
     TYPE(compact_weight), intent(out) :: im
@@ -1212,6 +2041,8 @@ contains
     im%arb2(:,4,2) = im%arb1(ncr:1:-1,1,2)
   end subroutine c10imfc
 
+#endif
+
   subroutine c10ish(is,sin)  ! setup compact 10th order right-shift interpolation weights
     implicit none
     TYPE(compact_weight), intent(out) :: is
@@ -1236,7 +2067,7 @@ contains
     if( verbose) call is%description%info()
     is%nol = nol ; is%nor = nor ; is%nir = nir ; is%ncl = ncl ; is%ncr = ncr ; is%nci = nci
     is%nst = nst ; is%nbc1 = nbc1 ; is%nbc2 = nbc2
-    is%null_option = 4 ! ?? if null_op
+    is%null_option = 1 ! ?? if null_op
     is%implicit_op = implicit_op
     if( nol == 0 ) is%implicit_op = .false.
     is%sh = sin  ! shift
@@ -1383,7 +2214,7 @@ contains
       is%ali = ali7 ; is%alb1 = alb1 ; is%alb2 = alb2
       is%ari = ari7 ; is%arb1 = arb1 ; is%arb2 = arb2
     else  ! reverse order
-      is%ali = ali7(ncl:1:-1) ; is%ari = ari7(ncr:1:-1)
+      is%ali(1:ncl:1) = ali7(ncl:1:-1) ; is%ari(1:ncr:1) = ari7(ncr:1:-1)
       is%alb1(:,1,:) = alb2(ncl:1:-1,4,:) ; is%alb2(:,1,:) = alb1(ncl:1:-1,4,:)
       is%alb1(:,2,:) = alb2(ncl:1:-1,3,:) ; is%alb2(:,2,:) = alb1(ncl:1:-1,3,:)
       is%alb1(:,3,:) = alb2(ncl:1:-1,2,:) ; is%alb2(:,3,:) = alb1(ncl:1:-1,2,:)
@@ -1393,8 +2224,13 @@ contains
       is%arb1(:,3,:) = arb2(ncr:1:-1,2,:) ; is%arb2(:,3,:) = arb1(ncr:1:-1,2,:)
       is%arb1(:,4,:) = arb2(ncr:1:-1,1,:) ; is%arb2(:,4,:) = arb1(ncr:1:-1,1,:)
     endif
+    ! difference
+    is%ari(2:6) = is%ari(2:6)-is%ali(1:5)
+    is%arb1(2:6,:,:) = is%arb1(2:6,:,:)-is%alb1(1:5,:,:)
+    is%arb2(2:6,:,:) = is%arb2(2:6,:,:)-is%alb2(1:5,:,:)
   end subroutine c10ish
 
+#if 0
 !===================================================================================================
 ! INVERTIBLE AMR FILTER FOR COARSE-TO-FINE AND FINE-TO-COARSE OPERATIONS (fbar <---> f):
 ! alpha*fbar(i-1) + fbar(i) + alpha*fbar(i+1) = c*f(i-2) + b*f(i-1) + a*f(i) + b*f(i+1) + c*f(i+2)
@@ -1549,83 +2385,7 @@ contains
     cf%arb2(:,3,2) = cf%arb1(ncr:1:-1,1,2)
   end subroutine cfamrfc
 
-  subroutine e4d4(ff)  ! setup 4th derivative, explicit
-    implicit none
-    TYPE(compact_weight), intent(out) :: ff
-    INTEGER(c_int), PARAMETER :: nol = 0, nor = 3, nir = 3
-    INTEGER(c_int), PARAMETER :: ncl=2*nol+1, ncr=nor+nir+1, nci=2*nol
-    INTEGER(c_int), PARAMETER :: nst = 0, nbc1 = 3, nbc2 = 3
-    LOGICAL(c_bool),PARAMETER :: implicit_op = .false.
-    ! Fourth order 4th derivative
-    DOUBLE PRECISION, PARAMETER :: agau = 28.0D0/3.0D0
-    DOUBLE PRECISION, PARAMETER :: bgau = -6.5D0
-    DOUBLE PRECISION, PARAMETER :: cgau = 2.0D0
-    DOUBLE PRECISION, PARAMETER :: dgau = -1.0D0/6.0D0
-    ! Second order 4th derivative
-    DOUBLE PRECISION, PARAMETER :: a3gau = 6.0D0
-    DOUBLE PRECISION, PARAMETER :: b3gau = -4.0D0
-    DOUBLE PRECISION, PARAMETER :: c3gau = 1.0D0
-
-    INTEGER :: i,j,k
-    ff%description = compact_descriptor('d4exp','explicit',0,0)
-    if( implicit_op ) ff%description%complicity = 'implicit'
-    if( verbose) call ff%description%info()
-    allocate( ff%ali(2*nol+1) )
-    allocate( ff%ari(2*nor+1) )
-    allocate( ff%alb1(2*nol+1,nbc1,-1:2), ff%alb2(2*nol+1,nbc2,-1:2) )
-    allocate( ff%arb1(2*nor+1,nbc1,-1:2), ff%arb2(2*nor+1,nbc2,-1:2) )
-    ff%nol = nol
-    ff%nor = nor
-    ff%nir = nir
-    ff%ncl = ncl
-    ff%ncr = ncr
-    ff%nci = nci
-    ff%nst = nst
-    ff%nbc1 = nbc1
-    ff%nbc2 = nbc2
-    ff%null_option = 1 ! copy if null_op
-    ff%implicit_op = implicit_op
-    if( nol == 0 ) ff%implicit_op = .false.
-    ff%sh = 0.0d0  ! shift
-  ! interior weights
-    !    ff%ali = 1.0D0
-    !    ff%ari = [ dgau , cgau , bgau , agau , bgau , cgau , dgau ]
-    ff%ali = 1.0D0
-    ff%ari = [ dgau , cgau , bgau , agau , bgau , cgau , dgau ]
-  ! one-sided weights, band-diagonal style
-    ff%alb1(:,1,0) = 1.0D0
-    ff%alb1(:,2,0) = 1.0D0
-    ff%alb1(:,3,0) = 1.0D0
-    ff%alb2(:,1,0) = ff%alb1(ncl:1:-1,3,0)
-    ff%alb2(:,2,0) = ff%alb1(ncl:1:-1,2,0)
-    ff%alb2(:,3,0) = ff%alb1(ncl:1:-1,1,0)
-    ff%arb1(:,1,0) = [ 0.0D0   , 0.0D0    , 0.0D0    , 0.0D0    , 0.0D0  , 0.0D0     , 0.0D0  ]
-    ff%arb1(:,2,0) = [ 0.0D0   , 0.0D0    , 0.0D0    , 0.0D0    , 0.0D0  , 0.0D0     , 0.0D0  ]
-    ff%arb1(:,3,0) = [ 0.0D0   , c3gau    , b3gau    , a3gau    , b3gau  , c3gau     , 0.0D0  ]
-    ff%arb2(:,1,0) = ff%arb1(ncr:1:-1,3,0)
-    ff%arb2(:,2,0) = ff%arb1(ncr:1:-1,2,0)
-    ff%arb2(:,3,0) = ff%arb1(ncr:1:-1,1,0)
-  ! symmetric weights
-    call lower_symm_weights(ff%alb1(:,:,+1),ff%arb1(:,:,+1),ff%ali,ff%ari,nol,nor,0,0,+1,+1)
-    call lower_symm_weights(ff%alb1(:,:,-1),ff%arb1(:,:,-1),ff%ali,ff%ari,nol,nor,0,0,-1,-1)
-    call upper_symm_weights(ff%alb2(:,:,+1),ff%arb2(:,:,+1),ff%ali,ff%ari,nol,nor,0,0,+1,+1)
-    call upper_symm_weights(ff%alb2(:,:,-1),ff%arb2(:,:,-1),ff%ali,ff%ari,nol,nor,0,0,-1,-1)
-  ! with extended boundary data
-    ff%alb1(:,1,2) = 1.0D0
-    ff%alb1(:,2,2) = 1.0D0
-    ff%alb1(:,3,2) = 1.0D0
-    ff%alb2(:,1,2) = ff%alb1(ncl:1:-1,3,2)
-    ff%alb2(:,2,2) = ff%alb1(ncl:1:-1,2,2)
-    ff%alb2(:,3,2) = ff%alb1(ncl:1:-1,1,2)
-    ff%arb1(:,1,2) = ff%ari
-    ff%arb1(:,2,2) = ff%ari
-    ff%arb1(:,3,2) = ff%ari
-    ff%arb2(:,1,2) = ff%arb1(ncr:1:-1,3,2)
-    ff%arb2(:,2,2) = ff%arb1(ncr:1:-1,2,2)
-    ff%arb2(:,3,2) = ff%arb1(ncr:1:-1,1,2)
-  end subroutine e4d4
-
-  
+#endif
 
   subroutine lower_symm_weights_int(alb,arb,ali,ari,nol,nor,shl,shr,syml,symr)
     implicit none

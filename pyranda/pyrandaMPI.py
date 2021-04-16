@@ -117,6 +117,8 @@ class pyrandaMPI():
         GLOBAL_LEVEL = int(LAST_LEVEL)
         self.patch = int(GLOBAL_PATCH)
         self.level = int(GLOBAL_LEVEL)
+        LAST_LEVEL = self.level
+        LAST_PATCH = self.patch
 
         parcop.parcop.setup( self.patch, self.level , self.fcomm,
                              self.nx,self.ny,self.nz, 
