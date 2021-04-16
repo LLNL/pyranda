@@ -30,6 +30,9 @@ start_unroll = "!$FEXL"
 end_unroll = "!$END FEXL"
 declare_unroll = "!$DEF-FEXL"
 
+# Wild card symbol.. trailing only
+wcs = "@"
+
 # Indices used in new loops
 INDICES = ['ifunr','jfunr','kfunr','nfunr']
 INDrank = [1      ,2      ,3      ,4      ]
@@ -82,6 +85,8 @@ class iLoop():
         self.fix = 'fix'
         self.sumvar = 'sumvar'
 
+        self.bounds = 'bounds'
+
         self.filename = filename
         
     def getLoopBody(self,lines):
@@ -133,10 +138,12 @@ class iLoop():
         new_code = []
         
         # Get unroll args
-        dim = self.dim
-        var = self.var
+        dim    = self.dim
+        var    = self.var
         sumvar = self.sumvar
-        fix = self.fix
+        fix    = self.fix
+        bounds = self.bounds
+        
         
         try:
             unroll = self.loopBody[0]
@@ -174,6 +181,12 @@ class iLoop():
         my_indices.reverse()
         my_ranks.reverse()
 
+        # Check for explcit loop bounds (all or nothing)
+        expBounds = False
+        if ( parms.has_key(bounds) ):
+            ibnd = parms[ bounds ]  # bounds: "imin:imax,jmin:jmax,kmin:kmax"
+            expBounds = True
+        
 
         skipdo = False
         # Check for var = [] cases... omp only
@@ -184,9 +197,27 @@ class iLoop():
             
         if not skipdo:
             for ind,rnk in zip(my_indices,my_ranks):
-                code = (comment + indent
-                        + "do %s=%s,size(%s,%s)\n" %
-                        (ind,1, parms[self.var][0] , rnk ) )     
+
+                # Automatic bnds here (default)
+                size_var = ""
+                for vv in parms[self.var]:
+                    if wcs not in vv:
+                        size_var =  vv  # Use this var for size, first one that doesnt have a wild card
+                        break
+                if not size_var:
+                    print("Error: File: %s, line: %s -- Must give a non-wild card variable in vars list" %(self.filename,self.start) )
+                    exit()
+
+                bndStr = "do %s=%s,size(%s,%s)\n" %  (ind,1, size_var , rnk )
+
+                # Explicit range option here
+                if expBounds:
+                    min1 = ibnd.split(',')[rnk-1].split(':')[0]
+                    max1 = ibnd.split(',')[rnk-1].split(':')[1]
+                    bndStr = "do %s=%s,%s \n" % (ind,min1,max1)
+                                
+                code = (comment + indent + bndStr)
+                            
                 new_code.append( code )
                 indent += '  '
 
@@ -289,10 +320,11 @@ class iLoop():
                     if ( p in code):
                         code = code.replace( p , protect[p] )
 
+                # White space separate esc string for correct parsing
                 for e in esc:
                     code = code.replace(e," %s "%e)   
                         
-                # Add white space around all chars/operators
+                # Add white space around all chars/operators 
                 mycode =  [e+" " for e in code.split(" ") if e]
                 
                 
@@ -302,14 +334,34 @@ class iLoop():
                     if ( not parms.has_key(fix) ):
                         
                         # Check for 1:1 match
-                        if myvar.strip() in parms[self.var]: 
+                        tvar = myvar.strip()
+
+                        # For a var with a wildcard (wcs)
+                        has_wildcard = [1 if wcs in vv else 0 for vv in parms[self.var]]
+                        wc_matches = False
+                        if any(has_wildcard):
+                            dd = []
+                            for vv in parms[self.var]:
+                                vstr = vv.strip()
+                                if wcs in vstr[0]:  # First char wild.. match 'ends with'
+                                    idd = tvar.endswith( vstr.replace(wcs,'') )
+                                elif wcs in vstr[-1]:  # Last char wild... match 'startswith'
+                                    idd = tvar.startswith( vstr.replace(wcs,'') )
+                                else:
+                                    idd = False
+                                dd.append( idd )                                                                       
+                            wc_matches = any( dd )
+
+                        # Check for colon operators
+                        if sColon in myvar.strip():             
+                            code = myvar.strip().replace(sColon,index[:-1])
+                            icode.append(code)
+                            
+                        # Simple check for direct match or wc_match
+                        elif (tvar in parms[self.var]) or wc_matches:
                             code =  myvar.strip() + index
                             icode.append(code)
 
-                        # Check for colon operators
-                        elif sColon in myvar.strip():             
-                            code = myvar.strip().replace(sColon,index[:-1])
-                            icode.append(code)
 
                         # Special case for sum on 4th index
                         elif parms.has_key('sumvar'):                        
