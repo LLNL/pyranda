@@ -33,7 +33,7 @@ intel.fflags = -fPIC -O3 -cpp
 # it's likely that mpiclang is using gfortran
 clang.fflags = $(gnu.fflags)
 ibm.linkflags = -qoffload -W@,-v -qsmp=omp -qinfo=omperrtrace
-ibm.fflags   = -fPIC -qxlf2003=polymorphic $(ibm.linkflags)
+ibm.fflags   = -fPIC -qxlf2003=polymorphic $(ibm.linkflags) -qsuffix=cpp=f90:f=f90 
 ibm.lopts    = -qmkshrobj
 pgi.fflags   = -fPIC
 
