@@ -168,7 +168,7 @@ PROGRAM miniApp
   ! Time the derivatives
   CALL SYSTEM_CLOCK( t1, clock_rate, clock_max)
   DO i=1,iterations
-
+     
      !$FEXL {dim:3,var:['ie','et','rho','u','v','w']}
      ie = et - .5 * rho * (u*u + v*v + w*w )
      !$END FEXL
