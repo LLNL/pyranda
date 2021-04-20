@@ -30,6 +30,9 @@ start_unroll = "!$FEXL"
 end_unroll = "!$END FEXL"
 declare_unroll = "!$DEF-FEXL"
 
+# Parameters
+MAXLINES = 1e6
+
 # Wild card symbol.. trailing only
 wcs = "@"
 
@@ -84,8 +87,8 @@ class iLoop():
         self.var = 'var'
         self.fix = 'fix'
         self.sumvar = 'sumvar'
-
         self.bounds = 'bounds'
+        self.replace = 'replace'
 
         self.filename = filename
         
@@ -143,13 +146,30 @@ class iLoop():
         sumvar = self.sumvar
         fix    = self.fix
         bounds = self.bounds
+        replace= self.replace
         
         
         try:
             unroll = self.loopBody[0]
-            parms = eval(unroll.strip().replace(start_unroll,'').strip())
-            comment = unroll.split('!$')[0]
-            indent = ''
+            #parms = eval(unroll.strip().replace(start_unroll,'').strip())
+
+            # Get FEXL argument list (can be multi-lined)
+            unroll = ''
+            for ii in range(len(self.loopBody)):
+                if self.loopBody[ii].strip().startswith( start_unroll ):
+                    unroll += self.loopBody[ii].strip().replace(start_unroll,'').strip()
+                else:
+                    break
+            loopStart = ii
+                
+            parms = eval(unroll.strip().replace(start_unroll,'').strip())                    
+            
+            comment = "" #unroll.split('!$')[0]
+            indent  = ""
+
+            #import pdb
+            #pdb.set_trace()
+
         except:
             print("Error in loop (l.%s) : %s" % (self.start+1,unroll) )
             import pdb
@@ -163,7 +183,7 @@ class iLoop():
         
         # OMP start
         collapse = parms[self.dim]
-        if ( parms.has_key(fix) ):
+        if ( fix in parms ):
             collapse -= 1
         new_code.append(ompStart % collapse)
 
@@ -173,7 +193,7 @@ class iLoop():
         my_ranks   = self.ranks[  :parms[self.dim]]
         
         # Check for fixed indices (fortran index, 1 is first)
-        if ( parms.has_key(fix) ):
+        if ( fix in parms ):
             ifix = parms[fix] - 1  # Convert fortran to python starting index
             my_indices.pop(ifix)
             my_ranks.pop(ifix)
@@ -183,17 +203,18 @@ class iLoop():
 
         # Check for explcit loop bounds (all or nothing)
         expBounds = False
-        if ( parms.has_key(bounds) ):
+        if ( bounds in parms ):
             ibnd = parms[ bounds ]  # bounds: "imin:imax,jmin:jmax,kmin:kmax"
             expBounds = True
         
 
         skipdo = False
         # Check for var = [] cases... omp only
-        if (not  parms.has_key(var) ):
+        if (not var in parms ):
             skipdo = True
             parms.update({'var':[]})
 
+            
             
         if not skipdo:
             for ind,rnk in zip(my_indices,my_ranks):
@@ -223,7 +244,7 @@ class iLoop():
 
             
         # Form variable "index" which is thing appended to the variable "var(i,j,k)" -> index = '(i,j,k)'
-        if ( not parms.has_key(fix) ):
+        if ( not fix in parms ):
             my_indices.reverse()
             index = '(%s' % my_indices[0]
             for dd in range(1,parms[self.dim]):
@@ -281,19 +302,26 @@ class iLoop():
         rightColon = "#RIGHTCOLON#"
         sColon = "#COLON#"
         
-        for code in self.loopBody[1:-1]:
+        for code in self.loopBody[loopStart:-1]:
 
             esc = ['\n','+','-','*','/',';','=','MAX','MIN','max','min']
             esc += ['(',')',',']
+
+
+            # Do global find and replace
+            if ( replace in parms):
+                replaces = parms[replace]
+                for rep in replaces:
+                    code = code.replace(rep,replaces[rep])
+
             
-            #try:
             if 1:
                  
 
                 # Find colon syntax
 
                 # Left and right colon for fixed index cases
-                if ( parms.has_key(fix) ):
+                if ( fix in parms ):
                     if colonL:
                         code = code.replace(colonL, '%s ' % leftColon )
                     if colonR:
@@ -331,7 +359,7 @@ class iLoop():
                 icode = []
                 for myvar in mycode:
 
-                    if ( not parms.has_key(fix) ):
+                    if ( not fix in parms ):
                         
                         # Check for 1:1 match
                         tvar = myvar.strip()
@@ -364,7 +392,7 @@ class iLoop():
 
 
                         # Special case for sum on 4th index
-                        elif parms.has_key('sumvar'):                        
+                        elif 'sumvar' in parms:                        
                             if myvar.strip() in parms[self.sumvar]:
                                 code = myvar.strip() + index.replace(')',',:)')
                                 icode.append(code)
@@ -445,6 +473,7 @@ myLoops = []
 
 
 # Step 1: parse the code
+start = MAXLINES
 for ii in range(len(lines)):
 
     fline = lines[ii]
@@ -453,11 +482,12 @@ for ii in range(len(lines)):
         def_line_number = ii
         
     if start_unroll in fline:
-        start = ii
+        start = min(ii,start)
 
     if end_unroll in fline:
         end = ii
         myLoops.append(  iLoop(start,end,def_line_number,os.path.basename(file_name) ) )
+        start = MAXLINES
 
 # Get the contents of the loops
 cnt = 1
