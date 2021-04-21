@@ -42,11 +42,14 @@ INDrank = [1      ,2      ,3      ,4      ]
 
 # OMP pragmas
 ompStart = """
-!$omp target teams distribute parallel do collapse(%s)
-"""
+!$omp target teams distribute parallel do collapse(%s)"""
+
 ompEnd = """!$omp end target teams distribute parallel do
 
 """
+
+newline = "\n"
+
 
 # Caliper profiling
 caliperStart = """CALL exosim_annotation_begin("%s-L.%s")\n"""
@@ -89,6 +92,8 @@ class iLoop():
         self.sumvar = 'sumvar'
         self.bounds = 'bounds'
         self.replace = 'replace'
+        self.private = 'private'
+        self.shared  = 'shared'
 
         self.filename = filename
         
@@ -147,6 +152,8 @@ class iLoop():
         fix    = self.fix
         bounds = self.bounds
         replace= self.replace
+        private= self.private
+        shared = self.shared
         
         
         try:
@@ -167,9 +174,6 @@ class iLoop():
             comment = "" #unroll.split('!$')[0]
             indent  = ""
 
-            #import pdb
-            #pdb.set_trace()
-
         except:
             print("Error in loop (l.%s) : %s" % (self.start+1,unroll) )
             import pdb
@@ -181,11 +185,33 @@ class iLoop():
         if profile:
             new_code.append(caliperStart % (self.filename,self.start))
         
-        # OMP start
+        # OMP start and other options
         collapse = parms[self.dim]
         if ( fix in parms ):
             collapse -= 1
         new_code.append(ompStart % collapse)
+
+        # OMP private variable list
+        if ( private in parms):            
+            s_priv = parms[private][0]
+            for pp in parms[private][1:]:
+                s_priv += ", %s" % pp
+            new_code.append(" & " + newline)
+            new_code.append("!$omp   private(%s)" % s_priv )
+
+        # OMP shared variable list
+        if ( shared in parms):            
+            s_shar = parms[shared][0]
+            for pp in parms[shared][1:]:
+                s_shar += ", %s" % pp
+            new_code.append(" & " + newline)
+            new_code.append("!$omp   shared(%s)" % s_shar )
+
+        # OMP newline
+        new_code.append( newline )
+
+            
+
 
 
         # Unrolled header
