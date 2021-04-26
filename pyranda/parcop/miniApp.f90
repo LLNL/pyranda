@@ -160,10 +160,11 @@ PROGRAM miniApp
 
   CALL EOS(ie,rho,p,t)
   
-  ! From(device to host) To(host to device)
-  !$omp target data map(to:rho,u,v,w,et,p,rad,T,ie,Fx,Fy,Fz,tx,ty,tz,tmp,bar) &
-  !$omp             map(to:Fxx,Fyx,Fzx,Fxy,Fyy,Fzy,Fxz,Fyz,Fzz) &
-  !$omp             map(to:mesh_ptr%GridLen,RHS)
+  !$FEXL { vars_to:"rho,u,v,w,et,p,rad,T,ie,Fx,Fy,Fz,tx,ty,tz,tmp,bar,
+  !$FEXL            Fxx,Fyx,Fzx,Fxy,Fyy,Fzy,Fxz,Fyz,Fzz,
+  !$FEXL            mesh_ptr%GridLen,RHS" }
+  !$END FEXL
+
 
   ! Time the derivatives
   CALL SYSTEM_CLOCK( t1, clock_rate, clock_max)
@@ -257,8 +258,11 @@ PROGRAM miniApp
      
   END DO
 
-  !$omp end target data
 
+  !$FEXL { vars_from:"rho,u,v,w,et,p,rad,T,ie,Fx,Fy,Fz,tx,ty,tz,tmp,bar,
+  !$FEXL              Fxx,Fyx,Fzx,Fxy,Fyy,Fzy,Fxz,Fyz,Fzz,
+  !$FEXL              mesh_ptr%GridLen,RHS" }
+  !$END FEXL
   
   CALL SYSTEM_CLOCK( t2, clock_rate, clock_max)
 

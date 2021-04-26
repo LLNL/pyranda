@@ -30,6 +30,10 @@ start_unroll = "!$FEXL"
 end_unroll = "!$END FEXL"
 declare_unroll = "!$DEF-FEXL"
 
+# Map data tag
+map_data = "!$FEXL-DATA"
+
+
 # Parameters
 MAXLINES = 1e6
 
@@ -94,6 +98,12 @@ class iLoop():
         self.replace = 'replace'
         self.private = 'private'
         self.shared  = 'shared'
+        self.vars_to = "vars_to"
+        self.vars_alloc = "vars_alloc"
+        self.vars_from = "vars_from"
+        self.vars_delete = "vars_delete"
+        self.vars_update_to = "vars_update_to"
+        self.vars_update_from = "vars_update_from"
 
         self.filename = filename
         
@@ -154,7 +164,13 @@ class iLoop():
         replace= self.replace
         private= self.private
         shared = self.shared
-        
+        vars_to     = self.vars_to
+        vars_alloc  = self.vars_alloc
+        vars_from   = self.vars_from
+        vars_delete = self.vars_delete 
+        vars_update_to = self.vars_update_to
+        vars_update_from = self.vars_update_from
+
         
         try:
             unroll = self.loopBody[0]
@@ -179,12 +195,80 @@ class iLoop():
             import pdb
             pdb.set_trace()
 
-        
+                
 
+        omp_map = "!$omp target %s "
+
+        #####################################            
+        # FEXL-DATA + OMP
+        # Look for any data kind
+        if ( (vars_to     in parms) or
+             (vars_from   in parms) or
+             (vars_alloc  in parms) or
+             (vars_delete in parms) or
+             (vars_update_from in parms) or
+             (vars_update_to in parms) ) :
+             
+            # Check for enters/exit/update
+            dataEnter  = (vars_to in parms)    or (vars_alloc in parms)
+            dataExit   = (vars_from in parms)  or (vars_delete in parms)
+            dataUpdate = (vars_update_to in parms) or (vars_update_from in parms)
+            
+            # Supports all 3, but goes in order.... exit, enter, update
+            if dataExit:
+                omp_cmd = omp_map % "exit data " 
+
+                # From 
+                if ( vars_from in parms ):
+                    omp_cmd += " map(from:%s) " % parms[vars_from]
+                
+                # Delete
+                if (vars_delete in parms):
+                    omp_cmd += " map(delete:%s) " % parms[vars_delete]
+                    
+                omp_cmd += newline
+                new_code.append( omp_cmd )
+
+            if dataEnter:
+                omp_cmd = omp_map % "enter data" 
+
+                # To
+                if ( vars_to in parms ):
+                    omp_cmd += " map(to:%s) " % parms[vars_to]
+                
+                # Alloc
+                if (vars_alloc in parms):
+                    omp_cmd += " map(alloc:%s) " % parms[vars_alloc]
+                    
+                omp_cmd += newline
+                new_code.append( omp_cmd )
+
+            if dataUpdate:
+
+                # update to
+                omp_cmd = omp_map % "update"
+                if ( vars_update_to in parms ):
+                    omp_cmd += " to(%s) " % parms[vars_update_to]
+                    omp_cmd += newline
+                    new_code.append( omp_cmd )            
+                
+                # update from
+                omp_cmd = omp_map % "update"
+                if (vars_update_from in parms):
+                    omp_cmd += " from(%s) " % parms[vars_update_from]
+                    omp_cmd += newline
+                    new_code.append( omp_cmd )
+                    
+            self.newBody = new_code
+            return None
+        
+        #####################################
+        # FEXL-LOOPS + OMP
+            
         # Caliper profiling
         if profile:
             new_code.append(caliperStart % (self.filename,self.start))
-        
+
         # OMP start and other options
         collapse = parms[self.dim]
         if ( fix in parms ):
@@ -209,10 +293,7 @@ class iLoop():
 
         # OMP newline
         new_code.append( newline )
-
-            
-
-
+    
 
         # Unrolled header
         my_indices = self.indices[:parms[self.dim]]
