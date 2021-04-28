@@ -3,6 +3,7 @@ module LES_compact_d1
   USE MPI
   !USE LES_input, ONLY : bpp_lus_opt,use_ppent_opt,directcom,gpu_kernel
   USE LES_stencils
+  USE LES_ompsync, ONLY : sync_var
   USE LES_comm,  ONLY : mpierr,mpistatus,master
   use LES_pentadiagonal, ONLY :   ppentlus, &
     bpentLUS3x, ppentLUS3x, bpentLUS3y, ppentLUS3y, bpentLUS3z, ppentLUS3z, &
@@ -128,7 +129,7 @@ contains
       end do
       !$omp end target teams distribute parallel do
      else
-      !$omp target teams distribute parallel do collapse(2) if(gpu_kernel==1)
+      !$omp target teams distribute parallel do collapse(2) if(gpu_kernel==1) nowait depend(inout:sync_var)
       do k=1,az
        do j=1,ay
         dv(1,j,k) = sum(op%ar(5:7,1)*(v(2:4,j,k)-v(1,j,k)))
@@ -149,7 +150,7 @@ contains
      end do
      !$omp end target teams distribute parallel do
     endif
-    !$omp target teams distribute parallel do collapse(3) if(gpu_kernel==1)
+    !$omp target teams distribute parallel do collapse(3) if(gpu_kernel==1) nowait depend(inout:sync_var)
     do k=1,az
      do j=1,ay
       do i=4,ax-3
@@ -170,7 +171,7 @@ contains
       end do
       !$omp end target teams distribute parallel do
      else
-      !$omp target teams distribute parallel do collapse(2) if(gpu_kernel==1)
+      !$omp target teams distribute parallel do collapse(2) if(gpu_kernel==1) nowait depend(inout:sync_var)
       do k=1,az
        do j=1,ay
         dv(ax-2,j,k) = op%ar(1,ax-2)*(v(ax-5,j,k)-v(ax,j,k))+op%ar(2,ax-2)*(v(ax-4,j,k)-v(ax,j,k))+op%ar(3,ax-2)*(v(ax-3,j,k)-v(ax-1,j,k))
@@ -424,7 +425,7 @@ contains
       end do
       !$omp end target teams distribute parallel do
      else
-      !$omp target teams distribute parallel do collapse(2) if(gpu_kernel==1)
+      !$omp target teams distribute parallel do collapse(2) if(gpu_kernel==1) nowait depend(inout:sync_var)
       do k=1,az
        do i=1,ax
         dv(i,1,k) = sum(op%ar(5:7,1)*(v(i,2:4,k)-v(i,1,k)))
@@ -445,7 +446,7 @@ contains
       end do
       !$omp end target teams distribute parallel do
     endif
-     !$omp target teams distribute parallel do collapse(3) if(gpu_kernel==1)
+     !$omp target teams distribute parallel do collapse(3) if(gpu_kernel==1) nowait depend(inout:sync_var)
      do k=1,az
       do j=4,ay-3
        do i=1,ax
@@ -466,7 +467,7 @@ contains
       end do
       !$omp end target teams distribute parallel do
      else
-      !$omp target teams distribute parallel do collapse(2) if(gpu_kernel==1)
+      !$omp target teams distribute parallel do collapse(2) if(gpu_kernel==1) nowait depend(inout:sync_var)
       do k=1,az
        do i=1,ax
         dv(i,ay-2,k) = op%ar(1,ay-2)*(v(i,ay-5,k)-v(i,ay,k))+op%ar(2,ay-2)*(v(i,ay-4,k)-v(i,ay,k))+op%ar(3,ay-2)*(v(i,ay-3,k)-v(i,ay-1,k))
@@ -760,7 +761,7 @@ contains
      end do
      !$omp end target teams distribute parallel do
      else
-     !$omp target teams distribute parallel do collapse(2) if(gpu_kernel==1)
+     !$omp target teams distribute parallel do collapse(2) if(gpu_kernel==1) nowait depend(inout:sync_var)
      do j=1,ay
      do i=1,ax
       dv(i,j,1) = sum(op%ar(5:7,1)*(v(i,j,2:4)-v(i,j,1)))
@@ -781,7 +782,7 @@ contains
      end do
      !$omp end target teams distribute parallel do
     endif
-    !$omp target teams distribute parallel do collapse(3) if(gpu_kernel==1)
+    !$omp target teams distribute parallel do collapse(3) if(gpu_kernel==1) nowait depend(inout:sync_var)
     do k=4,az-3
     do j=1,ay
     do i=1,ax
@@ -802,7 +803,7 @@ contains
      end do
      !$omp end target teams distribute parallel do
      else
-     !$omp target teams distribute parallel do collapse(2) if(gpu_kernel==1)
+     !$omp target teams distribute parallel do collapse(2) if(gpu_kernel==1) nowait depend(inout:sync_var)
      do j=1,ay
      do i=1,ax
       dv(i,j,az-2) = op%ar(1,az-2)*(v(i,j,az-5)-v(i,j,az))+op%ar(2,az-2)*(v(i,j,az-4)-v(i,j,az))+op%ar(3,az-2)*(v(i,j,az-3)-v(i,j,az-1))

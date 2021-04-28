@@ -12,6 +12,8 @@
   !USE mapp_exosim_annotation, ONLY : exosim_annotation_begin,exosim_annotation_end
 #ifdef fexlpool
   USE LES_ompsync
+#else
+  USE LES_ompsync, ONLY : sync_var
 #endif
   
   INTERFACE div
@@ -48,129 +50,131 @@
     integer :: ifunr,jfunr,kfunr,nfunr 
 
 #ifdef omppool
-    !$omp target data map(alloc:fA,fB,fC,tmp)
+    !$omp target enter data map(alloc:fA,fB,fC,tmp) nowait depend(inout:sync_var)
+    !! $omp taskwait
 #endif
-#ifdef fexlpool
-    ASSOCIATE(fA=>fexlPool_get(ax,ay,az),fB=>fexlPool_get(ax,ay,az),&
-         fC=>fexlPool_get(ax,ay,az),tmp=>fexlPool_get(ax,ay,az) )
-#endif      
-     SELECT CASE(patch_ptr%coordsys)
-     CASE(0) ! Cartesian
-      CALL ddx(fx,fA,patch_ptr%isymX)
-      CALL ddy(fy,fB,patch_ptr%isymY)
-      CALL ddz(fz,fC,patch_ptr%isymZ)
-
-!$omp target teams distribute parallel do collapse(3)
-      do kfunr=1,size(df,3)
-        do jfunr=1,size(df,2)
-          do ifunr=1,size(df,1)
-            df(ifunr,jfunr,kfunr)= fA(ifunr,jfunr,kfunr)+ fB(ifunr,jfunr,kfunr)+ fC(ifunr,jfunr,kfunr)
-           end do
-        end do
-      end do
-!$omp end target teams distribute parallel do
-
-     CASE(1)
-
-!$omp target teams distribute parallel do collapse(3)
-      do kfunr=1,size(tmp,3)
-        do jfunr=1,size(tmp,2)
-          do ifunr=1,size(tmp,1)
-            tmp(ifunr,jfunr,kfunr)= mesh_ptr%xgrid(ifunr,jfunr,kfunr)* fx(ifunr,jfunr,kfunr)! r*v_r
-          end do
-        end do
-      end do
-!$omp end target teams distribute parallel do
-
-      CALL ddx(tmp,fA,patch_ptr%isymX**2)
-      CALL ddy(fy,fB, patch_ptr%isymY)
-      CALL ddz(fz,fC, patch_ptr%isymZ)
-
-!$omp target teams distribute parallel do collapse(3)
-      do kfunr=1,size(df,3)
-        do jfunr=1,size(df,2)
-          do ifunr=1,size(df,1)
-            df(ifunr,jfunr,kfunr)=(fA(ifunr,jfunr,kfunr)+ fB(ifunr,jfunr,kfunr))/mesh_ptr%xgrid(ifunr,jfunr,kfunr)+ fC(ifunr,jfunr,kfunr)
-           end do
-        end do
-      end do
-!$omp end target teams distribute parallel do
-
-     CASE(2)
-      ! *** does sin(mesh_ptr%ygrid) ever generate patch_ptr%isymY factor? ***
-
-!$omp target teams distribute parallel do collapse(3)
-      do kfunr=1,size(tmp,3)
-        do jfunr=1,size(tmp,2)
-          do ifunr=1,size(tmp,1)
-            tmp(ifunr,jfunr,kfunr)= mesh_ptr%xgrid(ifunr,jfunr,kfunr)**2*fx(ifunr,jfunr,kfunr)! r** 2*v_r
-            df(ifunr,jfunr,kfunr)= fy(ifunr,jfunr,kfunr)* SIN(mesh_ptr%ygrid(ifunr,jfunr,kfunr)) ! v_theta*SIN(theta )
-          end do
-        end do
-      end do
-!$omp end target teams distribute parallel do
-
-      CALL ddx(tmp,fA,patch_ptr%isymX**3)
-      CALL ddy(df,fB, patch_ptr%isymY**2)  ! Assumes theta has some symmetry here... move outside derivative
-      CALL ddz(fz,fC, patch_ptr%isymZ)
-
-!$omp target teams distribute parallel do collapse(3)
-      do kfunr=1,size(fA,3)
-        do jfunr=1,size(fA,2)
-          do ifunr=1,size(fA,1)
-            df(ifunr,jfunr,kfunr)= fA(ifunr,jfunr,kfunr)/ mesh_ptr%xgrid(ifunr,jfunr,kfunr)**2+( fB(ifunr,jfunr,kfunr)+ fC(ifunr,jfunr,kfunr))/( mesh_ptr%xgrid(ifunr,jfunr,kfunr)* SIN(mesh_ptr%ygrid(ifunr,jfunr,kfunr)) )
-          end do
-        end do
-      end do
-!$omp end target teams distribute parallel do
-
-     CASE(3) ! General curvilinear
-
-!$omp target teams distribute parallel do collapse(3)
-      do kfunr=1,size(fA,3)
-        do jfunr=1,size(fA,2)
-          do ifunr=1,size(fA,1)
-            fA(ifunr,jfunr,kfunr)=(fx(ifunr,jfunr,kfunr)* mesh_ptr%dAdx(ifunr,jfunr,kfunr)+ fy(ifunr,jfunr,kfunr)* mesh_ptr%dAdy(ifunr,jfunr,kfunr)+ fz(ifunr,jfunr,kfunr)* mesh_ptr%dAdz(ifunr,jfunr,kfunr))*mesh_ptr%detxyz(ifunr,jfunr,kfunr)
-             fB(ifunr,jfunr,kfunr)=(fx(ifunr,jfunr,kfunr)* mesh_ptr%dBdx(ifunr,jfunr,kfunr)+ fy(ifunr,jfunr,kfunr)* mesh_ptr%dBdy(ifunr,jfunr,kfunr)+ fz(ifunr,jfunr,kfunr)* mesh_ptr%dBdz(ifunr,jfunr,kfunr))*mesh_ptr%detxyz(ifunr,jfunr,kfunr)
-             fC(ifunr,jfunr,kfunr)=(fx(ifunr,jfunr,kfunr)* mesh_ptr%dCdx(ifunr,jfunr,kfunr)+ fy(ifunr,jfunr,kfunr)* mesh_ptr%dCdy(ifunr,jfunr,kfunr)+ fz(ifunr,jfunr,kfunr)* mesh_ptr%dCdz(ifunr,jfunr,kfunr))*mesh_ptr%detxyz(ifunr,jfunr,kfunr)
-           end do
-        end do
-      end do
-!$omp end target teams distribute parallel do
-
-      CALL ddx(fA,df)
-      CALL ddy(fB,tmp)
-
-!$omp target teams distribute parallel do collapse(3)
-      do kfunr=1,size(df,3)
-        do jfunr=1,size(df,2)
-          do ifunr=1,size(df,1)
-            df(ifunr,jfunr,kfunr)= df(ifunr,jfunr,kfunr)+ tmp(ifunr,jfunr,kfunr)
-           end do
-        end do
-      end do
-!$omp end target teams distribute parallel do
-
-      CALL ddz(fC,tmp)
-
-!$omp target teams distribute parallel do collapse(3)
-      do kfunr=1,size(df,3)
-        do jfunr=1,size(df,2)
-          do ifunr=1,size(df,1)
-            df(ifunr,jfunr,kfunr)=(df(ifunr,jfunr,kfunr)+ tmp(ifunr,jfunr,kfunr))/mesh_ptr%detxyz(ifunr,jfunr,kfunr)
-           end do
-        end do
-      end do
-!$omp end target teams distribute parallel do
-
-   END SELECT
+!!$#ifdef fexlpool
+!!$    ASSOCIATE(fA=>fexlPool_get(ax,ay,az),fB=>fexlPool_get(ax,ay,az),&
+!!$         fC=>fexlPool_get(ax,ay,az),tmp=>fexlPool_get(ax,ay,az) )
+!!$#endif      
+!!$     SELECT CASE(patch_ptr%coordsys)
+!!$     CASE(0) ! Cartesian
+!!$      CALL ddx(fx,fA,patch_ptr%isymX)
+!!$      CALL ddy(fy,fB,patch_ptr%isymY)
+!!$      CALL ddz(fz,fC,patch_ptr%isymZ)
+!!$
+!!$!$omp target teams distribute parallel do collapse(3) nowait depend(inout:sync_var)
+!!$      do kfunr=1,size(df,3)
+!!$        do jfunr=1,size(df,2)
+!!$          do ifunr=1,size(df,1)
+!!$            df(ifunr,jfunr,kfunr)= fA(ifunr,jfunr,kfunr)+ fB(ifunr,jfunr,kfunr)+ fC(ifunr,jfunr,kfunr)
+!!$           end do
+!!$        end do
+!!$      end do
+!!$!$omp end target teams distribute parallel do
+!!$
+!!$     CASE(1)
+!!$
+!!$!$omp target teams distribute parallel do collapse(3)
+!!$      do kfunr=1,size(tmp,3)
+!!$        do jfunr=1,size(tmp,2)
+!!$          do ifunr=1,size(tmp,1)
+!!$            tmp(ifunr,jfunr,kfunr)= mesh_ptr%xgrid(ifunr,jfunr,kfunr)* fx(ifunr,jfunr,kfunr)! r*v_r
+!!$          end do
+!!$        end do
+!!$      end do
+!!$!$omp end target teams distribute parallel do
+!!$
+!!$      CALL ddx(tmp,fA,patch_ptr%isymX**2)
+!!$      CALL ddy(fy,fB, patch_ptr%isymY)
+!!$      CALL ddz(fz,fC, patch_ptr%isymZ)
+!!$
+!!$!$omp target teams distribute parallel do collapse(3)
+!!$      do kfunr=1,size(df,3)
+!!$        do jfunr=1,size(df,2)
+!!$          do ifunr=1,size(df,1)
+!!$            df(ifunr,jfunr,kfunr)=(fA(ifunr,jfunr,kfunr)+ fB(ifunr,jfunr,kfunr))/mesh_ptr%xgrid(ifunr,jfunr,kfunr)+ fC(ifunr,jfunr,kfunr)
+!!$           end do
+!!$        end do
+!!$      end do
+!!$!$omp end target teams distribute parallel do
+!!$
+!!$     CASE(2)
+!!$      ! *** does sin(mesh_ptr%ygrid) ever generate patch_ptr%isymY factor? ***
+!!$
+!!$!$omp target teams distribute parallel do collapse(3)
+!!$      do kfunr=1,size(tmp,3)
+!!$        do jfunr=1,size(tmp,2)
+!!$          do ifunr=1,size(tmp,1)
+!!$            tmp(ifunr,jfunr,kfunr)= mesh_ptr%xgrid(ifunr,jfunr,kfunr)**2*fx(ifunr,jfunr,kfunr)! r** 2*v_r
+!!$            df(ifunr,jfunr,kfunr)= fy(ifunr,jfunr,kfunr)* SIN(mesh_ptr%ygrid(ifunr,jfunr,kfunr)) ! v_theta*SIN(theta )
+!!$          end do
+!!$        end do
+!!$      end do
+!!$!$omp end target teams distribute parallel do
+!!$
+!!$      CALL ddx(tmp,fA,patch_ptr%isymX**3)
+!!$      CALL ddy(df,fB, patch_ptr%isymY**2)  ! Assumes theta has some symmetry here... move outside derivative
+!!$      CALL ddz(fz,fC, patch_ptr%isymZ)
+!!$
+!!$!$omp target teams distribute parallel do collapse(3)
+!!$      do kfunr=1,size(fA,3)
+!!$        do jfunr=1,size(fA,2)
+!!$          do ifunr=1,size(fA,1)
+!!$            df(ifunr,jfunr,kfunr)= fA(ifunr,jfunr,kfunr)/ mesh_ptr%xgrid(ifunr,jfunr,kfunr)**2+( fB(ifunr,jfunr,kfunr)+ fC(ifunr,jfunr,kfunr))/( mesh_ptr%xgrid(ifunr,jfunr,kfunr)* SIN(mesh_ptr%ygrid(ifunr,jfunr,kfunr)) )
+!!$          end do
+!!$        end do
+!!$      end do
+!!$!$omp end target teams distribute parallel do
+!!$
+!!$     CASE(3) ! General curvilinear
+!!$
+!!$!$omp target teams distribute parallel do collapse(3)
+!!$      do kfunr=1,size(fA,3)
+!!$        do jfunr=1,size(fA,2)
+!!$          do ifunr=1,size(fA,1)
+!!$            fA(ifunr,jfunr,kfunr)=(fx(ifunr,jfunr,kfunr)* mesh_ptr%dAdx(ifunr,jfunr,kfunr)+ fy(ifunr,jfunr,kfunr)* mesh_ptr%dAdy(ifunr,jfunr,kfunr)+ fz(ifunr,jfunr,kfunr)* mesh_ptr%dAdz(ifunr,jfunr,kfunr))*mesh_ptr%detxyz(ifunr,jfunr,kfunr)
+!!$             fB(ifunr,jfunr,kfunr)=(fx(ifunr,jfunr,kfunr)* mesh_ptr%dBdx(ifunr,jfunr,kfunr)+ fy(ifunr,jfunr,kfunr)* mesh_ptr%dBdy(ifunr,jfunr,kfunr)+ fz(ifunr,jfunr,kfunr)* mesh_ptr%dBdz(ifunr,jfunr,kfunr))*mesh_ptr%detxyz(ifunr,jfunr,kfunr)
+!!$             fC(ifunr,jfunr,kfunr)=(fx(ifunr,jfunr,kfunr)* mesh_ptr%dCdx(ifunr,jfunr,kfunr)+ fy(ifunr,jfunr,kfunr)* mesh_ptr%dCdy(ifunr,jfunr,kfunr)+ fz(ifunr,jfunr,kfunr)* mesh_ptr%dCdz(ifunr,jfunr,kfunr))*mesh_ptr%detxyz(ifunr,jfunr,kfunr)
+!!$           end do
+!!$        end do
+!!$      end do
+!!$!$omp end target teams distribute parallel do
+!!$
+!!$      CALL ddx(fA,df)
+!!$      CALL ddy(fB,tmp)
+!!$
+!!$!$omp target teams distribute parallel do collapse(3)
+!!$      do kfunr=1,size(df,3)
+!!$        do jfunr=1,size(df,2)
+!!$          do ifunr=1,size(df,1)
+!!$            df(ifunr,jfunr,kfunr)= df(ifunr,jfunr,kfunr)+ tmp(ifunr,jfunr,kfunr)
+!!$           end do
+!!$        end do
+!!$      end do
+!!$!$omp end target teams distribute parallel do
+!!$
+!!$      CALL ddz(fC,tmp)
+!!$
+!!$!$omp target teams distribute parallel do collapse(3)
+!!$      do kfunr=1,size(df,3)
+!!$        do jfunr=1,size(df,2)
+!!$          do ifunr=1,size(df,1)
+!!$            df(ifunr,jfunr,kfunr)=(df(ifunr,jfunr,kfunr)+ tmp(ifunr,jfunr,kfunr))/mesh_ptr%detxyz(ifunr,jfunr,kfunr)
+!!$           end do
+!!$        end do
+!!$      end do
+!!$!$omp end target teams distribute parallel do
+!!$
+!!$   END SELECT
 
 #ifdef fexlpool
  END ASSOCIATE
  error = fexlPool_free(4)
 #endif
 #ifdef omppool
- !$omp end target data
+ !$omp target exit data map(release:fA,fB,fC,tmp) nowait depend(inout:sync_var)
+ !$! omp taskwait
 #endif
    END SUBROUTINE divV
  

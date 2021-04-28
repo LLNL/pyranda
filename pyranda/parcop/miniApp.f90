@@ -9,7 +9,10 @@ PROGRAM miniApp
   USE parcop, ONLY : setup,ddx,point_to_objects,setup_mesh,grad,filter,div
 #ifdef fexlpool
   USE LES_ompsync
+#else
+  USE LES_ompsync, ONLY : sync_var
 #endif
+
   IMPLICIT NONE
   INCLUDE "mpif.h"
 
@@ -28,9 +31,9 @@ PROGRAM miniApp
   INTEGER :: nargs,ii,iterations
   INTEGER :: rank,ierror
   DOUBLE PRECISION :: dt = 0.0, memtime = 0.0
-  DOUBLE PRECISION :: answer = 830909.7500
+  DOUBLE PRECISION :: answer = 830909.7500, dummy=0.0
   integer :: ifunr,jfunr,kfunr,nfunr 
-
+  DOUBLE PRECISION, EXTERNAL :: iMAXVAL3D
   
   ! MPI
   CALL MPI_INIT(mpierr)
@@ -169,113 +172,90 @@ PROGRAM miniApp
   !$omp target data map(tofrom:rho,u,v,w,et,p,rad,T,ie) &
   !$omp             map(tofrom:mesh_ptr%GridLen,RHS)
 
-#ifdef fexlpool
-  !! FEXL-POOL version
-  CALL fexlPool_setPoolDepth(25,ax,ay,az)
-#endif
   
   ! Time the derivatives
-  !CALL SYSTEM_CLOCK( t1, clock_rate, clock_max)
   CALL CPU_TIME(t1)
   
   DO i=1,iterations
 
-
-     !CALL SYSTEM_CLOCK( t3, clock_rate, clock_max )
      CALL CPU_TIME(t3)
      
-#ifdef omppool
-     ! Temp. memory
-     !$omp target data map(alloc:Fx,Fy,Fz,tx,ty,tz,tmp,bar,Fxx,Fyx,Fzx,Fxy,Fyy,Fzy,Fxz,Fyz,Fzz)
-#endif
-     
-#ifdef fexlpool
-     ASSOCIATE(Fx=>fexlPool_get(ax,ay,az),Fy=>fexlPool_get(ax,ay,az),Fz=>fexlPool_get(ax,ay,az) &
-          ,tx=>fexlPool_get(ax,ay,az),ty=>fexlPool_get(ax,ay,az),tz=>fexlPool_get(ax,ay,az) &
-          ,tmp=>fexlPool_get(ax,ay,az),bar=>fexlPool_get(ax,ay,az),Fxx=>fexlPool_get(ax,ay,az) &
-          ,Fyx=>fexlPool_get(ax,ay,az),Fzx=>fexlPool_get(ax,ay,az),Fxy=>fexlPool_get(ax,ay,az) &
-          ,Fyy=>fexlPool_get(ax,ay,az),Fzy=>fexlPool_get(ax,ay,az),Fxz=>fexlPool_get(ax,ay,az) &
-          ,Fyz=>fexlPool_get(ax,ay,az),Fzz=>fexlPool_get(ax,ay,az)  )
-#endif
-     
 
-       !CALL SYSTEM_CLOCK( t4, clock_rate, clock_max )
+     ! Temp. memory
+     !$omp target enter data map(alloc:Fx,Fy,Fz,tx,ty,tz,tmp,bar,Fxx,Fyx,Fzx,Fxy,Fyy,Fzy,Fxz,Fyz,Fzz)  nowait depend(inout:sync_var)
+     ! !$omp taskwait     
+     
      CALL CPU_TIME( t4 )
        
-
-     !memtime = memtime + real(t4-t3) / real(clock_rate)
      memtime = memtime + (t4-t3)
      
 
-!$omp target teams distribute parallel do collapse(3)
+     !$omp target teams distribute parallel do collapse(3) nowait depend(inout:sync_var)
      do kfunr=1,size(ie,3)
-       do jfunr=1,size(ie,2)
-         do ifunr=1,size(ie,1)
-           ie(ifunr,jfunr,kfunr)= et(ifunr,jfunr,kfunr)- .5*rho(ifunr,jfunr,kfunr)*(u(ifunr,jfunr,kfunr)* u(ifunr,jfunr,kfunr)+ v(ifunr,jfunr,kfunr)* v(ifunr,jfunr,kfunr)+ w(ifunr,jfunr,kfunr)* w(ifunr,jfunr,kfunr))
-         end do
-       end do
+        do jfunr=1,size(ie,2)
+           do ifunr=1,size(ie,1)
+              ie(ifunr,jfunr,kfunr)= et(ifunr,jfunr,kfunr)- .5*rho(ifunr,jfunr,kfunr)*(u(ifunr,jfunr,kfunr)* u(ifunr,jfunr,kfunr)+ v(ifunr,jfunr,kfunr)* v(ifunr,jfunr,kfunr)+ w(ifunr,jfunr,kfunr)* w(ifunr,jfunr,kfunr))
+           end do
+        end do
      end do
-!$omp end target teams distribute parallel do
+     !$omp end target teams distribute parallel do
 
      
      CALL EOS(ie,rho,p,t,patch_ptr%ax,patch_ptr%ay,patch_ptr%az)
 
      ! Rest u
-
-!$omp target teams distribute parallel do collapse(3)
+     !$omp target teams distribute parallel do collapse(3) nowait depend(inout:sync_var)
      do kfunr=1,size(u,3)
-       do jfunr=1,size(u,2)
-         do ifunr=1,size(u,1)
-           u(ifunr,jfunr,kfunr)= 1.0D0
-         end do
-       end do
+        do jfunr=1,size(u,2)
+           do ifunr=1,size(u,1)
+              u(ifunr,jfunr,kfunr)= 1.0D0
+           end do
+        end do
      end do
-!$omp end target teams distribute parallel do
-
+     !$omp end target teams distribute parallel do
+     
      
      ! Mass equation
 
-
-!$omp target teams distribute parallel do collapse(3)
+     !$omp target teams distribute parallel do collapse(3) nowait depend(inout:sync_var)
      do kfunr=1,size(Fx,3)
-       do jfunr=1,size(Fx,2)
-         do ifunr=1,size(Fx,1)
-           Fx(ifunr,jfunr,kfunr)= rho(ifunr,jfunr,kfunr)* u(ifunr,jfunr,kfunr)
-            Fy(ifunr,jfunr,kfunr)= rho(ifunr,jfunr,kfunr)* v(ifunr,jfunr,kfunr)
-            Fz(ifunr,jfunr,kfunr)= rho(ifunr,jfunr,kfunr)* w(ifunr,jfunr,kfunr)
-          end do
-       end do
+        do jfunr=1,size(Fx,2)
+           do ifunr=1,size(Fx,1)
+              Fx(ifunr,jfunr,kfunr)= rho(ifunr,jfunr,kfunr)* u(ifunr,jfunr,kfunr)
+              Fy(ifunr,jfunr,kfunr)= rho(ifunr,jfunr,kfunr)* v(ifunr,jfunr,kfunr)
+              Fz(ifunr,jfunr,kfunr)= rho(ifunr,jfunr,kfunr)* w(ifunr,jfunr,kfunr)
+           end do
+        end do
      end do
-!$omp end target teams distribute parallel do
-
-     CALL div(Fx,Fy,Fz,RHS(:,:,:,1),patch_ptr%ax,patch_ptr%ay,patch_ptr%az)
-
-
-!$omp target teams distribute parallel do collapse(3)
-     do kfunr=1,size(u,3)
-       do jfunr=1,size(u,2)
-         do ifunr=1,size(u,1)
-           u(ifunr,jfunr,kfunr)= u(ifunr,jfunr,kfunr)* 0.0+RHS(ifunr,jfunr,kfunr, 1 )
-         end do
-       end do
-     end do
-!$omp end target teams distribute parallel do
-
+     !$omp end target teams distribute parallel do
      
-#ifdef fexlpool
-   END ASSOCIATE
-   ierror = fexlPool_free(17)
-#endif
+     !! $omp taskwait
+     CALL divFoo(Fx,Fy,Fz,RHS(:,:,:,1),patch_ptr%ax,patch_ptr%ay,patch_ptr%az)
 
-#ifdef omppool
-   !$omp end target data 
-#endif
+
+     !$omp target teams distribute parallel do collapse(3) nowait depend(inout:sync_var)
+     do kfunr=1,size(u,3)
+        do jfunr=1,size(u,2)
+           do ifunr=1,size(u,1)
+              u(ifunr,jfunr,kfunr)= u(ifunr,jfunr,kfunr)* 0.0+RHS(ifunr,jfunr,kfunr, 1 )
+           end do
+        end do
+     end do
+     !$omp end target teams distribute parallel do
+    
+     !dummy = 1.0 / iMAXVAL3D(u,size(u,1),size(u,2),size(u,3))
+     !! $omp taskwait
+
+
+     !$omp target exit data map(release:Fx,Fy,Fz,tx,ty,tz,tmp,bar,Fxx,Fyx,Fzx,Fxy,Fyy,Fzy,Fxz,Fyz,Fzz) nowait depend(inout:sync_var)
+     !! $omp taskwait
    
   END DO
 
-  !CALL SYSTEM_CLOCK( t2, clock_rate, clock_max)
+
   CALL CPU_TIME( t2 )
   
+  !$omp taskwait
   !$omp end target data  
 
   IF ( rank == 0 ) THEN
@@ -297,28 +277,71 @@ END PROGRAM miniApp
 
 
 SUBROUTINE EOS(ie,rho,p,T,nx,ny,nz)
+  USE LES_ompsync, ONLY : sync_var
+  IMPLICIT NONE
   INTEGER, INTENT(IN) :: nx,ny,nz
   DOUBLE PRECISION, DIMENSION(nx,ny,nz), INTENT(IN) :: ie,rho
   DOUBLE PRECISION, DIMENSION(nx,ny,nz), INTENT(OUT) :: p,t
   DOUBLE PRECISION, DIMENSION(nx,ny,nz) :: tmp1,tmp2
   DOUBLE PRECISION :: gamma = 1.4
+  integer :: ifunr,jfunr,kfunr,nfunr 
 
-  !$omp target data map(alloc:tmp1,tmp2)
+  !$omp target enter data map(alloc:tmp1,tmp2) nowait depend(inout:sync_var)
+  !!$omp taskwait
 
-
-!$omp target teams distribute parallel do collapse(3)
+  !$omp target teams distribute parallel do collapse(3) nowait depend(inout:sync_var)
   do kfunr=1,size(p,3)
-    do jfunr=1,size(p,2)
-      do ifunr=1,size(p,1)
-        p(ifunr,jfunr,kfunr)= ie(ifunr,jfunr,kfunr)/ rho(ifunr,jfunr,kfunr)*(gamma-1.0 )
-        t(ifunr,jfunr,kfunr)= ie(ifunr,jfunr,kfunr)*(gamma )
-      end do
-    end do
+     do jfunr=1,size(p,2)
+        do ifunr=1,size(p,1)
+           p(ifunr,jfunr,kfunr)= ie(ifunr,jfunr,kfunr)/ rho(ifunr,jfunr,kfunr)*(gamma-1.0 )
+           t(ifunr,jfunr,kfunr)= ie(ifunr,jfunr,kfunr)*(gamma )
+        end do
+     end do
   end do
-!$omp end target teams distribute parallel do
-
+  !$omp end target teams distribute parallel do 
   
-  !$omp end target data
-
+  !$omp target exit data map(release:tmp1,tmp2) nowait depend(inout:sync_var)
+  !!$omp taskwait
 
 END SUBROUTINE EOS
+
+
+SUBROUTINE divFoo(fx,fy,fz,df,ax,ay,az)
+    USE LES_ompsync, ONLY : sync_var
+    USE iso_c_binding
+    IMPLICIT NONE
+    INTEGER(c_int), INTENT(IN) :: ax,ay,az 
+    DOUBLE PRECISION, DIMENSION(ax,ay,az), INTENT(IN) :: fx,fy,fz
+    DOUBLE PRECISION, DIMENSION(ax,ay,az), INTENT(OUT) :: df
+    DOUBLE PRECISION, DIMENSION(ax,ay,az) :: fA,fB,fC,tmp
+    INTEGER :: error
+    integer :: ifunr,jfunr,kfunr,nfunr 
+    
+    !$omp target enter data map(alloc:fA,fB,fC,tmp) nowait depend(inout:sync_var)
+
+    !$omp target exit data map(release:fA,fB,fC,tmp) nowait depend(inout:sync_var)
+
+END SUBROUTINE divFoo
+
+!OMP thread-safe reduction operators (maxval,maxloc,minval,minloc)
+DOUBLE PRECISION FUNCTION iMAXVAL3D(var,nx,ny,nz)
+  IMPLICIT NONE
+  INTEGER :: nx,ny,nz
+  DOUBLE PRECISION, DIMENSION(nx,ny,nz) :: var
+  !DOUBLE PRECISION :: iMAXVAL3D
+  INTEGER :: ifunr,jfunr,kfunr
+  
+  
+  iMAXVAL3D = -1.0D100
+  !$omp taskwait
+  !$omp target teams distribute parallel do collapse(3)  reduction(max:iMAXVAL3D)
+  do kfunr=1,size(var,3)
+     do jfunr=1,size(var,2)
+        do ifunr=1,size(var,1)
+           iMAXVAL3D = MAX(iMAXVAL3D, var(ifunr,jfunr,kfunr) )
+        end do
+     end do
+  end do
+  !$omp end target teams distribute parallel do     
+  
+END FUNCTION iMAXVAL3D

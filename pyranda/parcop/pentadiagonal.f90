@@ -1,7 +1,7 @@
 !===================================================================================================
  MODULE LES_pentadiagonal ! pentadiagonal matrix solvers
   USE iso_c_binding
-  !use LES_input, only : gpu_kernel
+  USE LES_ompsync, ONLY : sync_var
 
   interface btrid_block4_lus
     module procedure btrid_block4_lus_al
@@ -633,7 +633,7 @@
     real(kind=c_double), dimension(n1,n2,n3), intent(inout) :: r
     integer(c_int) :: i,j,k
     if( n > n1 ) return
-    !$omp target teams distribute parallel do collapse(2) if(gpu_kernel==1)
+    !$omp target teams distribute parallel do collapse(2) if(gpu_kernel==1) nowait depend(inout:sync_var)
     do k=1,n3
      do j=1,n2
       do i=1,n-2
@@ -691,7 +691,7 @@
     real(kind=c_double), dimension(n1,n2,n3), intent(inout) :: r
     integer(c_int) :: i,j,k
     if( n > n2 ) return
-    !$omp target teams distribute parallel do collapse(2) if(gpu_kernel==1)
+    !$omp target teams distribute parallel do collapse(2) if(gpu_kernel==1) nowait depend(inout:sync_var)
     do k=1,n3
     	do i=1,n1
        	do j=1,n-2
@@ -774,7 +774,7 @@
     real(kind=c_double), dimension(n1,n2,n3), intent(inout) :: r
     integer(c_int) :: i,j,k
     if( n > n3 ) return
-    !$omp target teams distribute parallel do collapse(2) if(gpu_kernel==1)
+    !$omp target teams distribute parallel do collapse(2) if(gpu_kernel==1) nowait depend(inout:sync_var)
     do j=1,n2
      do i=1,n1
     	do k=1,n-2

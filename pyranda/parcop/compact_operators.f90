@@ -2,6 +2,7 @@ module LES_compact_operators
   USE iso_c_binding
   !USE mapp_exosim_annotation, ONLY : exosim_annotation_begin,exosim_annotation_end
   !use les_input, only : gpu_kernel
+  USE LES_ompsync, ONLY : sync_var
   use LES_objects, only : compact_ops=>compact_ptr      ! , mesh_data=>mesh_ptr
 										
   IMPLICIT NONE
@@ -19,7 +20,7 @@ contains
     integer(c_int) :: iop,i,j,k,ax,ay,az
     ax=size(v,1); ay=size(v,2); az=size(v,3)
     !call exosm_annotation_begin("d1x")
-    !$omp target data map(to:v) map(from:dv) if(gpu_kernel==1)			! Okay to leave redundant data maps?
+    ! !$omp target data map(to:v) map(from:dv) if(gpu_kernel==1)			! Okay to leave redundant data maps?
     ! perform operation?
     if( compact_ops%control%null_opx ) then
       !$omp target teams distribute parallel do collapse(3) if(gpu_kernel==1)
@@ -38,14 +39,14 @@ contains
    	call compact_ops%d1x(iop)%evalx(ax,ay,az,v,dv,vb1,vb2)
 
     ! apply metric here or later? here d is scalar or size(dv,1)
-    !$omp target teams distribute parallel do collapse(2) if(gpu_kernel==1)
+    !$omp target teams distribute parallel do collapse(2) if(gpu_kernel==1) nowait depend(inout:sync_var)
     do k=1,az; do j=1,ay
      dv(:,j,k) = dv(:,j,k)/compact_ops%dx
      ! dv = dv/mesh_data%d1  ! 3D metric
     enddo; enddo
 		!$omp end target teams distribute parallel do
 		end if
-		!$omp end target data
+		! !$omp end target data
 		!call exosm_annotation_end("d1x")
   end subroutine d1x
 
@@ -58,7 +59,7 @@ contains
     integer(c_int) :: iop,i,j,k,ax,ay,az
     !call exosm_annotation_begin("d1y")
     ax=size(v,1); ay=size(v,2); az=size(v,3)
-    !$omp target data map(to:v) map(from:dv) if(gpu_kernel==1)			! Okay to leave redundant data maps?
+    ! !$omp target data map(to:v) map(from:dv) if(gpu_kernel==1)			! Okay to leave redundant data maps?
     ! perform operation?
     if( compact_ops%control%null_opy ) then
       !$omp target teams distribute parallel do collapse(3) if(gpu_kernel==1)
@@ -77,14 +78,14 @@ contains
     call compact_ops%d1y(iop)%evaly(ax,ay,az,v,dv,vb1,vb2)
     
     ! apply metric here or later? here d is scalar or size(dv,2)
-    !$omp target teams distribute parallel do collapse(2) if(gpu_kernel==1)
+    !$omp target teams distribute parallel do collapse(2) if(gpu_kernel==1) nowait depend(inout:sync_var)
     do k=1,az; do i=1,ax
      dv(i,:,k) = dv(i,:,k)/compact_ops%dy
      !  dv = dv/mesh_data%d2  ! 3D metric
     enddo; enddo
 		!$omp end target teams distribute parallel do
     end if
-		!$omp end target data
+		! !$omp end target data
 		!call exosm_annotation_end("d1y")
   end subroutine d1y
 
@@ -97,7 +98,7 @@ contains
     integer(c_int) :: iop,i,j,k,ax,ay,az
     !call exosm_annotation_begin("d1z")
     ax=size(v,1); ay=size(v,2); az=size(v,3)
-    !$omp target data map(to:v) map(from:dv) if(gpu_kernel==1)			! Okay to leave redundant data maps?
+    ! !$omp target data map(to:v) map(from:dv) if(gpu_kernel==1)			! Okay to leave redundant data maps?
     ! perform operation?
     if( compact_ops%control%null_opz ) then
       !$omp target teams distribute parallel do collapse(3) if(gpu_kernel==1)
@@ -116,14 +117,14 @@ contains
       call compact_ops%d1z(iop)%evalz(ax,ay,az,v,dv,vb1,vb2)
 		  
 		  ! apply metric here or later? here d is scalar or size(dv,3)
-      !$omp target teams distribute parallel do collapse(2) if(gpu_kernel==1)
+      !$omp target teams distribute parallel do collapse(2) if(gpu_kernel==1) nowait depend(inout:sync_var)
       do j=1,ay;	do i=1,ax
        dv(i,j,:) = dv(i,j,:)/compact_ops%dz
        ! dv = dv/mesh_data%d3  ! 3D metric
       enddo; enddo
 		  !$omp end target teams distribute parallel do
     end if
-		!$omp end target data
+		!! $omp end target data
 		!call exosm_annotation_end("d1z")
   end subroutine d1z
 
