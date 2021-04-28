@@ -1,18 +1,7 @@
 PROGRAM miniApp
 
   USE iso_c_binding
-  USE LES_compact, ONLY : compact_type
-  USE LES_patch, ONLY : patch_type
-  USE LES_comm, ONLY : comm_type, LES_comm_world
-  USE LES_mesh, ONLY : mesh_type
-  USE LES_objects
-  USE parcop, ONLY : setup,ddx,point_to_objects,setup_mesh,grad,filter,div
-#ifdef fexlpool
-  USE LES_ompsync
-#else
   USE LES_ompsync, ONLY : sync_var
-#endif
-
   IMPLICIT NONE
   INCLUDE "mpif.h"
 
@@ -112,10 +101,6 @@ PROGRAM miniApp
 
   simtime = 0.0D0
 
-  ! Setup matrices/solvers
-  CALL setup(0,0,MPI_COMM_WORLD,nx,ny,nz,px,py,pz,0,x1,xn,y1,yn,z1,zn,bx1,bxn,by1,byn,bz1,bzn)
-  CALL setup_mesh(0,0)
-  CALL point_to_objects(0,0)
 
   ax = nx / px
   ay = ny / py
@@ -159,18 +144,17 @@ PROGRAM miniApp
 
   ! Initialize some profiles
   ! rho = x
-  rad = SQRT( ( mesh_ptr%xgrid - 0.5 )**2 + ( mesh_ptr%ygrid - 0.5 )**2 + ( mesh_ptr%zgrid - 0.5 )**2 )
+  rad = 0.0D0 !SQRT( ( mesh_ptr%xgrid - 0.5 )**2 + ( mesh_ptr%ygrid - 0.5 )**2 + ( mesh_ptr%zgrid - 0.5 )**2 )
   rho = (1.0 - TANH( (rad - .25 ) / .05 ))*0.5 + 1.0
   u = 1.0
   v = 0.0
   w = 0.0
   ie = 1.0
 
-  CALL EOS(ie,rho,p,t,patch_ptr%ax,patch_ptr%ay,patch_ptr%az)
   
-  ! Persistent Data Map.. should always be on the device
-  !$omp target data map(tofrom:rho,u,v,w,et,p,rad,T,ie) &
-  !$omp             map(tofrom:mesh_ptr%GridLen,RHS)
+  ! Persistent Data Map.. should always be on the device for all iterations
+  !$omp target enter data map(to:rho,u,v,w,et,p,rad,T,ie) &
+  !$omp                   map(to:RHS) nowait depend(inout:sync_var)
 
   
   ! Time the derivatives
@@ -183,7 +167,6 @@ PROGRAM miniApp
 
      ! Temp. memory
      !$omp target enter data map(alloc:Fx,Fy,Fz,tx,ty,tz,tmp,bar,Fxx,Fyx,Fzx,Fxy,Fyy,Fzy,Fxz,Fyz,Fzz)  nowait depend(inout:sync_var)
-     ! !$omp taskwait     
      
      CALL CPU_TIME( t4 )
        
@@ -201,7 +184,7 @@ PROGRAM miniApp
      !$omp end target teams distribute parallel do
 
      
-     CALL EOS(ie,rho,p,t,patch_ptr%ax,patch_ptr%ay,patch_ptr%az)
+     CALL EOS(ie,rho,p,t,ax,ay,az)
 
      ! Rest u
      !$omp target teams distribute parallel do collapse(3) nowait depend(inout:sync_var)
@@ -229,9 +212,7 @@ PROGRAM miniApp
      end do
      !$omp end target teams distribute parallel do
      
-     !! $omp taskwait
-     CALL divFoo(Fx,Fy,Fz,RHS(:,:,:,1),patch_ptr%ax,patch_ptr%ay,patch_ptr%az)
-
+     CALL divFoo(Fx,Fy,Fz,RHS(:,:,:,1),ax,ay,az)
 
      !$omp target teams distribute parallel do collapse(3) nowait depend(inout:sync_var)
      do kfunr=1,size(u,3)
@@ -245,15 +226,15 @@ PROGRAM miniApp
     
 
      !$omp target exit data map(release:Fx,Fy,Fz,tx,ty,tz,tmp,bar,Fxx,Fyx,Fzx,Fxy,Fyy,Fzy,Fxz,Fyz,Fzz) nowait depend(inout:sync_var)
-     !! $omp taskwait
    
   END DO
 
 
   CALL CPU_TIME( t2 )
   
-  !$omp taskwait
-  !$omp end target data  
+  !$omp target exit data map(from:rho,u,v,w,et,p,rad,T,ie) &
+  !$omp                  map(from:RHS) nowait depend(inout:sync_var)
+
 
   IF ( rank == 0 ) THEN
      print*,'Ellapsed time = ', real(t2-t1) !/ real(clock_rate)
@@ -262,9 +243,7 @@ PROGRAM miniApp
      print*,'Answer = ' , real( answer )
   END IF
 
-  CALL remove_objects(0,0)
   CALL MPI_FINALIZE(mpierr)
-
 
     
   
@@ -284,7 +263,6 @@ SUBROUTINE EOS(ie,rho,p,T,nx,ny,nz)
   integer :: ifunr,jfunr,kfunr,nfunr 
 
   !$omp target enter data map(alloc:tmp1,tmp2) nowait depend(inout:sync_var)
-  !!$omp taskwait
 
   !$omp target teams distribute parallel do collapse(3) nowait depend(inout:sync_var)
   do kfunr=1,size(p,3)
@@ -298,7 +276,6 @@ SUBROUTINE EOS(ie,rho,p,T,nx,ny,nz)
   !$omp end target teams distribute parallel do 
   
   !$omp target exit data map(release:tmp1,tmp2) nowait depend(inout:sync_var)
-  !!$omp taskwait
 
 END SUBROUTINE EOS
 

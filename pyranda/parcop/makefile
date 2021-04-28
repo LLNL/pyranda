@@ -108,8 +108,8 @@ test_pent: libparcop.a parcop.o test_pent.o
 miniApp: libparcop.a parcop.o miniApp.o
 	$(mpif90) miniApp.o parcop.o libparcop.a -o $@
 
-miniAppGPU: libparcop.a parcop.o miniApp.o
-	$(mpif90) $(ibm.linkflags) miniApp.o parcop.o libparcop.a -o $@
+miniAppGPU: ompsync.o miniApp.o
+	$(mpif90) $(ibm.linkflags) miniApp.o ompsync.o -o $@
 
 info:
 	@echo "sys_type:  $(sys_type)"
