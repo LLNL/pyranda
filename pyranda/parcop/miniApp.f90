@@ -243,9 +243,6 @@ PROGRAM miniApp
      end do
      !$omp end target teams distribute parallel do
     
-     !dummy = 1.0 / iMAXVAL3D(u,size(u,1),size(u,2),size(u,3))
-     !! $omp taskwait
-
 
      !$omp target exit data map(release:Fx,Fy,Fz,tx,ty,tz,tmp,bar,Fxx,Fyx,Fzx,Fxy,Fyy,Fzy,Fxz,Fyz,Fzz) nowait depend(inout:sync_var)
      !! $omp taskwait
@@ -319,29 +316,20 @@ SUBROUTINE divFoo(fx,fy,fz,df,ax,ay,az)
     
     !$omp target enter data map(alloc:fA,fB,fC,tmp) nowait depend(inout:sync_var)
 
+
+    !$omp target teams distribute parallel do collapse(3) nowait depend(inout:sync_var)
+    do kfunr=1,size(df,3)
+       do jfunr=1,size(df,2)
+          do ifunr=1,size(df,1)
+             df(ifunr,jfunr,kfunr)= fA(ifunr,jfunr,kfunr)+ fB(ifunr,jfunr,kfunr)+ fC(ifunr,jfunr,kfunr)
+          end do
+       end do
+    end do
+    !$omp end target teams distribute parallel do
+
+
     !$omp target exit data map(release:fA,fB,fC,tmp) nowait depend(inout:sync_var)
 
 END SUBROUTINE divFoo
 
-!OMP thread-safe reduction operators (maxval,maxloc,minval,minloc)
-DOUBLE PRECISION FUNCTION iMAXVAL3D(var,nx,ny,nz)
-  IMPLICIT NONE
-  INTEGER :: nx,ny,nz
-  DOUBLE PRECISION, DIMENSION(nx,ny,nz) :: var
-  !DOUBLE PRECISION :: iMAXVAL3D
-  INTEGER :: ifunr,jfunr,kfunr
-  
-  
-  iMAXVAL3D = -1.0D100
-  !$omp taskwait
-  !$omp target teams distribute parallel do collapse(3)  reduction(max:iMAXVAL3D)
-  do kfunr=1,size(var,3)
-     do jfunr=1,size(var,2)
-        do ifunr=1,size(var,1)
-           iMAXVAL3D = MAX(iMAXVAL3D, var(ifunr,jfunr,kfunr) )
-        end do
-     end do
-  end do
-  !$omp end target teams distribute parallel do     
-  
-END FUNCTION iMAXVAL3D
+
