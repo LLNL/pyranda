@@ -20,3 +20,6 @@ This error appears to be an issue with dependencies not being tracked correctly 
 
 Best guess on cause is that the 'nowait' on the openmp target exit data map inside the two subroutines 'EOS' and 'divFoo' is causing an issue.
 The code will run if barriers are introduced at the end of these two subroutines.
+
+Note:
+Adding barriers IN FRONT of the subroutine calls also allows code to run... but its unclear WHY.
