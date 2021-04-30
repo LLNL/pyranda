@@ -18,4 +18,5 @@ Previous map [0x7fffffff7e30, 0x7fffffff7e97] len=104 :
 
 This error appears to be an issue with dependencies not being tracked correctly when returning from a subroutine.
 
-Error goes away if the 'EOS' subroutine is manually inlined.  See miniApp.EOS.inlined.f90 for example of inlined EOS subroutine.
+Best guess on cause is that the 'nowait' on the openmp target exit data map inside the two subroutines 'EOS' and 'divFoo' is causing an issue.
+The code will run if barriers are introduced at the end of these two subroutines.

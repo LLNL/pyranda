@@ -183,7 +183,6 @@ PROGRAM miniApp
      end do
      !$omp end target teams distribute parallel do
 
-     
      CALL EOS(ie,rho,p,t,ax,ay,az)
 
      ! Rest u
@@ -235,7 +234,6 @@ PROGRAM miniApp
   !$omp target exit data map(from:rho,u,v,w,et,p,rad,T,ie) &
   !$omp                  map(from:RHS) nowait depend(inout:sync_var)
 
-
   IF ( rank == 0 ) THEN
      print*,'Ellapsed time = ', real(t2-t1) !/ real(clock_rate)
      print*,'Memory time = ', real(memtime)
@@ -244,12 +242,9 @@ PROGRAM miniApp
   END IF
 
   CALL MPI_FINALIZE(mpierr)
-
     
   
 END PROGRAM miniApp
-
-
 
 
 SUBROUTINE EOS(ie,rho,p,T,nx,ny,nz)
@@ -276,6 +271,10 @@ SUBROUTINE EOS(ie,rho,p,T,nx,ny,nz)
   !$omp end target teams distribute parallel do 
   
   !$omp target exit data map(release:tmp1,tmp2) nowait depend(inout:sync_var)
+
+  ! WORKAROUND - add explicit barrier to ensure data exit data map completes
+  ! before subroutine exits and local arrays go out of scope.
+  !!$omp barrier
 
 END SUBROUTINE EOS
 
@@ -306,6 +305,10 @@ SUBROUTINE divFoo(fx,fy,fz,df,ax,ay,az)
 
 
     !$omp target exit data map(release:fA,fB,fC,tmp) nowait depend(inout:sync_var)
+
+    ! WORKAROUND - add explicit barrier to ensure data exit data map completes
+    ! before subroutine exits and local arrays go out of scope.
+    !!$omp barrier
 
 END SUBROUTINE divFoo
 
