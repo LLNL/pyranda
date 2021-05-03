@@ -5,6 +5,7 @@
   USE LES_objects, ONLY : patch_ptr,mesh_ptr,compact_ptr
   USE LES_compact_operators, ONLY : ddx=>d1x,ddy=>d1y,ddz=>d1z,d2x,d2y,d2z,d8x,d8y,d8z, &
        bppfx=>filterx,bppfy=>filtery,bppfz=>filterz
+  USE LES_ompsync
 !  USE LES_explicit, ONLY : ddx=>ddx,ddy=>ddy,ddz=>ddz,d2x=>ddx,d2y=>ddy,d2z=>ddz, &
 !       d8x=>dd4x,d8y=>dd4y,d8z=>dd4z,bppfx=>xFilter,bppfy=>yFilter,bppfz=>zFilter
 
@@ -42,7 +43,8 @@
     DOUBLE PRECISION, DIMENSION(ax,ay,az), INTENT(OUT) :: df
     DOUBLE PRECISION, DIMENSION(ax,ay,az) :: fA,fB,fC,tmp
     !$DEF-FEXL
-    !$omp target data map(alloc:fA,fB,fC,tmp)
+    !$FEXL {vars_alloc:"fA,fB,fC,tmp"}
+    !$END FEXL
      SELECT CASE(patch_ptr%coordsys)
      CASE(0) ! Cartesian
       CALL ddx(fx,fA,patch_ptr%isymX)
@@ -74,7 +76,7 @@
       df = fA/mesh_ptr%xgrid**2 + (fB + fC)/(mesh_ptr%xgrid*SIN(mesh_ptr%ygrid))
       !$END FEXL
      CASE(3) ! General curvilinear
-      !$FEXL {dim:3,var:['fA','fB','fC','fx','fy','fz','mesh_ptr%dAdx','mesh_ptr%dBdx','mesh_ptr%dCdx','mesh_ptr%dAdy','mesh_ptr%dBdy','mesh_ptr%dCdy','mesh_ptr%dAdz','mesh_ptr%dBdz','mesh_ptr%dCdz','mesh_ptr%detxyz']}
+      !$FEXL {dim:3,var:['fA','fB','fC','fx','fy','fz','mesh_ptr@']}
       fA = (fx*mesh_ptr%dAdx + fy*mesh_ptr%dAdy + fz*mesh_ptr%dAdz)*mesh_ptr%detxyz
       fB = (fx*mesh_ptr%dBdx + fy*mesh_ptr%dBdy + fz*mesh_ptr%dBdz)*mesh_ptr%detxyz
       fC = (fx*mesh_ptr%dCdx + fy*mesh_ptr%dCdy + fz*mesh_ptr%dCdz)*mesh_ptr%detxyz
@@ -89,7 +91,8 @@
       df = (df+tmp)/mesh_ptr%detxyz
       !$END FEXL
      END SELECT
-     !$omp end target data
+     !$FEXL {vars_delete:"fA,fB,fC,tmp"}
+     !$END FEXL
    END SUBROUTINE divV
  
 ! DIVERGENCE OF A TENSOR ===========================================================================
@@ -99,7 +102,8 @@
     DOUBLE PRECISION, DIMENSION(:,:,:), INTENT(OUT) :: dfx,dfy,dfz
     DOUBLE PRECISION, DIMENSION(SIZE(fxx,1),SIZE(fxx,2),SIZE(fxx,3)) :: fA,fB,fC,tmp
     !$DEF-FEXL
-    !$omp target data map(alloc:fA,fB,fC,tmp)
+    !$FEXL {vars_alloc:"fA,fB,fC,tmp"}
+    !$END FEXL
      SELECT CASE(patch_ptr%coordsys)
      CASE(0) ! Cartesian
       CALL ddx(fxx,fA,patch_ptr%isymX**2)
@@ -169,7 +173,8 @@
       CALL divV(fyx,fyy,fyz,dfy,patch_ptr%ax,patch_ptr%ay,patch_ptr%az)
       CALL divV(fzx,fzy,fzz,dfz,patch_ptr%ax,patch_ptr%ay,patch_ptr%az)
      END SELECT
-     !$omp end target data
+     !$FEXL {vars_delete:"fA,fB,fC,tmp"}
+     !$END FEXL
    END SUBROUTINE divT
  
 ! GRADIENT OF A SCALAR =============================================================================
@@ -179,7 +184,8 @@
     DOUBLE PRECISION, DIMENSION(:,:,:), INTENT(OUT) :: dfdx,dfdy,dfdz
     DOUBLE PRECISION, DIMENSION(SIZE(f,1),SIZE(f,2),SIZE(f,3)) :: dfdA,dfdB,dfdC
     !$DEF-FEXL
-    !$omp target data map(alloc:dfdA,dfdB,dfdC)
+    !$FEXL {vars_alloc:"dfdA,dfdB,dfdC"}
+    !$END FEXL
      CALL ddx(f,dfdx)
      CALL ddy(f,dfdy)
      CALL ddz(f,dfdz)
@@ -199,7 +205,8 @@
       dfdy = dfdA*mesh_ptr%dAdy + dfdB*mesh_ptr%dBdy + dfdC*mesh_ptr%dCdy
       dfdz = dfdA*mesh_ptr%dAdz + dfdB*mesh_ptr%dBdz + dfdC*mesh_ptr%dCdz
      END SELECT
-     !$omp end target data
+     !$FEXL {vars_delete:"dfdA,dfdB,dfdC"}
+     !$END FEXL
    END SUBROUTINE gradS
  
 ! GRADIENT OF A VECTOR COMPONENT =============================================================================
@@ -210,7 +217,8 @@
     INTEGER, INTENT(IN) :: vc
     DOUBLE PRECISION, DIMENSION(SIZE(f,1),SIZE(f,2),SIZE(f,3)) :: dfdA,dfdB,dfdC
     !$DEF-FEXL
-    !$omp target data map(alloc:dfdA,dfdB,dfdC)
+    !$FEXL {vars_alloc:"dfdA,dfdB,dfdC"}
+    !$END FEXL 
      SELECT CASE( vc )
      CASE( 1 )
        CALL ddx(f,dfdx,patch_ptr%isymX); CALL ddy(f,dfdy);                 CALL ddz(f,dfdz)
@@ -237,7 +245,8 @@
       dfdy = dfdA*mesh_ptr%dAdy + dfdB*mesh_ptr%dBdy + dfdC*mesh_ptr%dCdy
       dfdz = dfdA*mesh_ptr%dAdz + dfdB*mesh_ptr%dBdz + dfdC*mesh_ptr%dCdz
      END SELECT
-     !$omp end target data
+     !$FEXL {vars_delete:"dfdA,dfdB,dfdC"}
+     !$END FEXL
    END SUBROUTINE gradVc
  
 ! GRADIENT OF A TENSOR COMPONENT =============================================================================
@@ -389,11 +398,30 @@
     DOUBLE PRECISION, DIMENSION(:,:,:), INTENT(OUT) :: cx,cy,cz
     DOUBLE PRECISION, DIMENSION(SIZE(fx,1),SIZE(fx,2),SIZE(fx,3)) :: tx,ty,tz,tmp
     INTEGER(c_int) :: isymX,isymY,isymZ
+    !$DEF-FEXL
      isymX = -vsym*patch_ptr%isymX
      isymY = -vsym*patch_ptr%isymY    
      isymZ = -vsym*patch_ptr%isymZ        
      SELECT CASE(patch_ptr%coordsys)
      CASE(0) ! Cartesian
+     ! one could use a single temporary array, or multitask directions
+     ! here the FEXL bits are consolidated
+     !$FEXL {vars_alloc:"tx,ty,tz"}
+     !$END FEXL
+      CALL ddy(fz,cx,isymY)
+      CALL ddz(fy,tx,isymZ)
+      CALL ddz(fx,cy,isymZ)
+      CALL ddx(fz,ty,isymX)
+      CALL ddx(fy,cz,isymX)
+      CALL ddy(fx,tz,isymY)
+      !$FEXL {dim:3,var:['cx','cy','cz','tx','ty','tz']}
+      cx = cx - tx
+      cy = cy - ty
+      cz = cz - tz
+      !$END FEXL
+      !$FEXL {vars_delete:"tx,ty,tz"}
+      !$END FEXL
+#if 0
       CALL ddy(fz,cx,isymY)
       CALL ddz(fy,tx,isymZ)
       cx = cx - tx
@@ -403,46 +431,89 @@
       CALL ddx(fy,cz,isymX)
       CALL ddy(fx,tz,isymY)
       cz = cz - tz
-! NEED TO CHECK THESE SYMMETRY SWITCHES!------------------------------------------------------------      
+#endif
      CASE(1) ! Cylindrical
-      CALL ddy(fz,tmp,isymY)                      !?  
+      !$FEXL {vars_alloc:"tx,ty,tz"}
+      !$END FEXL 
+      !$FEXL {dim:3,var:['tz','fy','mesh_ptr%xgrid']}
+      tz = mesh_ptr%xgrid*fy
+      !$END FEXL
+      CALL ddy(fz,cx,isymY)                       
+      CALL ddz(fy,tx,isymZ)                       
+      CALL ddz(fx,cy,isymZ)                       
+      CALL ddx(fz,ty,isymX**2)                       
+      CALL ddx(tz,cz,isymX**2)                   
+      CALL ddy(fx,tz,isymY)                      
+      !$FEXL {dim:3,var:['cx','cy','cz','tx','ty','tz','mesh_ptr%xgrid']}
+      cx = cx/mesh_ptr%xgrid - tx
+      cy = cy - ty
+      cz = (cz - tz)/mesh_ptr%xgrid
+      !$END FEXL
+      !$FEXL {vars_delete:"tx,ty,tz"}
+      !$END FEXL
+#if 0
+      CALL ddy(fz,tmp,isymY)                       
       cx = tmp/mesh_ptr%xgrid
-      CALL ddz(fy,tx,isymZ)                       !?
+      CALL ddz(fy,tx,isymZ)                       
       cx = cx - tx
-      CALL ddz(fx,cy,isymZ)                       !?
-      CALL ddx(fz,ty,isymX)                       !?
+      CALL ddz(fx,cy,isymZ)                       
+      CALL ddx(fz,ty,isymX**2)                       
       cy = cy - ty
       cz = mesh_ptr%xgrid*fy
-      CALL ddx(cz,tmp,isymX**2)                   !??
+      CALL ddx(cz,tmp,isymX**2)                   
       cz = tmp/mesh_ptr%xgrid
-      CALL ddy(fx,tmp,isymY)                      !?
+      CALL ddy(fx,tmp,isymY)                      
       tz = tmp/mesh_ptr%xgrid
       cz = cz - tz
-     CASE(2) ! Spherical
-      ! *** Does sin(mesh_ptr%ygrid) generate isymY factor? ***
+#endif
+   CASE(2) ! Spherical
+      !$FEXL {vars_alloc:"tx,ty,tz"}
+      !$END FEXL 
+      !$FEXL {dim:3,var:['tx','ty','tz','fy','fz','mesh_ptr%xgrid','mesh_ptr%ygrid']}
+      tx = fz*SIN(mesh_ptr%ygrid)
+      ty = mesh_ptr%xgrid*fz
+      tz = mesh_ptr%xgrid*fy
+      !$END FEXL
+      CALL ddy(tx,cx,isymY)
+      CALL ddz(fy,tx,isymZ)                      
+      CALL ddx(ty,cy,isymX)
+      CALL ddz(fx,ty,isymZ)                      
+      CALL ddx(tz,cz,isymX)               
+      CALL ddy(fx,tz,isymY)                 
+      !$FEXL {dim:3,var:['cx','cy','cz','tx','ty','tz','mesh_ptr%xgrid','mesh_ptr%ygrid']}
+      cx = (cx - tx)/(mesh_ptr%xgrid*SIN(mesh_ptr%ygrid))
+      cy = (ty/SIN(mesh_ptr%ygrid) - cy)/mesh_ptr%xgrid
+      cz = (cz - tz)/mesh_ptr%xgrid
+      !$END FEXL
+      !$FEXL {vars_delete:"tx,ty,tz"}
+      !$END FEXL
+#if 0
       cx = fz*SIN(mesh_ptr%ygrid)
-      CALL ddy(cx,tmp,isymY**2)                   !??
+      CALL ddy(cx,tmp,isymY)                   
       cx = tmp/(mesh_ptr%xgrid*SIN(mesh_ptr%ygrid))
-      CALL ddz(fy,tmp,isymZ)                      !?
+      CALL ddz(fy,tmp,isymZ)                      
       tx = tmp/(mesh_ptr%xgrid*SIN(mesh_ptr%ygrid))
       cx = cx - tx
-      CALL ddz(fx,tmp,isymZ)                      !?
+      CALL ddz(fx,tmp,isymZ)                      
       cy = tmp/(mesh_ptr%xgrid*SIN(mesh_ptr%ygrid))
       ty = mesh_ptr%xgrid*fz
-      CALL ddx(ty,tmp,isymX**2)                   !??
+      CALL ddx(ty,tmp,isymX)                      
       ty = tmp/mesh_ptr%xgrid
       cy = cy - ty
       cz = mesh_ptr%xgrid*fy
-      CALL ddx(cz,tmp,isymX**2)                   !??
+      CALL ddx(cz,tmp,isymX)               
       cz = tmp/mesh_ptr%xgrid
-      CALL ddy(fx,tmp,isymY)                      !?
+      CALL ddy(fx,tmp,isymY)                 
       tz = tmp/mesh_ptr%xgrid
       cz = cz - tz
+#endif
 !---------------------------------------------------------------------------------------------------      
      CASE(3) ! Hack to avoid NANs in cylinder_curvy.csv file
+      !$FEXL {dim:3,var:['cx','cy','cz']}
       cx = 0.0D0
       cy = 0.0D0
       cz = 0.0D0      
+      !$END FEXL
      END SELECT
    END SUBROUTINE curlV
  
@@ -502,7 +573,8 @@
     DOUBLE PRECISION, DIMENSION(:,:,:), INTENT(OUT) :: Lapf
     DOUBLE PRECISION, DIMENSION(SIZE(f,1),SIZE(f,2),SIZE(f,3)) :: tmp,dum
     !$DEF-FEXL
-    !$omp target data map(alloc:tmp,dum)
+    !$FEXL {vars_alloc:"tmp,dum"}
+    !$END FEXL
 ! SYMMETRY SWITCHES?--------------------------------------------------------------------------------    
      SELECT CASE(patch_ptr%coordsys)
      CASE(0) ! Cartesian
@@ -544,7 +616,8 @@
       dum = tmp/(mesh_ptr%xgrid*SIN(mesh_ptr%ygrid))**2
       Lapf = Lapf+dum
    END SELECT
-     !$omp end target data
+   !$FEXL {vars_delete:"tmp,dum"}
+   !$END FEXL
    END SUBROUTINE LapS
  
 ! LAPLACIAN OF A VECTOR ============================================================================ 
@@ -606,7 +679,8 @@
     DOUBLE PRECISION, DIMENSION(SIZE(f,1),SIZE(f,2),SIZE(f,3)) :: ring1,ring2,ring3
     !$DEF-FEXL
     !CALL exosim_annotation_begin("operators.ringS")
-    !$omp target data map(alloc:ring1,ring2,ring3)    
+    !$FEXL {vars_alloc:"ring1,ring2,ring3"}
+    !$END FEXL
      CALL ringx(f,ring1)
      CALL ringy(f,ring2)
      CALL ringz(f,ring3)
@@ -624,7 +698,9 @@
         fbar = MAX(ABS(ring1)*mesh_ptr%d1**2,ABS(ring2)*mesh_ptr%d2**2,ABS(ring3)*mesh_ptr%d3**2)
         !$END FEXL
      END SELECT
-     !$omp end target data 
+     !$FEXL {vars_delete:"ring1,ring2,ring3"}
+     !$END FEXL
+
      !CALL exosim_annotation_end("operators.ringS")
    END SUBROUTINE ringS
      
@@ -633,54 +709,75 @@
     DOUBLE PRECISION, DIMENSION(:,:,:), INTENT(IN) :: f,g,h
     DOUBLE PRECISION, DIMENSION(:,:,:), INTENT(OUT) :: fbar
     INTEGER,                            INTENT(IN) :: L
-    !DOUBLE PRECISION, DIMENSION(SIZE(f,1),SIZE(f,2),SIZE(f,3)) :: ringV
-    DOUBLE PRECISION, DIMENSION(SIZE(f,1),SIZE(f,2),SIZE(f,3)) :: ringxL,ringyL,ringzL
-    DOUBLE PRECISION, DIMENSION(SIZE(f,1),SIZE(f,2),SIZE(f,3)) :: ringx1,ringy1,ringz1
-    DOUBLE PRECISION, DIMENSION(SIZE(f,1),SIZE(f,2),SIZE(f,3)) :: ringx2,ringy2,ringz2
-    DOUBLE PRECISION, DIMENSION(SIZE(f,1),SIZE(f,2),SIZE(f,3)) :: ringx3,ringy3,ringz3
+    DOUBLE PRECISION, DIMENSION(SIZE(f,1),SIZE(f,2),SIZE(f,3)) :: ring1,ring2,ring3
     !$DEF-FEXL
+    
+    
     !CALL exosim_annotation_begin("operators.ringV")
-    !$omp target data map(alloc:ringx1,ringx2,ringx3) & 
-    !$omp             map(alloc:ringy1,ringy2,ringy3) &  
-    !$omp             map(alloc:ringz1,ringz2,ringz3) &
-    !$omp             map(alloc:ringxL,ringyL,ringzL)
-
-     CALL ringx(f,ringx1,patch_ptr%isymX)
-     CALL ringy(f,ringy1)
-     CALL ringz(f,ringz1)
-
-     CALL ringx(g,ringx2)
-     CALL ringy(g,ringy2,patch_ptr%isymY)
-     CALL ringz(g,ringz2)
-
-     CALL ringx(h,ringx3)
-     CALL ringy(h,ringy3)
-     CALL ringz(h,ringz3,patch_ptr%isymZ)
-
+    !$FEXL {vars_alloc:"ring1,ring2,ring3"}
+    !$END FEXL
      SELECT CASE(L)
      CASE(0)
-        !$FEXL {dim:3,var:['fbar','ringxL','ringyL','ringzL','ringx1','ringy1','ringz1','ringx2','ringy2','ringz2','ringx3','ringy3','ringz3']}
-        ringxL = MAX(ABS(ringx1)   ,ABS(ringx2)     ,ABS(ringx3)  )
-        ringyL = MAX(ABS(ringy1)   ,ABS(ringy2)     ,ABS(ringy3)  )
-        ringzL = MAX(ABS(ringz1)   ,ABS(ringz2)     ,ABS(ringz3)  )
-        fbar   = MAX(ringxL,ringyL,ringzL)
+        CALL ringx(f,ring1,patch_ptr%isymX)
+        CALL ringx(g,ring2)
+        CALL ringx(h,ring3)
+        !$FEXL {dim:3,var:['fbar','ring1','ring2','ring3']}
+        fbar = MAX(ABS(ring1)   ,ABS(ring2)     ,ABS(ring3)  )
+        !$END FEXL
+        CALL ringy(f,ring1)
+        CALL ringy(g,ring2,patch_ptr%isymY)
+        CALL ringy(h,ring3)
+        !$FEXL {dim:3,var:['fbar','ring1','ring2','ring3']}
+        fbar = MAX(fbar, MAX(ABS(ring1)   ,ABS(ring2)     ,ABS(ring3)  ) )
+        !$END FEXL
+        CALL ringz(f,ring1)
+        CALL ringz(g,ring2)
+        CALL ringz(h,ring3,patch_ptr%isymZ)
+        !$FEXL {dim:3,var:['fbar','ring1','ring2','ring3']}
+        fbar   = MAX(fbar,MAX(ABS(ring1),ABS(ring2),ABS(ring3)))
         !$END FEXL
      CASE(1)
-        !$FEXL {dim:3,var:['fbar','ringxL','ringyL','ringzL','ringx1','ringy1','ringz1','ringx2','ringy2','ringz2','ringx3','ringy3','ringz3','mesh_ptr%d1','mesh_ptr%d2','mesh_ptr%d3']}
-        ringxL = MAX(ABS(ringx1)   ,ABS(ringx2)     ,ABS(ringx3)  )*mesh_ptr%d1
-        ringyL = MAX(ABS(ringy1)   ,ABS(ringy2)     ,ABS(ringy3)  )*mesh_ptr%d2
-        ringzL = MAX(ABS(ringz1)   ,ABS(ringz2)     ,ABS(ringz3)  )*mesh_ptr%d3
-        fbar   = MAX(ringxL,ringyL,ringzL)
+        CALL ringx(f,ring1,patch_ptr%isymX)
+        CALL ringx(g,ring2)
+        CALL ringx(h,ring3)
+        !$FEXL {dim:3,var:['fbar','ring1','ring2','ring3','mesh_ptr%d1']}
+        fbar = MAX(ABS(ring1)   ,ABS(ring2)     ,ABS(ring3)  )*mesh_ptr%d1
+        !$END FEXL
+        CALL ringy(f,ring1)
+        CALL ringy(g,ring2,patch_ptr%isymY)
+        CALL ringy(h,ring3)
+        !$FEXL {dim:3,var:['fbar','ring1','ring2','ring3','mesh_ptr%d2']}
+        fbar = MAX(fbar, MAX(ABS(ring1)   ,ABS(ring2)     ,ABS(ring3)  )*mesh_ptr%d2 )
+        !$END FEXL
+        CALL ringz(f,ring1)
+        CALL ringz(g,ring2)
+        CALL ringz(h,ring3,patch_ptr%isymZ)
+        !$FEXL {dim:3,var:['fbar','ring1','ring2','ring3','mesh_ptr%d3']}
+        fbar   = MAX(fbar,MAX(ABS(ring1),ABS(ring2),ABS(ring3))*mesh_ptr%d3  )
         !$END FEXL
      CASE(2)
-        !$FEXL {dim:3,var:['fbar','ringxL','ringyL','ringzL','ringx1','ringy1','ringz1','ringx2','ringy2','ringz2','ringx3','ringy3','ringz3','mesh_ptr%d1','mesh_ptr%d2','mesh_ptr%d3']}
-        ringxL = MAX(ABS(ringx1)   ,ABS(ringx2)     ,ABS(ringx3)  )*mesh_ptr%d1**2
-        ringyL = MAX(ABS(ringy1)   ,ABS(ringy2)     ,ABS(ringy3)  )*mesh_ptr%d2**2
-        ringzL = MAX(ABS(ringz1)   ,ABS(ringz2)     ,ABS(ringz3)  )*mesh_ptr%d3**2
-        fbar   = MAX(ringxL,ringyL,ringzL)
+        CALL ringx(f,ring1,patch_ptr%isymX)
+        CALL ringx(g,ring2)
+        CALL ringx(h,ring3)
+        !$FEXL {dim:3,var:['fbar','ring1','ring2','ring3','mesh_ptr%d1']}
+        fbar = MAX(ABS(ring1)   ,ABS(ring2)     ,ABS(ring3)  )*mesh_ptr%d1**2
         !$END FEXL
-     END SELECT
-     !$omp end target data
+        CALL ringy(f,ring1)
+        CALL ringy(g,ring2,patch_ptr%isymY)
+        CALL ringy(h,ring3)
+        !$FEXL {dim:3,var:['fbar','ring1','ring2','ring3','mesh_ptr%d2']}
+        fbar = MAX(fbar, MAX(ABS(ring1)   ,ABS(ring2)     ,ABS(ring3)  )*mesh_ptr%d2**2 )
+        !$END FEXL
+        CALL ringz(f,ring1)
+        CALL ringz(g,ring2)
+        CALL ringz(h,ring3,patch_ptr%isymZ)
+        !$FEXL {dim:3,var:['fbar','ring1','ring2','ring3','mesh_ptr%d3']}
+        fbar   = MAX(fbar,MAX(ABS(ring1),ABS(ring2),ABS(ring3))*mesh_ptr%d3**2  )
+        !$END FEXL
+     END SELECT  
+     
+     !$FEXL {vars_delete:"ring1,ring2,ring3"}
+     !$END FEXL
      !CALL exosim_annotation_end("operators.ringV")
    END SUBROUTINE ringV
 
@@ -777,8 +874,10 @@
     INTEGER :: filnum,xasym,yasym,zasym
     !$DEF-FEXL
 
-    !$omp target enter data map(alloc:tmp)
-    
+    !$omp barrier
+    !$FEXL {vars_alloc:"tmp"}
+    !$END FEXL
+
     !$FEXL {dim:3,var:['tmp']}
     tmp = 0.0D0
     !$END FEXL
@@ -788,7 +887,8 @@
        SELECT CASE(component)
        CASE(-1)     ! Do not filter.
          bar = fun
-         !$omp target exit data map(delete:tmp)
+         !$FEXL {vars_delete:"tmp"}
+         !$END FEXL
          RETURN
        CASE(0)      ! symmetric scalar
          xasym =  1
@@ -835,13 +935,15 @@
        CALL bppfx(fun,bar,compact_ptr%control%gfspec,1)
        CALL bppfy(bar,tmp,compact_ptr%control%gfspec,1)
        CALL bppfz(tmp,bar,compact_ptr%control%gfspec,1)
-       !$omp target exit data map(delete:tmp)
+       !$FEXL {vars_delete:"tmp"}
+       !$END FEXL
        RETURN
      !CASE('fourier','Fourier','FOURIER')
      !  CALL sfilterx(fun,bar,1,sharp)
      !  CALL sfiltery(bar,tmp,1,sharp)
      !  CALL sfilterz(tmp,bar,1,sharp)
-     !  !$omp target exit data map(delete:tmp)
+     !  !$ FEXL {vars_delete:"tmp"}
+     !  !$ END FEXL
      !  RETURN
      CASE('spectral','Spectral','SPECTRAL','shrpspct','eightord')
        filnum = compact_ptr%control%sfspec
@@ -878,7 +980,9 @@
        bar = bar/CellBar
      END SELECT
 
-     !$omp target exit data map(delete:tmp)
+     !$FEXL {vars_delete:"tmp"}
+     !$END FEXL
+
    END SUBROUTINE filter
 
   SUBROUTINE filtRands(Nspan,Ni,No,Nbuff, &

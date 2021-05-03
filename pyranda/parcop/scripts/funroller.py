@@ -12,15 +12,20 @@ try:
     fsuff = sys.argv[2]
 except:
     fsuff = ".f"
-    print("Using %s as fortran file suffix" % fsuff)
+    #print("Using %s as fortran file suffix" % fsuff)
 
 try:
     profile = bool(int(sys.argv[3]))
 except:
     profile = True
-    print("Adding profiling tags")
+    #print("Adding profiling tags")
+
+
     
-    
+asyncMode = True #False
+asyncAll = True
+sync_var = "sync_var"
+
 verbose = False #True
 replace = True #False
 
@@ -29,6 +34,9 @@ replace = True #False
 start_unroll = "!$FEXL"
 end_unroll = "!$END FEXL"
 declare_unroll = "!$DEF-FEXL"
+
+# fexl-async macro
+fexl_async = "!$fexl-async"
 
 # Parameters
 MAXLINES = 1e6
@@ -47,6 +55,11 @@ ompStart = """
 ompEnd = """!$omp end target teams distribute parallel do
 
 """
+# Map - target enter|exit data
+ompMap = "!$omp target %s "
+
+## Async option
+ompAsync = " nowait depend(inout:%s) "
 
 newline = "\n"
 
@@ -66,6 +79,13 @@ for line in lines:
     if start_unroll in line:
         has_any = True
         break
+    
+# Also check for async macro
+for line in lines:
+    if ("!$omp " in line) and (fexl_async in line):
+        has_any = True
+    
+    
 if not(has_any):
     #print('funroller - No loops found in %s' % file_name )
     exit()
@@ -94,6 +114,13 @@ class iLoop():
         self.replace = 'replace'
         self.private = 'private'
         self.shared  = 'shared'
+        self.async   = 'async'
+        self.vars_to = "vars_to"
+        self.vars_alloc = "vars_alloc"
+        self.vars_from = "vars_from"
+        self.vars_delete = "vars_delete"
+        self.vars_update_to = "vars_update_to"
+        self.vars_update_from = "vars_update_from"
 
         self.filename = filename
         
@@ -154,7 +181,14 @@ class iLoop():
         replace= self.replace
         private= self.private
         shared = self.shared
-        
+        async  = self.async
+        vars_to     = self.vars_to
+        vars_alloc  = self.vars_alloc
+        vars_from   = self.vars_from
+        vars_delete = self.vars_delete 
+        vars_update_to = self.vars_update_to
+        vars_update_from = self.vars_update_from
+
         
         try:
             unroll = self.loopBody[0]
@@ -179,17 +213,115 @@ class iLoop():
             import pdb
             pdb.set_trace()
 
-        
+        # Make data/target asynchonous
+        extra = ""
+        if ( (async in parms) and asyncMode):
+            extra = ompAsync % parms[async] # Data
 
+        # For asyncAll, override all omp
+        if asyncAll:
+            extra = ompAsync % sync_var
+            
+            
+        omp_map   = ompMap   + extra  #+ newline # Data
+        # nuclear option
+        #omp_map   ="""
+        #!$omp barrier
+        #!$omp taskwait
+        #%s
+        #!$omp taskwait
+        #!$omp barrier""" % omp_map        
+        
+        omp_start = ompStart + extra #+ newline # Compute
+            
+
+        #####################################            
+        # FEXL-DATA + OMP
+        # Look for any data kind
+        if ( (vars_to     in parms) or
+             (vars_from   in parms) or
+             (vars_alloc  in parms) or
+             (vars_delete in parms) or
+             (vars_update_from in parms) or
+             (vars_update_to in parms) ) :
+             
+            # Check for enters/exit/update
+            dataEnter  = (vars_to in parms)    or (vars_alloc in parms)
+            dataExit   = (vars_from in parms)  or (vars_delete in parms)
+            dataUpdate = (vars_update_to in parms) or (vars_update_from in parms)
+
+            #import pdb
+            #pdb.set_trace()
+            
+            # Supports all 3, but goes in order.... exit, enter, update
+            if dataExit:
+                omp_cmd = omp_map % "exit data %s" 
+
+                mapp = ""
+                # From 
+                if ( vars_from in parms ):
+                    mapp += " map(from:%s) " % parms[vars_from]
+                
+                # Delete->release
+                if (vars_delete in parms):
+                    mapp += " map(release:%s) " % parms[vars_delete]
+
+                omp_cmd = omp_cmd % mapp
+                omp_cmd += newline
+
+                # Drop nowait and add barrier after the exit
+                omp_cmd = omp_cmd.replace('nowait','')
+                omp_cmd += "!$omp barrier" + newline
+                
+                new_code.append( omp_cmd )
+
+            if dataEnter:
+                omp_cmd = omp_map % "enter data %s" 
+
+                mapp = ""
+                # To
+                if ( vars_to in parms ):
+                    mapp += " map(to:%s) " % parms[vars_to]
+                
+                # Alloc
+                if (vars_alloc in parms):
+                    mapp += " map(alloc:%s) " % parms[vars_alloc]
+
+                omp_cmd = omp_cmd % mapp
+                omp_cmd += newline
+                new_code.append( omp_cmd )
+
+            if dataUpdate:
+
+                # update to
+                omp_cmd = omp_map % "update %s"
+                if ( vars_update_to in parms ):
+                    omp_cmd = omp_cmd % ( " to(%s) " % parms[vars_update_to] )
+                    omp_cmd += newline
+                    new_code.append( omp_cmd )            
+                
+                # update from
+                omp_cmd = omp_map % "update %"
+                if (vars_update_from in parms):
+                    omp_cmd = omp_cmd % (" from(%s) " % parms[vars_update_from] )
+                    omp_cmd += newline
+                    new_code.append( omp_cmd )
+                    
+            self.newBody = new_code
+            return None
+        
+        #####################################
+        # FEXL-LOOPS + OMP
+            
         # Caliper profiling
         if profile:
             new_code.append(caliperStart % (self.filename,self.start))
-        
+
         # OMP start and other options
         collapse = parms[self.dim]
         if ( fix in parms ):
             collapse -= 1
-        new_code.append(ompStart % collapse)
+        new_code.append(omp_start % collapse)
 
         # OMP private variable list
         if ( private in parms):            
@@ -209,10 +341,7 @@ class iLoop():
 
         # OMP newline
         new_code.append( newline )
-
-            
-
-
+    
 
         # Unrolled header
         my_indices = self.indices[:parms[self.dim]]
@@ -536,7 +665,32 @@ offset = 0
 for loops in myLoops:
     offset += loops.convert(lines,offset)
 
+# Simple global find and replaces here
+for ii in range(len(lines)):
+    # Asynchronous macro switch
+    # !$fexl-async.sync_var  -> nowait depend(sync_var)
+    if ( (asyncMode or asyncAll) and (fexl_async in lines[ii])):
 
+        try:
+
+            if asyncAll:
+                rep   = fexl_async 
+                front = lines[ii].split(rep)[0]
+                var   = sync_var
+                back  = " \n"
+            else:
+                rep   = fexl_async + "."
+                front = lines[ii].split(rep)[0]
+                var   = lines[ii].split(rep)[1].split(".")[0]
+                back  = lines[ii].split(rep)[1].split(".")[1]
+                    
+            wth   = ompAsync % var        
+            lines[ii] = "%s %s %s" % ( front, wth, back )
+            #lines[ii].replace(rep,wth) + ")"
+        except:
+            print("Warning: Line %s of %s is invalid syntax" % (ii,file_name) )
+            print("   %s" %  lines[ii] )
+    
 
 
 if not replace:

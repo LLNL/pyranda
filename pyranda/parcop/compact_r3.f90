@@ -3,6 +3,7 @@ module LES_compact_r3
   USE MPI
   !USE LES_input, ONLY : bpp_lus_opt,use_ppent_opt,directcom,gpu_kernel
   USE LES_stencils
+  USE LES_ompsync
   USE LES_comm,  ONLY : mpierr,mpistatus,master
   use LES_pentadiagonal, ONLY :   ppentlus, &
     bpentLUS3x, ppentLUS3x, bpentLUS3y, ppentLUS3y, bpentLUS3z, ppentLUS3z, &

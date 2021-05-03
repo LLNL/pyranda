@@ -6,6 +6,7 @@ PROGRAM miniApp
   USE LES_comm, ONLY : comm_type, LES_comm_world
   USE LES_mesh, ONLY : mesh_type
   USE LES_objects
+  USE LES_ompsync
   USE parcop, ONLY : setup,ddx,point_to_objects,setup_mesh,grad,filter,div
   IMPLICIT NONE
   INCLUDE "mpif.h"

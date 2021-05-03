@@ -3,6 +3,7 @@ module LES_compact_r4
   USE MPI
   !USE LES_input, ONLY : bpp_lus_opt,use_ppent_opt,directcom,gpu_kernel
   USE LES_stencils
+  USE LES_ompsync
   USE LES_comm,  ONLY : mpierr,mpistatus,master
   use LES_pentadiagonal, ONLY :   ppentlus, &
     bpentLUS3x, ppentLUS3x, bpentLUS3y, ppentLUS3y, bpentLUS3z, ppentLUS3z, &
@@ -47,7 +48,7 @@ contains
     integer :: nor,nir,nr,nol,nl,ni,np,dc  ! surrogates
     IF (op%null_op) THEN
       if( op%null_option == 0 ) then
-      	!$omp target teams distribute parallel do collapse(3) if(gpu_kernel==1)
+      	!$omp target teams distribute parallel do collapse(3) if(gpu_kernel==1)   !$fexl-async   
       	do k=1,az; do j=1,ay; do i=1,ax
       		dv(i,j,k) = zero
       	end do; end do; end do
@@ -55,7 +56,7 @@ contains
       end if
       
       if( op%null_option == 1 ) then
-      	!$omp target teams distribute parallel do collapse(3) if(gpu_kernel==1)
+      	!$omp target teams distribute parallel do collapse(3) if(gpu_kernel==1)   !$fexl-async   
       	do k=1,az; do j=1,ay; do i=1,ax
       		dv(i,j,k) = v(i,j,k)  ! filter / interp
 				end do; end do; end do
@@ -80,13 +81,14 @@ contains
     ! ghost data
 
     if( np > 1 ) then  ! use parallel solver
-    	!$omp target teams distribute parallel do collapse(2) if(gpu_kernel==1)
+    	!$omp target teams distribute parallel do collapse(2) if(gpu_kernel==1)   !$fexl-async   
     	do k=1,az; do j=1,ay
       	vbs2x(1:nor,j,k) = v(ax-3:ax,j,k)
       	vbs1x(1:nor,j,k) = v(1:4,j,k)
       end do; end do
       !$omp end target teams distribute parallel do
       nsr = size(vbs1x)
+      !$omp barrier
       !$omp target data use_device_ptr(vbs1x,vbs2x,vbr1x,vbr2x) if(gpu_kernel==1)
       call MPI_Sendrecv( vbs2x, nsr, MPI_DOUBLE_PRECISION, op%hi, 0, &
                          vbr1x, nsr, MPI_DOUBLE_PRECISION, op%lo, 0, &
@@ -96,7 +98,7 @@ contains
                          op%hash, mpistatus, mpierr )
       !$omp end target data
     else if( op%periodic ) then
-    	!$omp target teams distribute parallel do collapse(2) if(gpu_kernel==1)
+    	!$omp target teams distribute parallel do collapse(2) if(gpu_kernel==1)   !$fexl-async   
     	do k=1,az; do j=1,ay
       	vbr1x(1:nor,j,k) = v(ax-3:ax,j,k)
       	vbr2x(1:nor,j,k) = v(1:4,j,k)
@@ -106,7 +108,7 @@ contains
         
     if( op%lo == MPI_PROC_NULL ) then
       if( op%bc(1) == -1 ) then ! antisymmetric BC, sumr != 0
-    	!$omp target teams distribute parallel do collapse(2) if(gpu_kernel==1)
+    	!$omp target teams distribute parallel do collapse(2) if(gpu_kernel==1)   !$fexl-async   
     	do k=1,az
     	 do j=1,ay
           dv(1,j,k) = sum(op%ar(5:9,1)*v(1:5,j,k))
@@ -117,7 +119,7 @@ contains
     	end do
     	!$omp end target teams distribute parallel do
       else ! symmetric/one-sided BC, assume sumr=0
-    	!$omp target teams distribute parallel do collapse(2) if(gpu_kernel==1)
+    	!$omp target teams distribute parallel do collapse(2) if(gpu_kernel==1)   !$fexl-async   
     	do k=1,az
     	 do j=1,ay
           dv(1,j,k) = sum(op%ar(6:9,1)*(v(2:5,j,k)-v(1,j,k)))
@@ -129,7 +131,7 @@ contains
     	!$omp end target teams distribute parallel do
       endif
     else
-    	!$omp target teams distribute parallel do collapse(2) if(gpu_kernel==1)
+    	!$omp target teams distribute parallel do collapse(2) if(gpu_kernel==1)   !$fexl-async   
     	do k=1,az
     	 do j=1,ay
           dv(1,j,k) = sum(op%ar(1:4,1)*(vbr1x(1:4,j,k)-v(1,j,k)))+sum(op%ar(5:9,1)*(v(1:5,j,k)-v(1,j,k)))
@@ -141,7 +143,7 @@ contains
     	!$omp end target teams distribute parallel do
     endif
 
-    !$omp target teams distribute parallel do collapse(3) private(l,vc) if(gpu_kernel==1)
+    !$omp target teams distribute parallel do collapse(3) private(l,vc) if(gpu_kernel==1)   !$fexl-async   
     do k=1,az
       do j=1,ay
         do i=5,ax-4
@@ -157,7 +159,7 @@ contains
 
     if( op%hi == MPI_PROC_NULL ) then
      if( op%bc(2) == -1 ) then ! antisymmetric BC, sumr != 0
-     !$omp target teams distribute parallel do collapse(2) if(gpu_kernel==1)
+     !$omp target teams distribute parallel do collapse(2) if(gpu_kernel==1)   !$fexl-async   
      do k=1,az
       do j=1,ay
        dv(ax-3,j,k) = sum(op%ar(1:8,ax-3)*v(ax-7:ax,j,k))
@@ -168,7 +170,7 @@ contains
      end do
      !$omp end target teams distribute parallel do
      else ! symmetric/one-sided BC, assume sumr=0
-     !$omp target teams distribute parallel do collapse(2) if(gpu_kernel==1)
+     !$omp target teams distribute parallel do collapse(2) if(gpu_kernel==1)   !$fexl-async   
      do k=1,az
       do j=1,ay
        dv(ax-3,j,k) = sum(op%ar(1:7,ax-3)*(v(ax-7:ax-1,j,k)-v(ax,j,k)))
@@ -180,7 +182,7 @@ contains
      !$omp end target teams distribute parallel do
      endif
     else
-     !$omp target teams distribute parallel do collapse(2) if(gpu_kernel==1)
+     !$omp target teams distribute parallel do collapse(2) if(gpu_kernel==1)   !$fexl-async   
      do k=1,az
       do j=1,ay
        dv(ax-3,j,k) = sum(op%ar(1:8,ax-3)*(v(ax-7:ax,j,k)-v(ax-3,j,k)))+sum(op%ar(9:9,ax-3)*(vbr2x(1:1,j,k)-v(ax-3,j,k)))
@@ -193,14 +195,14 @@ contains
     endif
     ! this is only appropriate for explicit bc
     if( (op%lo == MPI_PROC_NULL) .and. abs(op%bc(1)) /= 1 .and. present(dv1)) then
-     !$omp target teams distribute parallel do collapse(2) if(gpu_kernel==1)
+     !$omp target teams distribute parallel do collapse(2) if(gpu_kernel==1)   !$fexl-async   
      do k=1,az; do j=1,ay
       dv(1,j,k)=dv1(j,k)   ! supply lower solution
      end do; end do
      !$omp end target teams distribute parallel do
     endif
     if( (op%hi == MPI_PROC_NULL) .and. abs(op%bc(2)) /= 1 .and. present(dv2)) then 
-     !$omp target teams distribute parallel do collapse(2) if(gpu_kernel==1)
+     !$omp target teams distribute parallel do collapse(2) if(gpu_kernel==1)   !$fexl-async   
      do k=1,az; do j=1,ay
       dv(ax,j,k)=dv2(j,k)  ! supply upper solution
      end do; end do
@@ -208,7 +210,7 @@ contains
     endif
     if( .not. op%implicit_op ) then
       if( op%null_option == 1 ) then 
-       !$omp target teams distribute parallel do collapse(3) if(gpu_kernel==1)
+       !$omp target teams distribute parallel do collapse(3) if(gpu_kernel==1)   !$fexl-async   
        do k=1,az; do j=1,ay; do i=1,ax
         dv(i,j,k)=dv(i,j,k)+v(i,j,k)  ! filter / interp
        end do; end do; end do
@@ -224,7 +226,7 @@ contains
     endif
     if( np == 1 ) then
       if( op%null_option == 1 ) then 
-       !$omp target teams distribute parallel do collapse(3) if(gpu_kernel==1)
+       !$omp target teams distribute parallel do collapse(3) if(gpu_kernel==1)   !$fexl-async   
        do k=1,az; do j=1,ay; do i=1,ax
         dv(i,j,k)=dv(i,j,k)+v(i,j,k)  ! filter / interp
        end do; end do; end do
@@ -234,7 +236,7 @@ contains
     endif
     ! parallel solver
     if( np > 1 ) then
-      !$omp target teams distribute parallel do collapse(2) if(gpu_kernel==1)
+      !$omp target teams distribute parallel do collapse(2) if(gpu_kernel==1)   !$fexl-async   
       do k=1,az; do j=1,ay;
        do i=1,2
         dvopx(i,j,k) = dv(i,j,k)
@@ -243,14 +245,14 @@ contains
       end do; end do
       !$omp end target teams distribute parallel do
       if( op%lo == MPI_PROC_NULL ) then
-       !$omp target teams distribute parallel do collapse(2) if(gpu_kernel==1)
+       !$omp target teams distribute parallel do collapse(2) if(gpu_kernel==1)   !$fexl-async   
        do k=1,az; do j=1,ay
         dvopx(1:2,j,k) = zero
        end do; end do
        !$omp end target teams distribute parallel do
       end if
       if( op%hi == MPI_PROC_NULL ) then 
-       !$omp target teams distribute parallel do collapse(2) if(gpu_kernel==1)
+       !$omp target teams distribute parallel do collapse(2) if(gpu_kernel==1)   !$fexl-async   
        do k=1,az; do j=1,ay
         dvopx(3:4,j,k) = zero
        end do; end do
@@ -259,6 +261,7 @@ contains
       nsr = size(dvopx)
       select case( dc )
       case( 1 ) ! mpi_allgather
+         !$omp barrier
         !$omp target data use_device_ptr(dvopx,dvox) if(gpu_kernel==1)
         call mpi_allgather(dvopx,nsr,MPI_DOUBLE_PRECISION,dvox,nsr,MPI_DOUBLE_PRECISION,op%hash,mpierr)
         !$omp end target data
@@ -268,14 +271,14 @@ contains
          	call btrid_block4_lus( op%aa, dvox, np, ay, az )	! CPU solve
         endif
         if( op%lo /= MPI_PROC_NULL ) then
-         !$omp target teams distribute parallel do collapse(3) if(gpu_kernel==1)
+         !$omp target teams distribute parallel do collapse(3) if(gpu_kernel==1)   !$fexl-async   
          do k=1,az; do j=1,ay; do i=1,ax
           dv(i,j,k) = dv(i,j,k)-sum(op%rc(i,1:2)*dvox(3:4,j,k,op%lo))
          end do; end do; end do
          !$omp end target teams distribute parallel do
         end if
         if( op%hi /= MPI_PROC_NULL ) then
-         !$omp target teams distribute parallel do collapse(3) if(gpu_kernel==1)
+         !$omp target teams distribute parallel do collapse(3) if(gpu_kernel==1)   !$fexl-async   
          do k=1,az; do j=1,ay; do i=1,ax
           dv(i,j,k) = dv(i,j,k)-sum(op%rc(i,3:4)*dvox(1:2,j,k,op%hi))
          end do; end do; end do
@@ -308,7 +311,7 @@ contains
       end select
       
       if( op%null_option == 1 ) then
-       !$omp target teams distribute parallel do collapse(3) if(gpu_kernel==1)
+       !$omp target teams distribute parallel do collapse(3) if(gpu_kernel==1)   !$fexl-async   
        do k=1,az; do j=1,ay; do i=1,ax
         dv(i,j,k)=dv(i,j,k)+v(i,j,k)  ! filter / interp
        end do; end do; end do
@@ -331,14 +334,14 @@ contains
     integer :: nor,nir,nr,nol,nl,ni,np,dc  ! surrogates
     IF (op%null_op) THEN
       if( op%null_option == 0 ) then
-        !$omp target teams distribute parallel do collapse(3) if(gpu_kernel==1)
+        !$omp target teams distribute parallel do collapse(3) if(gpu_kernel==1)   !$fexl-async   
         do k=1,az; do j=1,ay; do i=1,ax
           dv(i,j,k) = zero
         end do; end do; end do
         !$omp end target teams distribute parallel do
       end if
       if( op%null_option == 1 ) then
-        !$omp target teams distribute parallel do collapse(3) if(gpu_kernel==1)
+        !$omp target teams distribute parallel do collapse(3) if(gpu_kernel==1)   !$fexl-async   
         do k=1,az; do j=1,ay; do i=1,ax
           dv(i,j,k) = v(i,j,k)  ! filter / interp
         end do; end do; end do
@@ -361,13 +364,14 @@ contains
     ! explicit part
     ! ghost data
     if( np > 1 ) then  ! use parallel solver
-      !$omp target teams distribute parallel do collapse(2) if(gpu_kernel==1)
+      !$omp target teams distribute parallel do collapse(2) if(gpu_kernel==1)   !$fexl-async   
       do k=1,az; do i=1,ax
         vbs2y(i,1:nor,k) = v(i,ay-3:ay,k)
         vbs1y(i,1:nor,k) = v(i,1:4,k)
       end do; end do;
       !$omp end target teams distribute parallel do
       nsr = size(vbs1y)
+      !$omp barrier
       !$omp target data use_device_ptr(vbs1y,vbs2y,vbr1y,vbr2y) if(gpu_kernel==1)
       call MPI_Sendrecv( vbs2y, nsr, MPI_DOUBLE_PRECISION, op%hi, 0, &
                          vbr1y, nsr, MPI_DOUBLE_PRECISION, op%lo, 0, &
@@ -377,7 +381,7 @@ contains
                          op%hash, mpistatus, mpierr )
       !$omp end target data
     else if( op%periodic ) then
-      !$omp target teams distribute parallel do collapse(2) if(gpu_kernel==1)
+      !$omp target teams distribute parallel do collapse(2) if(gpu_kernel==1)   !$fexl-async   
       do k=1,az; do i=1,ax
         vbr1y(i,1:nor,k) = v(i,ay-3:ay,k)
         vbr2y(i,1:nor,k) = v(i,1:4,k)
@@ -389,7 +393,7 @@ contains
     
     if( op%lo == MPI_PROC_NULL ) then
      if( op%bc(1) == -1 ) then ! antisymmetric BC, sumr != 0
-      !$omp target teams distribute parallel do collapse(2) if(gpu_kernel==1)
+      !$omp target teams distribute parallel do collapse(2) if(gpu_kernel==1)   !$fexl-async   
       do k=1,az
         do i=1,ax
           dv(i,1,k) = sum(op%ar(5:9,1)*v(i,1:5,k))
@@ -400,7 +404,7 @@ contains
       end do
       !$omp end target teams distribute parallel do
      else ! symmetric/one-sided BC, assume sumr=0
-      !$omp target teams distribute parallel do collapse(2) if(gpu_kernel==1)
+      !$omp target teams distribute parallel do collapse(2) if(gpu_kernel==1)   !$fexl-async   
       do k=1,az
         do i=1,ax
           dv(i,1,k) = sum(op%ar(6:9,1)*(v(i,2:5,k)-v(i,1,k)))
@@ -412,7 +416,7 @@ contains
       !$omp end target teams distribute parallel do
      endif
     else
-      !$omp target teams distribute parallel do collapse(2) if(gpu_kernel==1)
+      !$omp target teams distribute parallel do collapse(2) if(gpu_kernel==1)   !$fexl-async   
       do k=1,az
         do i=1,ax
           dv(i,1,k) = sum(op%ar(1:4,1)*(vbr1y(i,1:4,k)-v(i,1,k)))+sum(op%ar(5:9,1)*(v(i,1:5,k)-v(i,1,k)))
@@ -422,8 +426,9 @@ contains
         end do
       end do
       !$omp end target teams distribute parallel do
-    endif
-    !$omp target teams distribute parallel do collapse(3) private(l,vc) if(gpu_kernel==1)
+   endif
+   
+    !$omp target teams distribute parallel do collapse(3) private(l,vc) if(gpu_kernel==1)   !$fexl-async   
     do k=1,az
       do j=5,ay-4
         do i=1,ax
@@ -434,11 +439,12 @@ contains
           end do
         end do
       end do
-    end do
+   end do
+   
     !$omp end target teams distribute parallel do
     if( op%hi == MPI_PROC_NULL ) then
      if( op%bc(2) == -1 ) then ! antisymmetric BC, sumr != 0
-     !$omp target teams distribute parallel do collapse(2) if(gpu_kernel==1)
+     !$omp target teams distribute parallel do collapse(2) if(gpu_kernel==1)   !$fexl-async   
       do k=1,az
         do i=1,ax
           dv(i,ay-3,k) = sum(op%ar(1:8,ay-3)*v(i,ay-7:ay,k))
@@ -449,7 +455,7 @@ contains
       end do
       !$omp end target teams distribute parallel do
      else ! symmetric/one-sided BC, assume sumr=0
-      !$omp target teams distribute parallel do collapse(2) if(gpu_kernel==1)
+      !$omp target teams distribute parallel do collapse(2) if(gpu_kernel==1)   !$fexl-async   
       do k=1,az
         do i=1,ax
           dv(i,ay-3,k) = sum(op%ar(1:7,ay-3)*(v(i,ay-7:ay-1,k)-v(i,ay,k)))
@@ -461,7 +467,7 @@ contains
       !$omp end target teams distribute parallel do
      endif
     else
-      !$omp target teams distribute parallel do collapse(2) if(gpu_kernel==1)
+      !$omp target teams distribute parallel do collapse(2) if(gpu_kernel==1)   !$fexl-async   
       do k=1,az
         do i=1,ax
           dv(i,ay-3,k) = sum(op%ar(1:8,ay-3)*(v(i,ay-7:ay,k)-v(i,ay-3,k)))+sum(op%ar(9:9,ay-3)*(vbr2y(i,1:1,k)-v(i,ay-3,k)))
@@ -474,14 +480,14 @@ contains
     endif
     ! this is only appropriate for explicit bc
     if( (op%lo == MPI_PROC_NULL) .and. abs(op%bc(1)) /= 1 .and. present(dv1)) then
-      !$omp target teams distribute parallel do collapse(2) if(gpu_kernel==1)
+      !$omp target teams distribute parallel do collapse(2) if(gpu_kernel==1)   !$fexl-async   
       do k=1,az; do i=1,ax
         dv(i,1,k)=dv1(i,k)   ! supply lower solution
       end do; end do;
       !$omp end target teams distribute parallel do
     end if
     if( (op%hi == MPI_PROC_NULL) .and. abs(op%bc(2)) /= 1 .and. present(dv2)) then
-      !$omp target teams distribute parallel do collapse(2) if(gpu_kernel==1)
+      !$omp target teams distribute parallel do collapse(2) if(gpu_kernel==1)   !$fexl-async   
       do k=1,az; do i=1,ax
         dv(i,ay,k)=dv2(i,k)  ! supply upper solution
       end do; end do;
@@ -489,7 +495,7 @@ contains
     end if
     if( .not. op%implicit_op ) then
       if( op%null_option == 1 ) then
-        !$omp target teams distribute parallel do collapse(3) if(gpu_kernel==1)
+        !$omp target teams distribute parallel do collapse(3) if(gpu_kernel==1)   !$fexl-async   
         do k=1,az; do j=1,ay; do i=1,ax
           dv(i,j,k)=dv(i,j,k)+v(i,j,k)  ! filter / interp
         end do; end do; end do
@@ -505,7 +511,7 @@ contains
     endif
     if( np == 1 ) then
       if( op%null_option == 1 ) then
-        !$omp target teams distribute parallel do collapse(3) if(gpu_kernel==1)
+        !$omp target teams distribute parallel do collapse(3) if(gpu_kernel==1)   !$fexl-async   
         do k=1,az; do j=1,ay; do i=1,ax
           dv(i,j,k)=dv(i,j,k)+v(i,j,k)  ! filter / interp
         end do; end do; end do
@@ -514,7 +520,7 @@ contains
       return
     endif
     ! parallel solver
-      !$omp target teams distribute parallel do collapse(2) if(gpu_kernel==1)
+      !$omp target teams distribute parallel do collapse(2) if(gpu_kernel==1)   !$fexl-async   
       do k=1,az; do i=1,ax
         do j=1,2
           dvopy(j,i,k) = dv(i,j,k)
@@ -523,14 +529,14 @@ contains
       end do; end do;
       !$omp end target teams distribute parallel do
       if( op%lo == MPI_PROC_NULL ) then
-        !$omp target teams distribute parallel do collapse(2) if(gpu_kernel==1)
+        !$omp target teams distribute parallel do collapse(2) if(gpu_kernel==1)   !$fexl-async   
         do k=1,az; do i=1,ax
           dvopy(1:2,i,k) = zero
         end do; end do;
         !$omp end target teams distribute parallel do
       end if
       if( op%hi == MPI_PROC_NULL ) then
-        !$omp target teams distribute parallel do collapse(2) if(gpu_kernel==1)
+        !$omp target teams distribute parallel do collapse(2) if(gpu_kernel==1)   !$fexl-async   
         do k=1,az; do i=1,ax
           dvopy(3:4,i,k) = zero
         end do; end do;
@@ -539,6 +545,7 @@ contains
       nsr = size(dvopy)
       select case( dc )
       case( 1 ) ! mpi_allgather
+         !$omp barrier
         !$omp target data use_device_ptr(dvopy,dvoy) if(gpu_kernel==1)
         call mpi_allgather(dvopy,nsr,MPI_DOUBLE_PRECISION,dvoy,nsr,MPI_DOUBLE_PRECISION,op%hash,mpierr)
         !$omp end target data
@@ -548,14 +555,14 @@ contains
           call btrid_block4_lus( op%aa, dvoy, np, ax, az )
         endif
         if( op%lo /= MPI_PROC_NULL ) then
-          !$omp target teams distribute parallel do collapse(3) if(gpu_kernel==1)
+          !$omp target teams distribute parallel do collapse(3) if(gpu_kernel==1)   !$fexl-async   
           do k=1,az; do j=1,ay; do i=1,ax
             dv(i,j,k) = dv(i,j,k)-sum(op%rc(j,1:2)*dvoy(3:4,i,k,op%lo)) 
           end do; end do; end do
           !$omp end target teams distribute parallel do
         end if
         if( op%hi /= MPI_PROC_NULL ) then 
-          !$omp target teams distribute parallel do collapse(3) if(gpu_kernel==1)
+          !$omp target teams distribute parallel do collapse(3) if(gpu_kernel==1)   !$fexl-async   
           do k=1,az; do j=1,ay; do i=1,ax 
             dv(i,j,k) = dv(i,j,k)-sum(op%rc(j,3:4)*dvoy(1:2,i,k,op%hi))
           end do; end do; end do
@@ -609,14 +616,14 @@ contains
     integer :: nor,nir,nr,nol,nl,ni,np,dc  ! surrogates
     IF (op%null_op) THEN
       if( op%null_option == 0 ) then
-      	!$omp target teams distribute parallel do collapse(3) if(gpu_kernel==1)
+      	!$omp target teams distribute parallel do collapse(3) if(gpu_kernel==1)   !$fexl-async   
       	do k=1,az; do j=1,ay; do i=1,ax
           dv(i,j,k) = zero
         end do; end do; end do;
         !$omp end target teams distribute parallel do
       end if
       if( op%null_option == 1 ) then
-      	!$omp target teams distribute parallel do collapse(3) if(gpu_kernel==1)
+      	!$omp target teams distribute parallel do collapse(3) if(gpu_kernel==1)   !$fexl-async   
       	do k=1,az; do j=1,ay; do i=1,ax
       	  dv(i,j,k) = v(i,j,k)  ! filter / interp
       	end do; end do; end do;
@@ -639,13 +646,14 @@ contains
     ! explicit part
     ! ghost data
      if( np > 1 ) then  ! use parallel solver
-      !$omp target teams distribute parallel do collapse(2) if(gpu_kernel==1)
+      !$omp target teams distribute parallel do collapse(2) if(gpu_kernel==1)   !$fexl-async   
       do j=1,ay; do i=1,ax
         vbs2z(i,j,1:nor) = v(i,j,az-3:az)
         vbs1z(i,j,1:nor) = v(i,j,1:4)
       end do; end do;
       !$omp end target teams distribute parallel do
       nsr = size(vbs1z)
+      !$omp barrier
       !$omp target data use_device_ptr(vbs1z,vbs2z,vbr1z,vbr2z) if(gpu_kernel==1)
       call MPI_Sendrecv( vbs2z, nsr, MPI_DOUBLE_PRECISION, op%hi, 0, &
                          vbr1z, nsr, MPI_DOUBLE_PRECISION, op%lo, 0, &
@@ -655,7 +663,7 @@ contains
                          op%hash, mpistatus, mpierr )
       !$omp end target data
     else if( op%periodic ) then
-      !$omp target teams distribute parallel do collapse(2) if(gpu_kernel==1)
+      !$omp target teams distribute parallel do collapse(2) if(gpu_kernel==1)   !$fexl-async   
       do j=1,ay; do i=1,ax
         vbr1z(i,j,1:nor) = v(i,j,az-3:az)
         vbr2z(i,j,1:nor) = v(i,j,1:4)
@@ -666,7 +674,7 @@ contains
 
     if( op%lo == MPI_PROC_NULL ) then
      if( op%bc(1) == -1 ) then ! antisymmetric BC, sumr != 0
-      !$omp target teams distribute parallel do collapse(2) if(gpu_kernel==1)
+      !$omp target teams distribute parallel do collapse(2) if(gpu_kernel==1)   !$fexl-async   
       do j=1,ay
         do i=1,ax
           dv(i,j,1) = sum(op%ar(5:9,1)*v(i,j,1:5))
@@ -677,7 +685,7 @@ contains
       end do
       !$omp end target teams distribute parallel do
      else ! symmetric/one-sided BC, assume sumr=0
-      !$omp target teams distribute parallel do collapse(2) if(gpu_kernel==1)
+      !$omp target teams distribute parallel do collapse(2) if(gpu_kernel==1)   !$fexl-async   
       do j=1,ay
         do i=1,ax
           dv(i,j,1) = sum(op%ar(6:9,1)*(v(i,j,2:5)-v(i,j,1)))
@@ -689,7 +697,7 @@ contains
       !$omp end target teams distribute parallel do
      endif
     else
-      !$omp target teams distribute parallel do collapse(2) if(gpu_kernel==1)
+      !$omp target teams distribute parallel do collapse(2) if(gpu_kernel==1)   !$fexl-async   
       do j=1,ay
         do i=1,ax
           dv(i,j,1) = sum(op%ar(1:4,1)*(vbr1z(i,j,1:4)-v(i,j,1)))+sum(op%ar(5:9,1)*(v(i,j,1:5)-v(i,j,1)))
@@ -700,7 +708,7 @@ contains
       end do
       !$omp end target teams distribute parallel do
     endif
-    !$omp target teams distribute parallel do collapse(3) private(l,vc) if(gpu_kernel==1)
+    !$omp target teams distribute parallel do collapse(3) private(l,vc) if(gpu_kernel==1)   !$fexl-async   
     do k=5,az-4
       do j=1,ay
         do i=1,ax
@@ -715,7 +723,7 @@ contains
     !$omp end target teams distribute parallel do
     if( op%hi == MPI_PROC_NULL ) then
      if( op%bc(2) == -1 ) then ! antisymmetric BC, sumr != 0
-      !$omp target teams distribute parallel do collapse(2) if(gpu_kernel==1)
+      !$omp target teams distribute parallel do collapse(2) if(gpu_kernel==1)   !$fexl-async   
       do j=1,ay
         do i=1,ax
           dv(i,j,az-3) = sum(op%ar(1:8,az-3)*v(i,j,az-7:az))
@@ -726,7 +734,7 @@ contains
       end do
       !$omp end target teams distribute parallel do
      else ! symmetric/one-sided BC, assume sumr=0
-      !$omp target teams distribute parallel do collapse(2) if(gpu_kernel==1)
+      !$omp target teams distribute parallel do collapse(2) if(gpu_kernel==1)   !$fexl-async   
       do j=1,ay
         do i=1,ax
           dv(i,j,az-3) = sum(op%ar(1:7,az-3)*(v(i,j,az-7:az-1)-v(i,j,az)))
@@ -738,7 +746,7 @@ contains
       !$omp end target teams distribute parallel do
      endif
     else
-      !$omp target teams distribute parallel do collapse(2) if(gpu_kernel==1)
+      !$omp target teams distribute parallel do collapse(2) if(gpu_kernel==1)   !$fexl-async   
       do j=1,ay
         do i=1,ax
           dv(i,j,az-3) = sum(op%ar(1:8,az-3)*(v(i,j,az-7:az)-v(i,j,az-3)))+sum(op%ar(9:9,az-3)*(vbr2z(i,j,1:1)-v(i,j,az-3)))
@@ -751,14 +759,14 @@ contains
     endif
     ! this is only appropriate for explicit bc
     if( (op%lo == MPI_PROC_NULL) .and. abs(op%bc(1)) /= 1 .and. present(dv1)) then
-      !$omp target teams distribute parallel do collapse(2) if(gpu_kernel==1)
+      !$omp target teams distribute parallel do collapse(2) if(gpu_kernel==1)   !$fexl-async   
       do j=1,ay; do i=1,ax
         dv(i,j,1)=dv1(i,j)   ! supply lower solution
       end do; end do
       !$omp end target teams distribute parallel do
     end if
     if( (op%hi == MPI_PROC_NULL) .and. abs(op%bc(2)) /= 1 .and. present(dv2)) then
-      !$omp target teams distribute parallel do collapse(2) if(gpu_kernel==1)
+      !$omp target teams distribute parallel do collapse(2) if(gpu_kernel==1)   !$fexl-async   
       do j=1,ay; do i=1,ax
         dv(i,j,az)=dv2(i,j)  ! supply upper solution
       end do; end do
@@ -766,7 +774,7 @@ contains
     end if
     if( .not. op%implicit_op ) then
       if( op%null_option == 1 ) then
-        !$omp target teams distribute parallel do collapse(3) if(gpu_kernel==1)
+        !$omp target teams distribute parallel do collapse(3) if(gpu_kernel==1)   !$fexl-async   
         do k=1,az; do j=1,ay; do i=1,ax
           dv(i,j,k)=dv(i,j,k)+v(i,j,k)  ! filter / interp
         end do; end do; end do;
@@ -782,7 +790,7 @@ contains
     endif
     if( np == 1 ) then
       if( op%null_option == 1 ) then
-        !$omp target teams distribute parallel do collapse(3) if(gpu_kernel==1)
+        !$omp target teams distribute parallel do collapse(3) if(gpu_kernel==1)   !$fexl-async   
         do k=1,az; do j=1,ay; do i=1,ax
           dv(i,j,k)=dv(i,j,k)+v(i,j,k)  ! filter / interp
         end do; end do; end do;
@@ -791,7 +799,7 @@ contains
       return
     endif
     ! parallel solver
-      !$omp target teams distribute parallel do collapse(2) if(gpu_kernel==1)
+      !$omp target teams distribute parallel do collapse(2) if(gpu_kernel==1)   !$fexl-async   
       do j=1,ay; do i=1,ax
         do k=1,2 
           dvopz(k,i,j) = dv(i,j,k)
@@ -800,14 +808,14 @@ contains
       end do; end do
       !$omp end target teams distribute parallel do
       if( op%lo == MPI_PROC_NULL ) then
-        !$omp target teams distribute parallel do collapse(2) if(gpu_kernel==1)
+        !$omp target teams distribute parallel do collapse(2) if(gpu_kernel==1)   !$fexl-async   
         do j=1,ay; do i=1,ax
           dvopz(1:2,i,j) = zero
         end do; end do
         !$omp end target teams distribute parallel do
       end if
       if( op%hi == MPI_PROC_NULL ) then
-        !$omp target teams distribute parallel do collapse(2) if(gpu_kernel==1)
+        !$omp target teams distribute parallel do collapse(2) if(gpu_kernel==1)   !$fexl-async   
         do j=1,ay; do i=1,ax
           dvopz(3:4,i,j) = zero
         end do; end do
@@ -816,6 +824,7 @@ contains
       nsr = size(dvopz)
       select case( dc )
       case( 1 ) ! mpi_allgather
+         !$omp barrier
         !$omp target data use_device_ptr(dvopz,dvoz) if(gpu_kernel==1)
         call mpi_allgather(dvopz,nsr,MPI_DOUBLE_PRECISION,dvoz,nsr,MPI_DOUBLE_PRECISION,op%hash,mpierr)
         !$omp end target data
@@ -825,14 +834,14 @@ contains
           call btrid_block4_lus( op%aa, dvoz, np, ax, ay )
         endif
         if( op%lo /= MPI_PROC_NULL ) then
-          !$omp target teams distribute parallel do collapse(3) if(gpu_kernel==1)
+          !$omp target teams distribute parallel do collapse(3) if(gpu_kernel==1)   !$fexl-async   
           do k=1,az; do j=1,ay; do i=1,ax
             dv(i,j,k) = dv(i,j,k)-sum(op%rc(k,1:2)*dvoz(3:4,i,j,op%lo))
           end do; end do; end do;
           !$omp end target teams distribute parallel do
         end if
         if( op%hi /= MPI_PROC_NULL ) then 
-          !$omp target teams distribute parallel do collapse(3) if(gpu_kernel==1)
+          !$omp target teams distribute parallel do collapse(3) if(gpu_kernel==1)   !$fexl-async   
           do k=1,az; do j=1,ay; do i=1,ax
             dv(i,j,k) = dv(i,j,k)-sum(op%rc(k,3:4)*dvoz(1:2,i,j,op%hi))
           end do; end do; end do;
@@ -864,7 +873,7 @@ contains
         forall(i=1:ax,j=1:ay,k=1:az) dv(i,j,k) = dv(i,j,k)-sum(op%rc(k,:)*dvopz(:,i,j))
       end select
       if( op%null_option == 1 ) then
-        !$omp target teams distribute parallel do collapse(3) if(gpu_kernel==1)
+        !$omp target teams distribute parallel do collapse(3) if(gpu_kernel==1)   !$fexl-async   
         do k=1,az; do j=1,ay; do i=1,ax
           dv(i,j,k)=dv(i,j,k)+v(i,j,k)  ! filter / interp
         end do; end do; end do;

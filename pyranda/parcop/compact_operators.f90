@@ -3,7 +3,7 @@ module LES_compact_operators
   !USE mapp_exosim_annotation, ONLY : exosim_annotation_begin,exosim_annotation_end
   !use les_input, only : gpu_kernel
   use LES_objects, only : compact_ops=>compact_ptr      ! , mesh_data=>mesh_ptr
-										
+  USE LES_ompsync										
   IMPLICIT NONE
   REAL(KIND=c_double), PARAMETER :: zero=0.0_c_double
   INTEGER :: gpu_kernel = 1
