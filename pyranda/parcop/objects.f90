@@ -149,7 +149,7 @@ CONTAINS
      !$omp target enter data map(to:patch_data(patch,level)%ax)
      !$omp target enter data map(to:patch_data(patch,level)%ay)
      !$omp target enter data map(to:patch_data(patch,level)%az)
-     
+     !$omp barrier
    END SUBROUTINE mappCompactData
 
    

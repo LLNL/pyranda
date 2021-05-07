@@ -19,10 +19,9 @@ contains
     integer(c_int) :: iop,i,j,k,ax,ay,az
     ax=size(v,1); ay=size(v,2); az=size(v,3)
     !call exosm_annotation_begin("d1x")
-    !$omp target data map(to:v) map(from:dv) if(gpu_kernel==1)			! Okay to leave redundant data maps?
     ! perform operation?
     if( compact_ops%control%null_opx ) then
-      !$omp target teams distribute parallel do collapse(3) if(gpu_kernel==1)
+      !$omp target teams distribute parallel do collapse(3) if(gpu_kernel==1) !$fexl-async
     	do i=1,ax; do j=1,ay; do k=1,az
       	dv(i,j,k) = zero
      	end do; end do; end do;
@@ -38,15 +37,15 @@ contains
    	call compact_ops%d1x(iop)%evalx(ax,ay,az,v,dv,vb1,vb2)
 
     ! apply metric here or later? here d is scalar or size(dv,1)
-    !$omp target teams distribute parallel do collapse(2) if(gpu_kernel==1)
+    !$omp target teams distribute parallel do collapse(2) if(gpu_kernel==1) !$fexl-async
     do k=1,az; do j=1,ay
      dv(:,j,k) = dv(:,j,k)/compact_ops%dx
      ! dv = dv/mesh_data%d1  ! 3D metric
     enddo; enddo
-		!$omp end target teams distribute parallel do
-		end if
-		!$omp end target data
-		!call exosm_annotation_end("d1x")
+    !$omp end target teams distribute parallel do
+ end if
+ 
+ !call exosm_annotation_end("d1x")
   end subroutine d1x
 
   subroutine d1y(v,dv,bc,vb1,vb2)
@@ -58,10 +57,9 @@ contains
     integer(c_int) :: iop,i,j,k,ax,ay,az
     !call exosm_annotation_begin("d1y")
     ax=size(v,1); ay=size(v,2); az=size(v,3)
-    !$omp target data map(to:v) map(from:dv) if(gpu_kernel==1)			! Okay to leave redundant data maps?
     ! perform operation?
     if( compact_ops%control%null_opy ) then
-      !$omp target teams distribute parallel do collapse(3) if(gpu_kernel==1)
+      !$omp target teams distribute parallel do collapse(3) if(gpu_kernel==1) !$fexl-async
     	do i=1,ax; do j=1,ay; do k=1,az
       	dv(i,j,k) = zero
      	end do; end do; end do;
@@ -76,16 +74,15 @@ contains
     ! calculate grid derivative sans metric
     call compact_ops%d1y(iop)%evaly(ax,ay,az,v,dv,vb1,vb2)
     
-    ! apply metric here or later? here d is scalar or size(dv,2)
-    !$omp target teams distribute parallel do collapse(2) if(gpu_kernel==1)
+    ! apply metric here or later? here d is scalar or size(dv,2) 
+    !$omp target teams distribute parallel do collapse(2) if(gpu_kernel==1) !$fexl-async
     do k=1,az; do i=1,ax
      dv(i,:,k) = dv(i,:,k)/compact_ops%dy
      !  dv = dv/mesh_data%d2  ! 3D metric
     enddo; enddo
-		!$omp end target teams distribute parallel do
+    !$omp end target teams distribute parallel do
     end if
-		!$omp end target data
-		!call exosm_annotation_end("d1y")
+    !call exosm_annotation_end("d1y")
   end subroutine d1y
 
   subroutine d1z(v,dv,bc,vb1,vb2)
@@ -97,10 +94,9 @@ contains
     integer(c_int) :: iop,i,j,k,ax,ay,az
     !call exosm_annotation_begin("d1z")
     ax=size(v,1); ay=size(v,2); az=size(v,3)
-    !$omp target data map(to:v) map(from:dv) if(gpu_kernel==1)			! Okay to leave redundant data maps?
     ! perform operation?
     if( compact_ops%control%null_opz ) then
-      !$omp target teams distribute parallel do collapse(3) if(gpu_kernel==1)
+      !$omp target teams distribute parallel do collapse(3) if(gpu_kernel==1) !$fexl-async
     	do i=1,ax; do j=1,ay; do k=1,az
       	dv(i,j,k) = zero
      	end do; end do; end do;
@@ -116,15 +112,14 @@ contains
       call compact_ops%d1z(iop)%evalz(ax,ay,az,v,dv,vb1,vb2)
 		  
 		  ! apply metric here or later? here d is scalar or size(dv,3)
-      !$omp target teams distribute parallel do collapse(2) if(gpu_kernel==1)
+      !$omp target teams distribute parallel do collapse(2) if(gpu_kernel==1) !$fexl-async
       do j=1,ay;	do i=1,ax
-       dv(i,j,:) = dv(i,j,:)/compact_ops%dz
-       ! dv = dv/mesh_data%d3  ! 3D metric
+         dv(i,j,:) = dv(i,j,:)/compact_ops%dz
+         ! dv = dv/mesh_data%d3  ! 3D metric
       enddo; enddo
-		  !$omp end target teams distribute parallel do
+      !$omp end target teams distribute parallel do
     end if
-		!$omp end target data
-		!call exosm_annotation_end("d1z")
+    !call exosm_annotation_end("d1z")
   end subroutine d1z
 
   subroutine d2x(v,dv,bc,vb1,vb2)
@@ -286,10 +281,9 @@ contains
     integer(c_int) :: iop,i,j,k,ax,ay,az
     !call exosm_annotation_begin("d8x")
     ax=size(v,1); ay=size(v,2); az=size(v,3)
-    !$omp target data map(to:v) map(from:dv) if(gpu_kernel==1)
     ! perform operation?
     if( compact_ops%control%null_opx ) then
-      !$omp target teams distribute parallel do collapse(3) if(gpu_kernel==1)
+      !$omp target teams distribute parallel do collapse(3) if(gpu_kernel==1) !$fexl-async
     	do i=1,ax; do j=1,ay; do k=1,az
       	dv(i,j,k) = zero
      	end do; end do; end do;
@@ -308,7 +302,6 @@ contains
  !   forall(j=1:size(dv,2),k=1:size(dv,3)) dv(:,j,k) = dv(:,j,k)/compact_ops%dx**8
     ! dv = dv/mesh_data%d1**8  ! 3D metric
     end if
-    !$omp end target data
     !call exosm_annotation_end("d8x")
   end subroutine d8x
 
@@ -321,10 +314,9 @@ contains
     integer(c_int) :: iop,i,j,k,ax,ay,az
     !call exosm_annotation_begin("d8y")
     ax=size(v,1); ay=size(v,2); az=size(v,3)
-    !$omp target data map(to:v) map(from:dv) if(gpu_kernel==1)
     ! perform operation?
     if( compact_ops%control%null_opy ) then
-    	!$omp target teams distribute parallel do collapse(3) if(gpu_kernel==1)
+    	!$omp target teams distribute parallel do collapse(3) if(gpu_kernel==1) !$fexl-async
     	do i=1,ax; do j=1,ay; do k=1,az
       	dv(i,j,k) = zero
      	end do; end do; end do;
@@ -343,7 +335,6 @@ contains
  !   forall(i=1:size(dv,1),k=1:size(dv,3)) dv(i,:,k) = dv(i,:,k)/compact_ops%dy**8
     ! dv = dv/mesh_data%d2**8  ! 3D metric
     end if
-    !$omp end target data
     !call exosm_annotation_end("d8y")
   end subroutine d8y
 
@@ -356,10 +347,9 @@ contains
     integer(c_int) :: iop,i,j,k,ax,ay,az
     !call exosm_annotation_begin("d8z")
     ax=size(v,1); ay=size(v,2); az=size(v,3)
-    !$omp target data map(to:v) map(from:dv) if(gpu_kernel==1)
     ! perform operation?
     if( compact_ops%control%null_opz ) then
-      !$omp target teams distribute parallel do collapse(3) if(gpu_kernel==1)
+      !$omp target teams distribute parallel do collapse(3) if(gpu_kernel==1) !$fexl-async
     	do i=1,ax; do j=1,ay; do k=1,az
       	dv(i,j,k) = zero
      	end do; end do; end do;
@@ -378,7 +368,6 @@ contains
 !    forall(i=1:size(dv,1),j=1:size(dv,2)) dv(i,j,:) = dv(i,j,:)/compact_ops%dz**8
     ! dv = dv/mesh_data%d3**8  ! 3D metric
     end if
-    !$omp end target data
     !call exosm_annotation_end("d8z")
   end subroutine d8z
 
@@ -392,10 +381,9 @@ contains
     integer(c_int) :: iop,i,j,k,ax,ay,az
     !call exosm_annotation_begin("filterx")
     ax=size(v,1); ay=size(v,2); az=size(v,3)
-    !$omp target data map(to:v) map(from:fv) if(gpu_kernel==1)
     ! perform operation?
     if( compact_ops%control%null_opx ) then
-      !$omp target teams distribute parallel do collapse(3) if(gpu_kernel==1)
+      !$omp target teams distribute parallel do collapse(3) if(gpu_kernel==1) !$fexl-async 
     	do i=1,ax; do j=1,ay; do k=1,az
         fv(i,j,k) = v(i,j,k)
       end do; end do; end do;
@@ -416,7 +404,6 @@ contains
         call compact_ops%tfx(iop)%evalx(ax,ay,az,v,fv,vb1,vb2)
       end if
     end if
-    !$omp end target data
     !call exosm_annotation_end("filterx")
   end subroutine filterx
 
@@ -430,10 +417,9 @@ contains
     integer(c_int) :: iop,i,j,k,ax,ay,az
     !call exosm_annotation_begin("filtery")
     ax=size(v,1); ay=size(v,2); az=size(v,3)
-    !$omp target data map(to:v) map(from:fv) if(gpu_kernel==1)
     ! perform operation?
     if( compact_ops%control%null_opy ) then
-      !$omp target teams distribute parallel do collapse(3) if(gpu_kernel==1)
+      !$omp target teams distribute parallel do collapse(3) if(gpu_kernel==1) !$fexl-async
     	do i=1,ax; do j=1,ay; do k=1,az
         fv(i,j,k) = v(i,j,k)
       end do; end do; end do;
@@ -454,7 +440,6 @@ contains
         call compact_ops%tfy(iop)%evaly(ax,ay,az,v,fv,vb1,vb2)
       end if
     endif
-    !$omp end target data
     !call exosm_annotation_end("filtery")
   end subroutine filtery
 
@@ -468,19 +453,18 @@ contains
     integer(c_int) :: iop,i,j,k,ax,ay,az
     !call exosm_annotation_begin("filterz")
     ax=size(v,1); ay=size(v,2); az=size(v,3)
-    !$omp target data map(to:v) map(from:fv) if(gpu_kernel==1)
     ! perform operation?
     if( compact_ops%control%null_opz ) then
-      !$omp target teams distribute parallel do collapse(3) if(gpu_kernel==1)
+      !$omp target teams distribute parallel do collapse(3) if(gpu_kernel==1) !$fexl-async
     	do i=1,ax; do j=1,ay; do k=1,az
         fv(i,j,k) = v(i,j,k)
       end do; end do; end do;
       !$omp end target teams distribute parallel do
-    else
+    else 
       ! symmetry option
       iop = 1
       if( present(bc) ) then
-        if( bc > 0 ) iop = bc
+        if( bc > 0 ) iop = bc 
         if( bc == -1 .and. compact_ops%nop(3) > 1 ) iop = 2
       endif
       ! select filter
@@ -492,7 +476,6 @@ contains
         call compact_ops%tfz(iop)%evalz(ax,ay,az,v,fv,vb1,vb2)
       end if
     endif
-    !$omp end target data
     !call exosm_annotation_end("filterz")
   end subroutine filterz
 

@@ -2,7 +2,7 @@
  MODULE LES_pentadiagonal ! pentadiagonal matrix solvers
   USE iso_c_binding
   !use LES_input, only : gpu_kernel
-
+  USE LES_ompsync
   interface btrid_block4_lus
     module procedure btrid_block4_lus_al
   end interface
@@ -188,8 +188,7 @@
     real(kind=c_double), dimension(4,n1,n2,n), intent(inout) :: r
     real(kind=c_double), dimension(4) :: tmp
     integer(c_int) :: i,j,k
-    
-    !$omp target teams if(gpu_kernel==1)
+    !$omp target teams if(gpu_kernel==1) !$fexl-async.sync_var.
     !$omp distribute parallel do collapse(2)
     do j=1,n2
      do i=1,n1
@@ -397,7 +396,7 @@
     real(kind=c_double), dimension(4,n1,n2,n), intent(inout) :: r
     real(kind=c_double), dimension(4) :: tmp
     integer(c_int) :: i,j,k
-    !$omp target teams if(gpu_kernel==1)
+    !$omp target teams if(gpu_kernel==1) !$fexl-async.sync_var.
     if (n > 2) then
     !$omp distribute parallel do collapse(2)
     do j=1,n2
@@ -460,7 +459,7 @@
     real(kind=c_double), dimension(4,n1,n2,n), intent(inout) :: r
     real(kind=c_double), dimension(4) :: tmp
     integer(c_int) :: i,j,k,l
-    !$omp target teams distribute parallel do collapse(2) if(gpu_kernel==1)
+    !$omp target teams distribute parallel do collapse(2) if(gpu_kernel==1) !$fexl-async.sync_var.
     do j=1,n2
      do i=1,n1
       do k=2,n
@@ -471,7 +470,7 @@
      end do ! i
     end do ! j
     !$omp end target teams distribute parallel do
-    !$omp target teams distribute parallel do collapse(2) if(gpu_kernel==1)
+    !$omp target teams distribute parallel do collapse(2) if(gpu_kernel==1) !$fexl-async.sync_var.
     do j=1,n2
      do i=1,n1
       do k=1,n-2
@@ -482,7 +481,7 @@
      end do
     end do
     !$omp end target teams distribute parallel do
-    !$omp target teams distribute parallel do collapse(2) private(tmp) if(gpu_kernel==1)
+    !$omp target teams distribute parallel do collapse(2) private(tmp) if(gpu_kernel==1) !$fexl-async.sync_var.
     do j=1,n2
     do i=1,n1
       do l=1,4
@@ -492,7 +491,7 @@
     end do
     end do
     !$omp end target teams distribute parallel do
-    !$omp target teams distribute parallel do collapse(2) if(gpu_kernel==1)
+    !$omp target teams distribute parallel do collapse(2) if(gpu_kernel==1) !$fexl-async.sync_var.
     do j=1,n2
      do i=1,n1
       do k=n-1,1,-1
@@ -633,7 +632,7 @@
     real(kind=c_double), dimension(n1,n2,n3), intent(inout) :: r
     integer(c_int) :: i,j,k
     if( n > n1 ) return
-    !$omp target teams distribute parallel do collapse(2) if(gpu_kernel==1)
+    !$omp target teams distribute parallel do collapse(2) if(gpu_kernel==1) !$fexl-async.sync_var.
     do k=1,n3
      do j=1,n2
       do i=1,n-2
@@ -659,7 +658,7 @@
     real(kind=c_double) :: tmp1,tmp2
     integer(c_int) :: i,j,k
     if( n > n1 ) return
-    !$omp target teams distribute parallel do collapse(2) private(tmp1,tmp2) if(gpu_kernel==1)
+    !$omp target teams distribute parallel do collapse(2) private(tmp1,tmp2) if(gpu_kernel==1) !$fexl-async.sync_var. 
     do k=1,n3
      do j=1,n2
       r(2,j,k)=r(2,j,k)-c(2,2)*r(1,j,k)
@@ -691,7 +690,7 @@
     real(kind=c_double), dimension(n1,n2,n3), intent(inout) :: r
     integer(c_int) :: i,j,k
     if( n > n2 ) return
-    !$omp target teams distribute parallel do collapse(2) if(gpu_kernel==1)
+    !$omp target teams distribute parallel do collapse(2) if(gpu_kernel==1) !$fexl-async.sync_var.
     do k=1,n3
     	do i=1,n1
        	do j=1,n-2
@@ -742,7 +741,7 @@
     real(kind=c_double) :: tmp1,tmp2
     integer(c_int) :: i,j,k
     if( n > n2 ) return
-    !$omp target teams distribute parallel do collapse(2) private(tmp1,tmp2) if(gpu_kernel==1)
+    !$omp target teams distribute parallel do collapse(2) private(tmp1,tmp2) if(gpu_kernel==1) !$fexl-async.sync_var.
     do k=1,n3
       do i=1,n1
         r(i,2,k) = r(i,2,k)-c(2,2)*r(i,1,k)
@@ -774,7 +773,7 @@
     real(kind=c_double), dimension(n1,n2,n3), intent(inout) :: r
     integer(c_int) :: i,j,k
     if( n > n3 ) return
-    !$omp target teams distribute parallel do collapse(2) if(gpu_kernel==1)
+    !$omp target teams distribute parallel do collapse(2) if(gpu_kernel==1) !$fexl-async.sync_var.
     do j=1,n2
      do i=1,n1
     	do k=1,n-2
@@ -800,7 +799,7 @@
       real(kind=c_double) :: tmp1,tmp2
       integer(c_int) :: i,j,k
       if( n > n3 ) return
-      !$omp target teams distribute parallel do collapse(2) private(tmp1,tmp2) if(gpu_kernel==1)
+      !$omp target teams distribute parallel do collapse(2) private(tmp1,tmp2) if(gpu_kernel==1) !$fexl-async.sync_var. 
       do j=1,n2
        do i=1,n1
         r(i,j,2)=r(i,j,2)-c(2,2)*r(i,j,1)
