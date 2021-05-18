@@ -33,6 +33,7 @@ class pyrandaBC(pyrandaPackage):
         sMap['bc.slip(']   =  "self.packages['BC'].slipbc("
         sMap['bc.field(']  =  "self.packages['BC'].applyBC('field',"
         sMap['bc.farfield(']  =  "self.packages['BC'].farfieldbc("
+        sMap['bc.symm(']   = "self.packages['BC'].symm("
         self.sMap = sMap
 
 
@@ -742,3 +743,46 @@ class pyrandaBC(pyrandaPackage):
                 self.pyranda.variables[v].data[:,:,-1] = Vb
                 self.pyranda.variables[w].data[:,:,-1] = Wb
                 self.pyranda.variables[p].data[:,:,-1] = Pb
+
+
+    def symm(self,var,direction,anti=False,npts=4):
+
+        if type(var) != type([]):
+            var = [var]
+
+        # For anti-symmetric variables
+        antiM = 1.0
+        if anti:
+            antiM = -1.0
+            
+        if type(direction) != type([]):
+            direction = [direction]
+
+        for d in direction:
+            for v in var:
+                self.symmetric( v , d , antiM, npts)
+
+    def symmetric(self,var,direction,antiMult,npts):
+        # Direction switch
+        bcvar = None
+
+        varpt = self.pyranda.variables[var].data
+        
+        if direction == 'x1':
+            if self.pyranda.PyMPI.x1proc:
+                varpt[0:npts,:,:] = varpt[npts:npts*2,:,:][::-1,:,:] * antiMult
+        if direction == 'xn':
+            if self.pyranda.PyMPI.xnproc:
+                varpt[-npts:,:,:] = varpt[-2*npts:-npts,:,:][::-1,:,:] * antiMult
+        if direction == 'y1':
+            if self.pyranda.PyMPI.y1proc:
+                varpt[:,0:npts,:] = varpt[:,npts:npts*2,:][:,::-1,:] * antiMult
+        if direction == 'yn':
+            if self.pyranda.PyMPI.ynproc:
+                varpt[:,-npts:,:] = varpt[:,-2*npts:-npts,:][:,::-1,:] * antiMult
+        if direction == 'z1':
+            if self.pyranda.PyMPI.z1proc:
+                varpt[:,:,0:npts] = varpt[:,:,npts:npts*2][:,:,::-1] * antiMult
+        if direction == 'zn':
+            if self.pyranda.PyMPI.znproc:
+                varpt[:,:,-npts:] = varpt[:,:,-2*npts:-npts][:,:,::-1] * antiMult
