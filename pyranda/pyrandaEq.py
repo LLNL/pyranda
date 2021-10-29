@@ -44,6 +44,6 @@ class pyrandaEq:
             self.kind = 'PDE'
 
         # Check to see if this is an elliptic equation
-        if ( 'Delta(' in eqstr ):
-            self.kind = 'ELP'
-            self.solver = None
+        #if ( 'Delta(' in eqstr ):
+        #    self.kind = 'ELP'
+        #    self.solver = None

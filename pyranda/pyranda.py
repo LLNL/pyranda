@@ -79,6 +79,9 @@ class pyrandaSim:
         self.nPDE = 0
         self.nALG = 0
         self.nELP = 0
+
+        # Some solver settings
+        #self.linearSolver = "scipy"  # User can specify "scipy" or "petsc"
         
         self.mesh.options = meshOptions
         self.mesh.dims  = meshOptions['dim']
@@ -398,15 +401,15 @@ class pyrandaSim:
                         self.variables[eq.LHS[ii]].data = rhs[ii]
 
             # Solve an elliptical PDE
-            if ( eq.kind == 'ELP'):
+            #if ( eq.kind == 'ELP'):
 
                 # Setup solver
-                if not eq.solver:
-                    eq.solver = pyrandaPoisson(None,self)
+                #if not eq.solver:
+                #    eq.solver = pyrandaPoisson(None,self,solver_type=self.linearSolver)
                 
                 # \Delta \phi = rhs
-                rhs = eq.RHS(self)
-                self.variables[eq.LHS[0]].data = eq.solver.solve(rhs)
+                #rhs = eq.RHS(self)
+                #self.variables[eq.LHS[0]].data = eq.solver.solve(rhs)
 
         
         

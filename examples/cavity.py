@@ -2,7 +2,7 @@ import sys
 import time
 import numpy 
 import matplotlib.pyplot as plt
-from pyranda import pyrandaSim, pyrandaBC, pyrandaTimestep
+from pyranda import pyrandaSim, pyrandaBC, pyrandaTimestep, pyrandaPoisson
 
 
 # Try to get args for testing
@@ -20,6 +20,11 @@ try:
     testName = (sys.argv[3])
 except:
     testName = None
+
+try:
+    solver = sys.argv[4]
+except:
+    solver = "scipy"
 
     
 ## Define a mesh
@@ -40,12 +45,20 @@ pysim = pyrandaSim('lidDrivenCavity',mesh_options)
 pysim.addPackage( pyrandaBC(pysim) )
 pysim.addPackage( pyrandaTimestep(pysim) )
 
+#pysim.linearSolver = solver
+pyPoisson = pyrandaPoisson(pysim,solver)
+pyPoisson.BC = {}
+pyPoisson.BC["x1"] = ["val",0]
+pyPoisson.BC["xn"] = ["val",0]
+pyPoisson.BC["y1"] = ["val",0]
+pyPoisson.BC["yn"] = ["val",0]
+pysim.addPackage(pyPoisson)
 
 eom ="""
 # Primary Equations of motion here
 :us: = :u: +  :dt: * ( - :u: * ddx( :u: ) - :v: * ddy( :u: ) + lap(:u:)*:nu:  )
 :vs: = :v: +  :dt: * ( - :u: * ddx( :v: ) - :v: * ddy( :v: ) + lap(:v:)*:nu:  )
-Delta(:ps:) = 1.0/:dt: * ( ddx(:us:) + ddy(:vs:) )
+:ps: = invDelta( 1.0/:dt: * ( ddx(:us:) + ddy(:vs:) ) )
 :u: = :us: - :dt: * ddx(:ps:)
 :v: = :vs: - :dt: * ddy(:ps:)
 :u: = fbar(:u:)
@@ -66,6 +79,7 @@ ics = """
 :v:  *= 0.0
 :nu: += 1.0/REY
 :dt: = .0001
+:bcvar: *= 0.0
 """.replace("REY",str(Re))
 pysim.setIC(ics)
 
