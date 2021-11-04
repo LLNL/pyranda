@@ -3,9 +3,9 @@ on: [push]
 jobs:
   regression-tests:
     strategy:
-    matrix:
-      mpi: [mpich, openmpi]
-      python-version: [2.7, 3.6, 3.7, 3.8, 3.9]
+      matrix:
+        mpi: [mpich, openmpi]
+        python-version: [2.7, 3.6, 3.7, 3.8, 3.9]
     runs-on: ubuntu-latest
     steps:
       - name: Build ${{ matrix.MPI }}
