@@ -15,18 +15,27 @@ jobs:
       - run: ls -l
       - name: Build ${{ matrix.MPI }}
         run: bash ./.github/scripts/install-mpi.sh ${{ matrix.MPI }}
-      - run: export PATH=$(pwd)/${MPI}/bin:${PATH}
-      - run: export LD_LIBRARY_PATH=$(pwd)/${MPI}/lib:${LD_LIBRARY_PATH}
-      - run: env
+      - name: Verify env
+        run: |
+          export PATH=$(pwd)/${MPI}/bin:${PATH}
+          export LD_LIBRARY_PATH=$(pwd)/${MPI}/lib:${LD_LIBRARY_PATH}
+          env
       - name: Set up Python ${{ matrix.python-version }}
         uses: actions/setup-python@v2
         with:
           python-version: ${{ matrix.python-version }}
       - run: python -m pip install --upgrade pip
-      - run: pip install -r requirements.txt
+      - name: Install Requirements
+        run: |
+          export PATH=$(pwd)/${MPI}/bin:${PATH}
+          export LD_LIBRARY_PATH=$(pwd)/${MPI}/lib:${LD_LIBRARY_PATH}
+          pip install -r requirements.txt
       - name: Install Pyranda
         run: |
+          export PATH=$(pwd)/${MPI}/bin:${PATH}
+          export LD_LIBRARY_PATH=$(pwd)/${MPI}/lib:${LD_LIBRARY_PATH}
           python setup.py build
           python setup.py install
+        env:
       - name: Run Regression Tests
         run: cd tests && python run_tests.py 1
