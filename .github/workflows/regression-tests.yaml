@@ -1,0 +1,27 @@
+name: Regression Tests
+on: [push]
+jobs:
+  regression-tests:
+    strategy:
+    matrix:
+      mpi: [mpich, openmpi]
+      python-version: [2.7, 3.6, 3.7, 3.8, 3.9]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Build ${{ matrix.MPI }}
+        run: ./.github/scripts/build.sh ${{ matrix.MPI }}
+        shell: bash
+      - export PATH=$(pwd)/${MPI}/bin:${PATH}
+      - export LD_LIBRARY_PATH=$(pwd)/${MPI}/lib:${LD_LIBRARY_PATH}
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v2
+        with:
+          python-version: ${{ matrix.python-version }}
+      - pip install -r requirements.txt
+      - name: Install Pyranda
+        run: |
+          python setup.py build
+          python setup.py install
+      - name: Run Regression Tests
+        run: |
+          cd tests && python run_tests.py 1

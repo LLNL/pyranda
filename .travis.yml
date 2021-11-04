@@ -23,7 +23,7 @@ cache:
   - mpich
 
 before_install:
-  - ./travis/install-mpi.sh $MPI
+  - ./github/scripts/install-mpi.sh $MPI
   - export PATH=$(pwd)/${MPI}/bin:${PATH}
   - export LD_LIBRARY_PATH=$(pwd)/${MPI}/lib:${LD_LIBRARY_PATH}
 
