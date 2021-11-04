@@ -9,7 +9,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - run: echo $PWD
-      - run: ls -l
+      - run: cd ..
       - name: Build ${{ matrix.MPI }}
         run: bash ./.github/scripts/install-mpi.sh ${{ matrix.MPI }}
       - run: export PATH=$(pwd)/${MPI}/bin:${PATH}
