@@ -10,9 +10,11 @@ jobs:
         python-version: [3.9]
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@v2
       - run: echo $PWD
+      - run: ls -l
       - name: Build ${{ matrix.MPI }}
-        run: echo "${{ matrix.MPI }}" #bash ./.github/scripts/install-mpi.sh ${{ matrix.MPI }}
+        run: bash ./.github/scripts/install-mpi.sh ${{ matrix.MPI }}
       - run: export PATH=$(pwd)/${MPI}/bin:${PATH}
       - run: export LD_LIBRARY_PATH=$(pwd)/${MPI}/lib:${LD_LIBRARY_PATH}
       - run: env
