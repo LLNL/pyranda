@@ -11,6 +11,7 @@ import numpy
 import scipy.sparse
 from scipy.sparse.linalg import factorized,bicgstab,cg
 from .pyrandaPackage import pyrandaPackage
+from .pyrandaConduction import *
 import time
 
 class pyrandaPoisson(pyrandaPackage):
