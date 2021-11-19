@@ -11,7 +11,6 @@ import numpy
 import scipy.sparse
 from scipy.sparse.linalg import factorized,bicgstab,cg
 from .pyrandaPackage import pyrandaPackage
-from .pyrandaConduction import *
 import time
 
 class pyrandaPoisson(pyrandaPackage):
@@ -117,14 +116,13 @@ class pyrandaPoisson(pyrandaPackage):
             maxCoord = pysim.mesh.options['xn']
             comm = pysim.PyMPI.comm
 
-            
-            
-            import numpy as np
+                        
+            from .pyrandaConduction import ConductionND
             class pyrandaCond(ConductionND):
                 def __init__(self, **kwargs):
 
                     dim = len(res)
-                    extent = np.zeros(dim*2)
+                    extent = numpy.zeros(dim*2)
 
                     index = 0
                     for i in range(0, dim):
@@ -154,7 +152,7 @@ class pyrandaPoisson(pyrandaPackage):
                     # (minI, maxI), (minJ, maxJ), (minK, maxK) = dm.getGhostRanges()
                     ghost_ranges = dm.getGhostRanges()
 
-                    n = np.zeros(dim, dtype=PETSc.IntType)
+                    n = numpy.zeros(dim, dtype=PETSc.IntType)
                     nn = 1
                     for i, (gs, ge) in enumerate(ghost_ranges):
                         n[i] = ge - gs
@@ -181,7 +179,7 @@ class pyrandaPoisson(pyrandaPackage):
 
 
                     # local numbering
-                    self.nodes = np.arange(0, nn, dtype=PETSc.IntType)
+                    self.nodes = numpy.arange(0, nn, dtype=PETSc.IntType)
 
 
                     # set matrix and vector types
