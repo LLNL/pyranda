@@ -24,7 +24,10 @@ jobs:
         #if: steps.cache-mpi.outputs.cache-hit != 'true'
         run: bash ./.github/scripts/install-mpi.sh ${{ matrix.MPI }} ~/mpi
       - name: Export mpi path
-        run: echo "PATH=~/mpi/bin:${PATH}" >> $GITHUB_ENV
+        run: |
+          echo "PATH=$HOME/mpi/bin:$PATH" >> $GITHUB_ENV
+          ls ~/
+          ls ~/mpi
       - name: Install Python Requirements
         run: |
           python -m pip install --upgrade pip
