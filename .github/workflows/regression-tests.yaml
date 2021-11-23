@@ -4,9 +4,9 @@ jobs:
   regression-tests:
     strategy:
       matrix:
-        #mpi: [mpich, openmpi]
+        #mpi: [mpich-3.4, openmpi-4.1.1, openmpi-3.1.6]
         #python-version: [2.7, 3.6, 3.7, 3.8, 3.9]
-        mpi: [mpich]
+        mpi: [mpich-3.4]
         python-version: [3.9]
     runs-on: ubuntu-latest
     steps:
@@ -15,18 +15,22 @@ jobs:
         uses: actions/setup-python@v2
         with:
           python-version: ${{ matrix.python-version }}
-      - run: echo $PWD
-      - run: ls -l
-      - name: Build ${{ matrix.MPI }}
+      - name: Maybe use cached MPI
+        id: cache-mpi
+        uses: actions/cache@v2
+        with:
+          path: ~/mpi
+          key: ${{ runner.os }}-${{ matrix.mpi }}
+      - name: Maybe build ${{ matrix.MPI }}
+        if: steps.cache-mpi.outputs.cache-hit != 'true'
         run: bash ./.github/scripts/install-mpi.sh ${{ matrix.MPI }}
       - name: Verify env
         run: |
-          echo "PATH=$(pwd)/${{ matrix.MPI }}/bin:${PATH}" >> $GITHUB_ENV
-          #export LD_LIBRARY_PATH=$(pwd)/${MPI}/lib:${LD_LIBRARY_PATH}
+          echo "PATH=$(pwd)/mpi/bin:${PATH}" >> $GITHUB_ENV
           env
-      - run: python -m pip install --upgrade pip
       - name: Install Requirements
         run: |
+          python -m pip install --upgrade pip
           pip install -r requirements.txt
       - name: Install Pyranda
         run: |
