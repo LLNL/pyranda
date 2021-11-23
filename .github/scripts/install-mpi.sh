@@ -1,7 +1,6 @@
 #!/bin/bash
 
-here=$(pwd)
-install_dir=${here}/mpi
+install_dir=$2
 test -e ${install_dir}/lib/libmpi.so && { echo "$1 already installed"; exit 0; }
 
 case "$1" in
