@@ -1,5 +1,5 @@
 # pyranda
-[![Build Status](https://travis-ci.com/LLNL/pyranda.svg?branch=master)](https://travis-ci.com/LLNL/pyranda)
+[![Build Status](https://github.com/LLNL/pyranda/actions/workflows/regression-tests.yaml/badge.svg)](https://github.com/LLNL/pyranda/actions)
 
 A Python driven, Fortran powered Finite Difference solver for arbitrary hyperbolic PDE systems.  This is the mini-app for the Miranda code.
 
