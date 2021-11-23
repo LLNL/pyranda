@@ -4,9 +4,8 @@ jobs:
   regression-tests:
     strategy:
       matrix:
-        #mpi: [mpich-3.4, openmpi-4.1.1, openmpi-3.1.6]
+        mpi: [mpich-3.4, openmpi-4.1.1, openmpi-3.1.6]
         #python-version: [2.7, 3.6, 3.7, 3.8, 3.9]
-        mpi: [mpich-3.4]
         python-version: [3.9]
     runs-on: ubuntu-latest
     steps:
