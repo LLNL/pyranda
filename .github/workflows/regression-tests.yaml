@@ -5,8 +5,7 @@ jobs:
     strategy:
       matrix:
         mpi: [mpich-3.4, openmpi-4.1.1, openmpi-3.1.6]
-        #python-version: [2.7, 3.6, 3.7, 3.8, 3.9]
-        python-version: [3.9]
+        python-version: [2.7, 3.7, 3.8, 3.9, 3.10]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
@@ -26,11 +25,8 @@ jobs:
       - name: Maybe build ${{ matrix.MPI }}
         if: steps.cache-mpi.outputs.cache-hit != 'true'
         run: bash ./.github/scripts/install-mpi.sh ${{ matrix.MPI }} ~/mpi
-      - name: Export mpi path
-        run: |
-          echo "PATH=$HOME/mpi/bin:$PATH" >> $GITHUB_ENV
-          ls ~/
-          ls ~/mpi
+      - name: Add mpi to path
+        run: echo "PATH=$HOME/mpi/bin:$PATH" >> $GITHUB_ENV
       - name: Install Python Requirements
         run: |
           python -m pip install --upgrade pip
