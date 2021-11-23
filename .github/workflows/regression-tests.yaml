@@ -19,9 +19,12 @@ jobs:
         uses: actions/cache@v2
         with:
           path: ~/mpi
-          key: ${{ runner.os }}-${{ matrix.mpi }}
+          # NOTE: without the `-v2' an empty cache dir will be used because the initial caching
+          # of ~/mpi was incorrect. caches cannot be cleared:
+          # https://github.com/actions/cache/issues/2
+          key: ${{ runner.os }}-${{ matrix.mpi }}-v2
       - name: Maybe build ${{ matrix.MPI }}
-        #if: steps.cache-mpi.outputs.cache-hit != 'true'
+        if: steps.cache-mpi.outputs.cache-hit != 'true'
         run: bash ./.github/scripts/install-mpi.sh ${{ matrix.MPI }} ~/mpi
       - name: Export mpi path
         run: |
