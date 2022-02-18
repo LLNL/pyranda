@@ -59,7 +59,8 @@ def checkProfile( baseline, pout ):
     base = npy.loadtxt( baseline )
     test = npy.loadtxt( pout )
 
-    diff = npy.abs( base[1,:] - test[1,:] ) / npy.max( npy.abs( base[1,:] ) )
+    minLen = min( base.shape[1], test.shape[1] )
+    diff = npy.abs( base[1,:minLen] - test[1,:minLen] ) / npy.max( npy.abs( base[1,:minLen] ) )
 
     m_diff = npy.max( diff )
 
@@ -72,8 +73,10 @@ def plotError( baseline, pout ):
 
     base = npy.loadtxt( baseline )
     test = npy.loadtxt( pout )
-
-    diff = npy.abs( base[1,:] - test[1,:] ) / npy.max( npy.abs( base[1,:] ) )
+    minLen = min( base.shape[1], test.shape[1] )
+    
+    diff = (npy.abs( base[1,:minLen] - test[1,:minLen] )
+            / npy.max( npy.abs( base[1,:minLen] ) ) )
     
     plt.figure()
     plt.plot([1,2,3])

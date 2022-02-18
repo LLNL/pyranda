@@ -37,6 +37,7 @@ execfile('cases/testHeat1D.py')
 execfile('cases/testTaylorGreen.py')
 execfile('cases/testShuOsher.py')
 execfile('cases/testElliptic.py')
+execfile('cases/testRT.py')
 
 
 summary = ''
@@ -73,7 +74,7 @@ for test in tests:
     if verbose:
         for po in out[1].decode('utf-8').split('\n'):
             print(po)
-            
+
     # Diff against baseline
     try:
         baseline = dbase[test.name]  # Baseline value/file
