@@ -932,8 +932,12 @@ class pyrandaSim:
 
     def setupLatex(self):
 
-        self.latex = pyrandaTex(self)
-        
+        # Latex object only available on master
+        if self.PyMPI.master:
+            self.latex = pyrandaTex(self)
+        else:
+            self.latex = None
+            
 
 
 def pyrandaRestart(rootname,suffix=None,comm=None):

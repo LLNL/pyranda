@@ -9,7 +9,6 @@
 ################################################################################
 import numpy
 from mpi4py import MPI
-import matplotlib.pyplot as plt
 from .pyrandaPackage import pyrandaPackage
 from .pyrandaMisc import ipoint
 
@@ -85,6 +84,7 @@ class pyrandaProbes(pyrandaPackage):
         y = self.ypts
 
         if self.pysim.PyMPI.master:
+            import matplotlib.pyplot as plt
             if style:
                 plt.plot( x , y, style)
             else:

@@ -10,7 +10,6 @@
 ################################################################################
 import sys,os
 from .pyrandaUtils import *
-import matplotlib.pyplot as plt
 import random
 import getpass
 
@@ -28,6 +27,8 @@ class TexFigure:
 
     def render(self):
 
+        import matplotlib.pyplot as plt
+        
         # Make the imagefile
         cwd = os.getcwd()
         os.chdir( self.wkdir )
@@ -81,6 +82,7 @@ class TexSection:
         
     def addFigure(self,caption,size=.9):
 
+        import matplotlib.pyplot as plt
         fig = plt.gcf()
         self.figures.append( TexFigure( caption, fig , self.wkdir,size) )
 
