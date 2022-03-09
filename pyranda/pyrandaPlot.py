@@ -9,39 +9,49 @@
 # Written by: Britton J. Olson, olson45@llnl.gov
 ################################################################################
 import numpy 
-import matplotlib as mpl
-import matplotlib.pyplot as plt
-import matplotlib.style
+
 
 
 class pyrandaPlot:
 
     def __init__(self,pyranda):
 
-        mpl.style.use('classic')
         self.pyranda = pyranda  # point to main obj
 
+        # Onlt import on master
+        if self.pyranda.PyMPI.master:
+            import matplotlib as mpl
+            import matplotlib.pyplot as plt
+            import matplotlib.style
+            
+            mpl.style.use('classic')
+            
         
     # Some master overloaded functions
     def figure(self,fignum):
         if self.pyranda.PyMPI.master:
+            import matplotlib.pyplot as plt
             plt.figure(fignum)
 
     def show(self):
         if self.pyranda.PyMPI.master:
+            import matplotlib.pyplot as plt
             plt.show()
 
     def clf(self):
         if self.pyranda.PyMPI.master:
+            import matplotlib.pyplot as plt
             plt.clf()
 
     def title(self,name):
         if self.pyranda.PyMPI.master:
+            import matplotlib.pyplot as plt
             plt.title(name)
             plt.pause(.01)
 
     def pause(self,val=.01):
         if self.pyranda.PyMPI.master:
+            import matplotlib.pyplot as plt
             plt.pause(val)
 
     def plot(self,var,style='k-',slice2d='j=0;k=0',**kwargs):
@@ -65,12 +75,14 @@ class pyrandaPlot:
         xdata = self.getGrid1d( slice2d )
 
         if self.pyranda.PyMPI.master:
+            import matplotlib.pyplot as plt
             plt.plot(xdata,vdata,style,**kwargs)
             plt.title("Plot of %s (t=%4.4e and cycle=%d)" % (var,self.pyranda.time,self.pyranda.cycle) )
             plt.pause(.01)
         
             
     def contour(self,var,levels, slice3d='k=0',**kwargs):
+        import matplotlib.pyplot as plt
         self.contourf(var , levels, slice3d=slice3d,filled=False,**kwargs)
             
     def contourf(self, var , levels, slice3d='k=0',filled=True,**kwargs):
@@ -100,6 +112,7 @@ class pyrandaPlot:
         [xdata,ydata] = self.getGrid2d(slice3d)
             
         if self.pyranda.PyMPI.master:
+            import matplotlib.pyplot as plt
             if filled:
                 plt.contourf(xdata,ydata,vdata,levels,**kwargs)
                 plt.colorbar()
@@ -117,6 +130,7 @@ class pyrandaPlot:
         [xx,yy] = self.getGrid2d(slice3d)
             
         if self.pyranda.PyMPI.master:
+            import matplotlib.pyplot as plt
             plt.plot(xx, yy, 'k-', lw=0.5, alpha=0.5)
             plt.plot(xx.T, yy.T, 'k-', lw=0.5, alpha=0.5)
             plt.axis('equal')
@@ -220,5 +234,3 @@ class pyrandaPlot:
             gdata = self.pyranda.PyMPI.getIJK(data,[i,i+1],[0,ny],[k,k+1])[0,:,0]
 
         return gdata
-
-
