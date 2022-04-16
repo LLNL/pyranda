@@ -16,6 +16,7 @@ MODULE LES_objects
   USE LES_comm,    ONLY :   comm_type
   USE LES_compact, ONLY :   compact_type
   USE LES_mesh,    ONLY :   mesh_type
+  USE LES_pool,    ONLY :   pool_type
 
   IMPLICIT NONE
   
@@ -23,12 +24,13 @@ MODULE LES_objects
   TYPE(comm_type),    TARGET  ::    comm_data(0:100,0:10) 
   TYPE(compact_type), TARGET  :: compact_data(0:100,0:10) 
   TYPE(mesh_type),    TARGET  :: mesh_data(0:100,0:10) 
+  TYPE(pool_type),    TARGET  ::    pool_data(0:100,0:10)
 
   TYPE(patch_type),   POINTER :: patch_ptr                    ! Points to an element of patch_data
   TYPE(comm_type),    POINTER :: comm_ptr                     ! Points to an element of comm_data
   TYPE(compact_type), POINTER :: compact_ptr                  ! Points to an element of compact_data
   TYPE(mesh_type),    POINTER :: mesh_ptr                     ! Points to an element of compact_data
-  
+  TYPE(pool_type),    POINTER ::    pool_ptr  
   INTEGER :: gpu_kernel = 1
 CONTAINS
   
@@ -43,7 +45,7 @@ CONTAINS
     CALL    comm_data(patch,level)%setup(patch_data(patch,level))
     !CALL compact_data(patch,level)%setup(patch_data(patch,level),comm_data(patch,level))
     CALL compact_data(patch,level)%setup(patch_data(patch,level),comm_data(patch,level),level,patch)
-
+    CALL    pool_data(patch,     level)%setup(patch_data(patch,level),1)
     CALL mappCompactData(patch,level)
     
   END SUBROUTINE setup_objects
@@ -85,7 +87,7 @@ CONTAINS
     comm_ptr    => comm_data(patch,level)
     compact_ptr => compact_data(patch,level)
     mesh_ptr    => mesh_data(patch,level)
-        
+    pool_ptr    =>    pool_data(patch,      level)  
   END SUBROUTINE point_to_objects
 
 
@@ -97,6 +99,7 @@ CONTAINS
      CALL compact_data(patch,level)%remove(level,patch)
      CALL    comm_data(patch,level)%remove()
      CALL   patch_data(patch,level)%remove()
+     CALL    pool_data(patch,level)%remove()
    END SUBROUTINE remove_objects
 
 

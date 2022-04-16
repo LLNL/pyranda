@@ -67,9 +67,9 @@ f2py.Iflags  = -I$(f2py.dir)
 #
 # source order is important because of mod file dependencies
 #
-source = blockmath.o ompsync.o stencils.o nrtype.o nrutil.o patch.o pentadiagonal.o \
+source = blockmath.o  stencils.o nrtype.o nrutil.o patch.o pool.o  pentadiagonal.o \
 	     comm.o compact_basetype.o compact_d1.o compact_r3.o compact_r4.o \
-             compact.o mesh.o objects.o compact_operators.o operators.o
+             compact.o mesh.o objects.o ompsync.o compact_operators.o operators.o
 
 vpath %.c $(f2py.dir)
 

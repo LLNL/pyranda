@@ -288,12 +288,20 @@ SUBROUTINE EOS(ie,rho,p,T)
   DOUBLE PRECISION, DIMENSION(:,:,:), INTENT(IN) :: ie,rho
   DOUBLE PRECISION, DIMENSION(:,:,:), INTENT(OUT) :: p,t
   DOUBLE PRECISION :: gamma = 1.4
-  !$DEF-FEXL
+integer :: ifunr,jfunr,kfunr,nfunr 
   
-  !$FEXL {dim:3,var:['p','ie','rho','t']}
-  p = ie / rho * (gamma - 1.0 )
-  t = ie * (gamma )
-  !$END FEXL
+
+!$omp target teams distribute parallel do collapse(3)
+do kfunr=1,size(p,3)
+  do jfunr=1,size(p,2)
+    do ifunr=1,size(p,1)
+      p(ifunr,jfunr,kfunr)= ie(ifunr,jfunr,kfunr)/ rho(ifunr,jfunr,kfunr)*(gamma-1.0 )
+      t(ifunr,jfunr,kfunr)= ie(ifunr,jfunr,kfunr)*(gamma )
+    end do
+  end do
+end do
+!$omp end target teams distribute parallel do
+
   
 END SUBROUTINE EOS
 

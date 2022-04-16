@@ -2,6 +2,7 @@
  MODULE LES_operators
 !===================================================================================================
   USE iso_c_binding
+  USE LES_ompsync 
   USE LES_objects, ONLY : patch_ptr,mesh_ptr,compact_ptr
   USE LES_compact_operators, ONLY : ddx=>d1x,ddy=>d1y,ddz=>d1z,d2x,d2y,d2z,d8x,d8y,d8z, &
        bppfx=>filterx,bppfy=>filtery,bppfz=>filterz
@@ -37,12 +38,14 @@
 ! DIVERGENCE OF A VECTOR ===========================================================================
    SUBROUTINE divV(fx,fy,fz,df,ax,ay,az)
     IMPLICIT NONE
+    !$FEXL {memory:"pool"}
     INTEGER(c_int), INTENT(IN) :: ax,ay,az 
     DOUBLE PRECISION, DIMENSION(ax,ay,az), INTENT(IN) :: fx,fy,fz
     DOUBLE PRECISION, DIMENSION(ax,ay,az), INTENT(OUT) :: df
-    DOUBLE PRECISION, DIMENSION(ax,ay,az) :: fA,fB,fC,tmp
+    DOUBLE PRECISION, DIMENSION(ax,ay,az) :: fA,fB,fC,tmp !$VAR-FEXL
+    !$END FEXL
     !$DEF-FEXL
-    !$omp target data map(alloc:fA,fB,fC,tmp)
+
      SELECT CASE(patch_ptr%coordsys)
      CASE(0) ! Cartesian
       CALL ddx(fx,fA,patch_ptr%isymX)
@@ -74,7 +77,7 @@
       df = fA/mesh_ptr%xgrid**2 + (fB + fC)/(mesh_ptr%xgrid*SIN(mesh_ptr%ygrid))
       !$END FEXL
      CASE(3) ! General curvilinear
-      !$FEXL {dim:3,var:['fA','fB','fC','fx','fy','fz','mesh_ptr%dAdx','mesh_ptr%dBdx','mesh_ptr%dCdx','mesh_ptr%dAdy','mesh_ptr%dBdy','mesh_ptr%dCdy','mesh_ptr%dAdz','mesh_ptr%dBdz','mesh_ptr%dCdz','mesh_ptr%detxyz']}
+      !$FEXL {dim:3,var:['fA','fB','fC','fx','fy','fz','mesh_ptr%@'] }
       fA = (fx*mesh_ptr%dAdx + fy*mesh_ptr%dAdy + fz*mesh_ptr%dAdz)*mesh_ptr%detxyz
       fB = (fx*mesh_ptr%dBdx + fy*mesh_ptr%dBdy + fz*mesh_ptr%dBdz)*mesh_ptr%detxyz
       fC = (fx*mesh_ptr%dCdx + fy*mesh_ptr%dCdy + fz*mesh_ptr%dCdz)*mesh_ptr%detxyz
@@ -89,17 +92,19 @@
       df = (df+tmp)/mesh_ptr%detxyz
       !$END FEXL
      END SELECT
-     !$omp end target data
+
    END SUBROUTINE divV
  
 ! DIVERGENCE OF A TENSOR ===========================================================================
    SUBROUTINE divT(fxx,fxy,fxz,fyx,fyy,fyz,fzx,fzy,fzz,dfx,dfy,dfz)
     IMPLICIT NONE
+    !$FEXL {memory:"omp"}
     DOUBLE PRECISION, DIMENSION(:,:,:), INTENT(IN) :: fxx,fxy,fxz,fyx,fyy,fyz,fzx,fzy,fzz
     DOUBLE PRECISION, DIMENSION(:,:,:), INTENT(OUT) :: dfx,dfy,dfz
-    DOUBLE PRECISION, DIMENSION(SIZE(fxx,1),SIZE(fxx,2),SIZE(fxx,3)) :: fA,fB,fC,tmp
+    DOUBLE PRECISION, DIMENSION(SIZE(fxx,1),SIZE(fxx,2),SIZE(fxx,3)) :: fA,fB,fC,tmp !$VAR-FEXL
+    !$END FEXL
     !$DEF-FEXL
-    !$omp target data map(alloc:fA,fB,fC,tmp)
+
      SELECT CASE(patch_ptr%coordsys)
      CASE(0) ! Cartesian
       CALL ddx(fxx,fA,patch_ptr%isymX**2)
@@ -169,17 +174,19 @@
       CALL divV(fyx,fyy,fyz,dfy,patch_ptr%ax,patch_ptr%ay,patch_ptr%az)
       CALL divV(fzx,fzy,fzz,dfz,patch_ptr%ax,patch_ptr%ay,patch_ptr%az)
      END SELECT
-     !$omp end target data
+
    END SUBROUTINE divT
  
 ! GRADIENT OF A SCALAR =============================================================================
    SUBROUTINE gradS(f,dfdx,dfdy,dfdz)
     IMPLICIT NONE
+    !$FEXL {memory:"omp"}
     DOUBLE PRECISION, DIMENSION(:,:,:), INTENT(IN) :: f
     DOUBLE PRECISION, DIMENSION(:,:,:), INTENT(OUT) :: dfdx,dfdy,dfdz
-    DOUBLE PRECISION, DIMENSION(SIZE(f,1),SIZE(f,2),SIZE(f,3)) :: dfdA,dfdB,dfdC
+    DOUBLE PRECISION, DIMENSION(SIZE(f,1),SIZE(f,2),SIZE(f,3)) :: dfdA,dfdB,dfdC !$VAR-FEXL
+    !$END FEXL
     !$DEF-FEXL
-    !$omp target data map(alloc:dfdA,dfdB,dfdC)
+
      CALL ddx(f,dfdx)
      CALL ddy(f,dfdy)
      CALL ddz(f,dfdz)
@@ -199,18 +206,20 @@
       dfdy = dfdA*mesh_ptr%dAdy + dfdB*mesh_ptr%dBdy + dfdC*mesh_ptr%dCdy
       dfdz = dfdA*mesh_ptr%dAdz + dfdB*mesh_ptr%dBdz + dfdC*mesh_ptr%dCdz
      END SELECT
-     !$omp end target data
+
    END SUBROUTINE gradS
  
 ! GRADIENT OF A VECTOR COMPONENT =============================================================================
    SUBROUTINE gradVc(f,dfdx,dfdy,dfdz,vc)
     IMPLICIT NONE
+    !$FEXL {memory:"omp"}
     DOUBLE PRECISION, DIMENSION(:,:,:), INTENT(IN) :: f
     DOUBLE PRECISION, DIMENSION(:,:,:), INTENT(OUT) :: dfdx,dfdy,dfdz
     INTEGER, INTENT(IN) :: vc
-    DOUBLE PRECISION, DIMENSION(SIZE(f,1),SIZE(f,2),SIZE(f,3)) :: dfdA,dfdB,dfdC
+    DOUBLE PRECISION, DIMENSION(SIZE(f,1),SIZE(f,2),SIZE(f,3)) :: dfdA,dfdB,dfdC !$VAR-FEXL
+    !$END FEXL
     !$DEF-FEXL
-    !$omp target data map(alloc:dfdA,dfdB,dfdC)
+
      SELECT CASE( vc )
      CASE( 1 )
        CALL ddx(f,dfdx,patch_ptr%isymX); CALL ddy(f,dfdy);                 CALL ddz(f,dfdz)
@@ -237,16 +246,18 @@
       dfdy = dfdA*mesh_ptr%dAdy + dfdB*mesh_ptr%dBdy + dfdC*mesh_ptr%dCdy
       dfdz = dfdA*mesh_ptr%dAdz + dfdB*mesh_ptr%dBdz + dfdC*mesh_ptr%dCdz
      END SELECT
-     !$omp end target data
+
    END SUBROUTINE gradVc
  
 ! GRADIENT OF A TENSOR COMPONENT =============================================================================
    SUBROUTINE gradTc(f,dfdx,dfdy,dfdz,tc)
     IMPLICIT NONE
+    !$FEXL {memory:"omp"}
     DOUBLE PRECISION, DIMENSION(:,:,:), INTENT(IN) :: f
     DOUBLE PRECISION, DIMENSION(:,:,:), INTENT(OUT) :: dfdx,dfdy,dfdz
     CHARACTER(LEN=2), INTENT(IN) :: tc
-    DOUBLE PRECISION, DIMENSION(SIZE(f,1),SIZE(f,2),SIZE(f,3)) :: dfdA,dfdB,dfdC
+    DOUBLE PRECISION, DIMENSION(SIZE(f,1),SIZE(f,2),SIZE(f,3)) :: dfdA,dfdB,dfdC !$VAR-FEXL
+    !$END FEXL
     !$DEF-FEXL
      SELECT CASE( tc )
      CASE( 'xx', 'yy', 'zz' )
@@ -766,18 +777,19 @@
 ! CONSERVATIVE FILTER (except for 'smooth' filtype)=================================================
    SUBROUTINE filter(filtype,fun,bar,component,vsym)
     IMPLICIT NONE
+    !$FEXL {memory:"omp"} 
     CHARACTER(LEN=*), INTENT(IN) :: filtype
     DOUBLE PRECISION, DIMENSION(:,:,:), INTENT(IN) :: fun
     DOUBLE PRECISION, DIMENSION(:,:,:), INTENT(OUT) :: bar
     INTEGER(c_int), INTENT(IN), OPTIONAL :: component ! -1=no filter, 0=scalar, 1=x, 2=y, 3=z
     INTEGER(c_int), INTENT(IN), OPTIONAL :: vsym ! symmetry flag for anti-symmetric magnetic field
     LOGICAL, PARAMETER :: sharp = .TRUE.
-    DOUBLE PRECISION, DIMENSION(SIZE(fun,1),SIZE(fun,2),SIZE(fun,3)) :: tmp
+    DOUBLE PRECISION, DIMENSION(SIZE(fun,1),SIZE(fun,2),SIZE(fun,3)) :: tmp !$VAR-FEXL
     REAL(c_double), DIMENSION(:,:,:), POINTER :: CellBar
     INTEGER :: filnum,xasym,yasym,zasym
+    !$END FEXL
     !$DEF-FEXL
 
-    !$omp target enter data map(alloc:tmp)
     
     !$FEXL {dim:3,var:['tmp']}
     tmp = 0.0D0
@@ -835,13 +847,12 @@
        CALL bppfx(fun,bar,compact_ptr%control%gfspec,1)
        CALL bppfy(bar,tmp,compact_ptr%control%gfspec,1)
        CALL bppfz(tmp,bar,compact_ptr%control%gfspec,1)
-       !$omp target exit data map(delete:tmp)
+
        RETURN
      !CASE('fourier','Fourier','FOURIER')
      !  CALL sfilterx(fun,bar,1,sharp)
      !  CALL sfiltery(bar,tmp,1,sharp)
      !  CALL sfilterz(tmp,bar,1,sharp)
-     !  !$omp target exit data map(delete:tmp)
      !  RETURN
      CASE('spectral','Spectral','SPECTRAL','shrpspct','eightord')
        filnum = compact_ptr%control%sfspec
@@ -878,7 +889,6 @@
        bar = bar/CellBar
      END SELECT
 
-     !$omp target exit data map(delete:tmp)
    END SUBROUTINE filter
 
   SUBROUTINE filtRands(Nspan,Ni,No,Nbuff, &

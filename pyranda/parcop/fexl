@@ -1,1 +1,1 @@
-python scripts/make-funroll.py 1
+python scripts/make-funroll.py 1 $1

@@ -16,18 +16,22 @@ fsuff = ".f90"
 try:
     option = int(sys.argv[1])
 except:
-    print("Error: specify 1- forward transform, or 2-backward")
-    exit()
+    print("Give a valid option (1 or 2)")
+
+try:
+    fileWildCard = sys.argv[2]
+except:
+    fileWildCard = None
 
 
 # Option-1: Make conversion (safe to call multple times)
-if option == 1:
+Files = []
+for D in DIRS:
+    Files += glob.glob( D + '/*%s' % fsuff )
+if fileWildCard:
+    Files = [ F for F in Files if fileWildCard in F]
 
-    # Option 1- Convert files
-    Files = []
-    for D in DIRS:
-        Files += glob.glob( D + '/*%s' % fsuff )
-    
+if option == 1:
     # Not go through each and convert it
     for ff in Files:
         try:
@@ -37,21 +41,23 @@ if option == 1:
                                                         0) )
         except:
             print("Error processing file:%s" % ff)
+    exit()
 
 
+# Option-2: Revert space (safe to call multple times)
+Files = []
+for D in DIRS:
+    Files += glob.glob( D + '/*.fexl' )
+if fileWildCard:
+    Files = [ F for F in Files if fileWildCard in F]
             
 # Option-2: Revert space (safe to call multple times)
-if option == 2:
-
-    # Option 2- Revert files
-    Files = []
-    for D in DIRS:
-        Files += glob.glob( D + '/*.fexl' )
-    
+if option == 2:    
     for ff in Files:
         cmd = 'mv -f %s %s' % (ff,ff.replace(fsuff+".fexl",fsuff))
+	print("Reverting %s" % ff)
         os.system( cmd )
-
+    exit()
 
 
         
