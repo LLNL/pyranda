@@ -383,11 +383,10 @@ class pyrandaSim:
         # Update the equations
         #
         for eq in self.equations:
-
             if not eq.active:
                 continue
 
-            if ( eq.kind == 'ALG'):            
+            if ( eq.kind == 'ALG'):
                 rhs = eq.RHS(self)
 
                 # If no LHS , then on to the next eq
@@ -529,6 +528,8 @@ class pyrandaSim:
         serial_data['deltat'] = self.deltat
         serial_data['cycle']  = self.cycle
         serial_data['vizDumpHistory'] = self.vizDumpHistory
+        # Added by D. Lavacot 04/08/2022: save sMap to restart file so that user added functions are also saved
+        serial_data['sMap'] = self.sMap  
         
         # Serialize the mesh function (if it exists)
         if 'function' in serial_data['mesh']:
@@ -542,7 +543,7 @@ class pyrandaSim:
         # Variable map
         serial_data['vars'] = {}
         cnt = 0
-        for ivar in self.variables:
+        for ivar in sorted(self.variables.keys()):   # BJO: was getting proc dependent ordering here, force it to be uniform
             serial_data['vars'][ivar] = cnt
             cnt += 1
 
@@ -558,7 +559,7 @@ class pyrandaSim:
         # Parallel
         # Variables
         DATA = self.PyMPI.emptyVector(len(self.variables))
-        for ivar in self.variables:
+        for ivar in sorted(self.variables.keys()):   # BJO: was getting proc dependent ordering here, force it to be uniform
             DATA[:,:,:,serial_data['vars'][ivar]] = self.variables[ivar].data
         # Grid
         #DATA[:,:,:,serial_data['vars']['meshx']] = self.mesh.coords[0].data
@@ -767,7 +768,6 @@ class pyrandaSim:
             self.updateVars()
 
         self.cycle += 1
-
         return time
 
     def get_sMap(self):
@@ -1002,12 +1002,16 @@ def pyrandaRestart(rootname,suffix=None,comm=None):
     # Load packages
     for pack in serial_data['packages']:            
         ipack = pack.split('.')[1] 
-        exec("import %s" % ipack )
-        pk = eval("%s.%s(pysim)" % (ipack,ipack) )
+        exec("from pyranda import %s" % ipack ) # Edited by D. Lavacot 04/08/2022: change to "from pyranda import" 
+        pk = eval("%s(pysim)" % ipack ) 
+        #exec("import %s" % ipack )
+        #pk = eval("%s.%s(pysim)" % (ipack,ipack) )
         pysim.addPackage( pk )
         message += "    package %s added \n" % ipack
 
     # EOM and IC's
+    # Added by D. Lavacot 04/08/2022: Retrieve user-added functions through sMap
+    pysim.sMap = serial_data['sMap']  
     pysim.EOM( serial_data['EOM'] )
     pysim.setIC( serial_data['ICs'], addOnly=True )
 
@@ -1066,9 +1070,10 @@ def readChunk(pysim,procs,procMap,dump,serial_data):
 
     # Restart deomain info
     nprocs = procs[0]*procs[1]*procs[2]
-    ax = pysim.nx / procs[0]
-    ay = pysim.ny / procs[1]
-    az = pysim.nz / procs[2]
+    nprocs = int(nprocs)
+    ax = int(pysim.nx / procs[0])
+    ay = int(pysim.ny / procs[1])
+    az = int(pysim.nz / procs[2])
     nshape = (ax,ay,az,len(pysim.variables))
     
     for iproc in range(nprocs):
