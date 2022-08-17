@@ -117,7 +117,7 @@ class pyrandaPoisson(pyrandaPackage):
             comm = pysim.PyMPI.comm
 
                         
-            from .pyrandaConduction import ConductionND
+            from .pyrandaConduction import ConductionND, MeshVariable
             class pyrandaCond(ConductionND):
                 def __init__(self, **kwargs):
 
