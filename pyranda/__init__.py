@@ -5,6 +5,7 @@ from .pyrandaBC import pyrandaBC
 from .pyrandaProbes import pyrandaProbes
 from .pyrandaTBL import pyrandaTBL
 from .pyrandaRANSBOX import pyrandaRANSBOX
+from .pyrandaLEOS import pyrandaLEOS
 from .pyrandaEllipticalFFT import pyrandaPoissonFFT
 from .pyrandaElliptical import pyrandaPoisson
 from .pyranda import pyrandaRestart

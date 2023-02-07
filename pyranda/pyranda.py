@@ -186,7 +186,11 @@ class pyrandaSim:
     def eval(self,expression):
         return eval(fortran3d(expression,self.sMap))
 
-    def parse(self,expression):
+    def parse(self,expression,parseDict=None):
+
+        if parseDict:
+            expression = self.updateStringFromDictionary( expression, parseDict, "parse")
+        
         exec(fortran3d(expression,self.sMap))
     
     def addVar(self,name,kind=None,rank='scalar'):
@@ -211,6 +215,18 @@ class pyrandaSim:
         else:
             raise ValueError('No suitable equation type specified for %s' % peq.eqstr)
 
+    def updateStringFromDictionary(self,string,dictionary,handle):
+
+        # Apply a dictionary to the string
+        for item in dictionary:
+            if item in string:
+                string = string.replace( item , str( dictionary[item] ) )
+            else:
+                self.iprint("Notice: Given %s dictionary value: '%s' does not exists in the %s string." % (handle,item,handle) )
+
+        return string        
+
+        
     def EOM(self,eom,eomDict=False):
         """
         Higher level wrapper to make equations of motion from a single string
@@ -219,12 +235,7 @@ class pyrandaSim:
         
         # Apply a dictionary to the string
         if eomDict:
-            for eomd in eomDict:
-                if eomd in eom:
-                    eom = eom.replace( eomd , str( eomDict[eomd] ) )
-                else:
-                    self.iprint("Notice: Given eom dictionary value: '%s' does not exists in the eom string." % (eomd) )
-
+            eom = self.updateStringFromDictionary( eom, eomDict, "EOM")
         
         self.eom = eom
         
@@ -297,12 +308,8 @@ class pyrandaSim:
 
         # Apply a dictionary to the string
         if icDict:
-            for icd in icDict:
-                if icd in ics:
-                    ics = ics.replace( icd , str( icDict[icd] ) )
-                else:
-                    self.iprint("Notice: Given initial condition dictionary value: '%s' does not exists in the IC string." % (icd) )
-                    
+            ics = self.updateStringFromDictionary( ics, icDict, "ICs")
+            
         self.ics = ics
         
         # Split up the equation lines
