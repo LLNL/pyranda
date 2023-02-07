@@ -11,7 +11,7 @@ case "$1" in
     wget http://www.mpich.org/static/downloads/${ver}/${1}.tar.gz
     tar -xzf ${1}.tar.gz
     cd $1
-    ./configure --prefix=$install_dir --with-device=ch3
+    ./configure --prefix=$install_dir --with-device=ch3 FFLAGS=-fallow-argument-mismatch
     make -j4
     make install
   ;;
