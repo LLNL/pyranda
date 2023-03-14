@@ -179,10 +179,10 @@ def defaultMeshOptions():
     options['coordsys'] = 0
     options['function'] = None
     options['id'] = 0
-    # Options to enable manual control of domain processor decomposition
-    # Set manualDomainDecomposition = True to tell Pyranda to just use pn = [ px,py,pz ] as number of processors in x, y, and z
+
+    # Option to enable manual control of domain processor decomposition
+    # Set to tell Pyranda to just use pn = [ px,py,pz ] as number of processors in x, y, and z
     # instead of attempting to decompose automatically
-    options['manualDomainDecomposition'] = False
-    options['pn'] = [1, 1, 1] # Number of processors to use in x, y, and z
+    options['pn'] = [0, 0, 0] # Number of processors to use in x, y, and z
     
     return options
