@@ -33,11 +33,6 @@ class pyrandaMPI():
         self.ny = meshOptions['nn'][1]
         self.nz = meshOptions['nn'][2]
 
-        doManualDecompose = meshOptions['manualDomainDecomposition']
-        manualPx = meshOptions['pn'][0]
-        manualPy = meshOptions['pn'][1]
-        manualPz = meshOptions['pn'][2]
-        
         x1 = meshOptions['x1'][0]
         xn = meshOptions['xn'][0]
         y1 = meshOptions['x1'][1]
@@ -74,12 +69,16 @@ class pyrandaMPI():
         self.order = (10,10,10)
         self.filter_type = ('compact', 'compact', 'compact')
         
+        # Check if we're doing a manual decomposition
+        doManualDecompose = ( (meshOptions['pn'][0] >= 1) or (self.nx == 1) and
+                              (meshOptions['pn'][1] >= 1) or (self.ny == 1) and
+                              (meshOptions['pn'][2] >= 1) or (self.nz == 1) )        
 
         if (doManualDecompose == True):
             # Decompose based on user-supplied arguments
-            px = manualPx
-            py = manualPy
-            pz = manualPz
+            px = max(meshOptions['pn'][0],1)
+            py = max(meshOptions['pn'][1],1)
+            pz = max(meshOptions['pn'][2],1)
         else:
             # Compute the domain decomposition
             [px,py,pz] = decomp( self.comm.Get_size(),
