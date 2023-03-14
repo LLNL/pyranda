@@ -32,7 +32,7 @@ class pyrandaMPI():
         self.nx = meshOptions['nn'][0]
         self.ny = meshOptions['nn'][1]
         self.nz = meshOptions['nn'][2]
-
+        
         x1 = meshOptions['x1'][0]
         xn = meshOptions['xn'][0]
         y1 = meshOptions['x1'][1]
