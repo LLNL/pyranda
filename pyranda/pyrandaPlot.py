@@ -209,11 +209,11 @@ class pyrandaPlot:
 
         # get directions
         if ('k' in slice2d) and ('j' in slice2d):
-            xx = self.getSlice(x,slice2d)
+            xx = self.getLine(x,slice2d)
         if ('j' in slice2d) and ('i' in slice2d):
-            xx = self.getSlice(z,slice2d)
+            xx = self.getLine(z,slice2d)
         if ('i' in slice2d) and ('k' in slice2d):
-            xx = self.getSlice(y,slice2d)
+            xx = self.getLine(y,slice2d)
 
         return xx
     
