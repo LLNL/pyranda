@@ -2,6 +2,7 @@
 baselines = """
 euler-2d-64 -- euler-2d-64.dat
 euler-2d-128 -- euler-2d-128.dat
+euler-RZ-128 -- euler-RZ-128.dat
 KH-2d-64 -- KelvinHelmholtzKH-2d-64.dat
 """
 
@@ -11,12 +12,17 @@ dbase.update( baseDict( baselines) )
 test = testObj('euler-2d-64')
 test.script = 'examples/euler.py'
 test.args = ['64','1',test.name]
-#tests.append( test )
+tests.append( test )
 
 test = testObj('euler-2d-128')
 test.script = 'examples/euler.py'
 test.args = ['128','1',test.name]
-#tests.append( test )
+tests.append( test )
+
+test = testObj('euler-RZ-128')
+test.script = 'examples/eulerRZ.py'
+test.args = ['128','1',test.name]
+tests.append( test )
 
 # Kelvin-Helmholtz test problem
 test = testObj('KH-2d-64')
