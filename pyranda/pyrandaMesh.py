@@ -69,6 +69,13 @@ class pyrandaMesh:
                 self.PyMPI.patch,
                 self.PyMPI.level)
 
+        elif self.coordsys == 1:  # Cylindrical
+
+            parcop.parcop.setup_mesh(
+                self.PyMPI.patch,
+                self.PyMPI.level)
+            
+            
         elif self.coordsys == 3:
 
             x1 = options['x1']
@@ -175,6 +182,7 @@ def defaultMeshOptions():
     options['nn'] = [ 1   , 1    ,  1   ]
     options['periodic'] = [False, False, False]
     options['periodicGrid'] = True  # Recompute
+    options['symmetric'] = [[False, False],[False, False],[False, False]]
     options['dim'] = 1
     options['coordsys'] = 0
     options['function'] = None

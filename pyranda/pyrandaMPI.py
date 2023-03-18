@@ -47,7 +47,8 @@ class pyrandaMPI():
         self.dy = dy
         self.dz = dz
         
-        periodic = meshOptions['periodic']
+        periodic  = meshOptions['periodic']
+        symmetric = meshOptions['symmetric']
         self.periodic = periodic
 
         self.coordsys = meshOptions['coordsys']
@@ -103,6 +104,8 @@ class pyrandaMPI():
         byn = "NONE"#"PERI"
         bz1 = "NONE"#"PERI"
         bzn = "NONE"#"PERI"
+
+        # Operator dependent BCs need to be set at the solver level
         if periodic[0]:
             bx1 = "PERI"
             bxn = "PERI"
@@ -112,7 +115,22 @@ class pyrandaMPI():
         if periodic[2]:
             bz1 = "PERI"
             bzn = "PERI"
+
+        symbc = "SYMM"
+        if symmetric[0][0]:
+            bx1 = symbc
+        if symmetric[0][1]:
+            bxn = symbc
+        if symmetric[1][0]:
+            by1 = symbc
+        if symmetric[1][1]:
+            byn = symbc
+        if symmetric[2][0]:
+            bz1 = symbc
+        if symmetric[2][1]:
+            bzn = symbc
         
+            
         # Set at unique patch/level for each instance
         global GLOBAL_PATCH
         global LAST_PATCH
@@ -668,6 +686,9 @@ class parcop_der:
     def div(self,fx,fy,fz):
         return parcop.parcop.divergence(fx,fy,fz)
 
+    def divT(self,fxx,fxy,fxz,fyx,fyy,fyz,fzx,fzy,fzz):
+        return parcop.parcop.divergencetensor(fxx,fxy,fxz,fyx,fyy,fyz,fzx,fzy,fzz)
+        
     def grad(self,val):
         return parcop.parcop.grads( val )
 

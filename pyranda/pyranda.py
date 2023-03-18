@@ -640,7 +640,10 @@ class pyrandaSim:
                 return self.PyMPI.der.div(f1,self.zero,f2)
         else:            
             return self.PyMPI.der.div(f1,f2,f3)
-    
+
+    def divT(self,fxx,fxy,fxz,fyx,fyy,fyz,fzx,fzy,fzz):
+        return self.PyMPI.der.divT( fxx,fxy,fxz,fyx,fyy,fyz,fzx,fzy,fzz )
+        
     def grad(self,val):
         #return [self.ddx(val),self.ddy(val),self.ddz(val)]
         return self.PyMPI.der.grad( val )    
@@ -790,6 +793,7 @@ class pyrandaSim:
 
         # Simple find/replace mappings
         sMap['div(' ] = 'self.div('
+        sMap['divT(' ] = 'self.divT('
         sMap['ddx(' ] = 'self.ddx('
         sMap['ddy(' ] = 'self.ddy('
         sMap['ddz(' ] = 'self.ddz('

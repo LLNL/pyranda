@@ -209,6 +209,18 @@ MODULE parcop
       
       
     END SUBROUTINE divergence
+
+    SUBROUTINE divergenceTensor(fxx,fxy,fxz,fyx,fyy,fyz,fzx,fzy,fzz,val1,val2,val3,nx,ny,nz)
+      IMPLICIT NONE
+      INTEGER,    INTENT(IN) :: nx,ny,nz
+      real(kind=8), dimension(nx,ny,nz),intent(in)  :: fxx,fxy,fxz
+      real(kind=8), dimension(nx,ny,nz),intent(in)  :: fyx,fyy,fyz
+      real(kind=8), dimension(nx,ny,nz),intent(in)  :: fzx,fzy,fzz 
+      real(kind=8), dimension(nx,ny,nz),intent(out) :: val1,val2,val3
+
+      CALL div(fxx,fxy,fxz,fyx,fyy,fyz,fzx,fzy,fzz,val1,val2,val3)
+      
+    END SUBROUTINE divergenceTensor
     
     SUBROUTINE ddx(val,dval,nx,ny,nz)
       IMPLICIT NONE
