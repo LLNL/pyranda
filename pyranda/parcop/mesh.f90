@@ -45,6 +45,7 @@
     REAL(c_double),  DIMENSION(:,:,:), ALLOCATABLE :: dAdx,dAdy,dAdz  ! A-row of inverse Jacobian tensor
     REAL(c_double),  DIMENSION(:,:,:), ALLOCATABLE :: dBdx,dBdy,dBdz  ! B-row of inverse Jacobian tensor
     REAL(c_double),  DIMENSION(:,:,:), ALLOCATABLE :: dCdx,dCdy,dCdz  ! C-row of inverse Jacobian tensor
+    REAL(c_double),  DIMENSION(:,:,:), ALLOCATABLE :: isinY,itanY,iR  ! Some useful metrics for spherical/cylindrical
     CONTAINS
      PROCEDURE :: setup => setup_mesh
      PROCEDURE :: remove => remove_mesh
@@ -103,6 +104,12 @@
      ALLOCATE(mesh_data%CellVolS(patch_data%ax,patch_data%ay,patch_data%az))
      ALLOCATE(mesh_data%CellVolG(patch_data%ax,patch_data%ay,patch_data%az))
      SELECT CASE(patch_data%coordsys)
+     CASE(1)
+       ALLOCATE(mesh_data%iR(patch_data%ax,patch_data%ay,patch_data%az)) 
+     CASE(2)
+       ALLOCATE(mesh_data%iR(patch_data%ax,patch_data%ay,patch_data%az))
+       ALLOCATE(mesh_data%isinY(patch_data%ax,patch_data%ay,patch_data%az))
+       ALLOCATE(mesh_data%itanY(patch_data%ax,patch_data%ay,patch_data%az)) 
      CASE(3)
        ALLOCATE(mesh_data%detxyz(patch_data%ax,patch_data%ay,patch_data%az))
        ALLOCATE(mesh_data%dAdx(patch_data%ax,patch_data%ay,patch_data%az))
@@ -146,7 +153,8 @@
                dAdx      => mesh_data%dAdx,       dAdy      => mesh_data%dAdy,       dAdz      => mesh_data%dAdz,       &
                dBdx      => mesh_data%dBdx,       dBdy      => mesh_data%dBdy,       dBdz      => mesh_data%dBdz,       &
                dCdx      => mesh_data%dCdx,       dCdy      => mesh_data%dCdy,       dCdz      => mesh_data%dCdz,       &
-	       radius    => mesh_data%xgrid,      theta     => mesh_data%ygrid)
+	       radius    => mesh_data%xgrid,      theta     => mesh_data%ygrid,      iR        => mesh_data%iR,         &
+               isinY     => mesh_data%isinY,      itanY     => mesh_data%itanY )
      ix = xcom_id*ax + [ (i,i=1,ax) ]
      iy = ycom_id*ay + [ (j,j=1,ay) ]
      iz = zcom_id*az + [ (k,k=1,az) ]
@@ -207,6 +215,7 @@
          CellVol = d1*d2*d3
          GridLen = MIN(d1,d2,d3)  
        END SELECT
+       iR = 1.0D0 / xgrid
      CASE(2) ! Spherical
        d1 =                   dx
        d2 =            radius*dy
@@ -221,6 +230,9 @@
            GridLen = d1
 	 END SELECT ! nz
        END SELECT ! ny
+       iR    = 1.0D0 / xgrid
+       isinY = 1.0D0 / SIN(ygrid)
+       itanY = 1.0D0 / TAN(ygrid)              
      CASE(3) ! Curvilinear
      
        dA = dx

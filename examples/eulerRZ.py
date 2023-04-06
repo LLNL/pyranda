@@ -36,8 +36,8 @@ mesh_options = defaultMeshOptions()
 mesh_options['coordsys'] = 1
 mesh_options['periodic'] = numpy.array([False, False, True])
 #mesh_options['dim'] = 2
-mesh_options['x1'] = [ dx2 , 0.0  ,  0.0 ]
-mesh_options['xn'] = [ L   , L    ,  L ]
+mesh_options['x1'] = [ dx2 , -0.1  ,  0.0 ]
+mesh_options['xn'] = [ L   ,  0.1  ,  L ]
 mesh_options['nn'] = [ Npts, 1 ,  Npts  ]
 mesh_options['symmetric'][0][0] = True
 
