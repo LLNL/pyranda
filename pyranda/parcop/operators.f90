@@ -148,22 +148,26 @@
     ! *** does sin(mesh_ptr%ygrid) ever generate patch_ptr%isymY factor? ***
       tmp = mesh_ptr%xgrid**2*fxx
       CALL ddx(tmp,fA,patch_ptr%isymX**4)
-      tmp = fyx*SIN(mesh_ptr%ygrid)
+      !tmp = fyx*SIN(mesh_ptr%ygrid)
+      tmp = fyx/mesh_ptr%isinY
       CALL ddy(tmp,fB,patch_ptr%isymY**2)   !?
       CALL ddz(fzx,fC,patch_ptr%isymZ)
-      dfx = fA/mesh_ptr%xgrid**2 + (fB+fC)/(mesh_ptr%xgrid*SIN(mesh_ptr%ygrid))-(fyy+fzz)/mesh_ptr%xgrid
+      !dfx = fA/mesh_ptr%xgrid**2 + (fB+fC)/(mesh_ptr%xgrid*SIN(mesh_ptr%ygrid))-(fyy+fzz)/mesh_ptr%xgrid
+      dfx = fA*mesh_ptr%iR**2 + (fB+fC)*mesh_ptr%iR*mesh_ptr%isinY - (fyy+fzz)*mesh_ptr%iR
       tmp = mesh_ptr%xgrid**3*fxy
       CALL ddx(tmp,fA,patch_ptr%isymX**4)
       tmp = fyy*SIN(mesh_ptr%ygrid)
       CALL ddy(tmp,fB,patch_ptr%isymY**3)   !?
       CALL ddz(fzy,fC,patch_ptr%isymZ)
-      dfy = fA/mesh_ptr%xgrid**3 + (fB+fC)/(mesh_ptr%xgrid*SIN(mesh_ptr%ygrid)) + (fyx-fxy-fzz/TAN(mesh_ptr%ygrid))/mesh_ptr%xgrid
+      !dfy = fA/mesh_ptr%xgrid**3 + (fB+fC)/(mesh_ptr%xgrid*SIN(mesh_ptr%ygrid)) + (fyx-fxy-fzz/TAN(mesh_ptr%ygrid))/mesh_ptr%xgrid
+      dfy = fA*mesh_ptr%iR**3 + (fB+fC)*mesh_ptr%iR*mesh_ptr%isinY + (fyx-fxy-fzz*mesh_ptr%itanY)*mesh_ptr%iR
       tmp = mesh_ptr%xgrid**3*fxz
       CALL ddx(tmp,fA,patch_ptr%isymX**4)
       tmp = fyz*SIN(mesh_ptr%ygrid)
       CALL ddy(tmp,fB,patch_ptr%isymY**2)   !?
       CALL ddz(fzz,fC,patch_ptr%isymZ**2)
-      dfz = fA/mesh_ptr%xgrid**3 + (fB+fC)/(mesh_ptr%xgrid*SIN(mesh_ptr%ygrid)) + (fzx-fxz+fzy/TAN(mesh_ptr%ygrid))/mesh_ptr%xgrid
+      !dfz = fA/mesh_ptr%xgrid**3 + (fB+fC)/(mesh_ptr%xgrid*SIN(mesh_ptr%ygrid)) !+ (fzx-fxz+fzy/TAN(mesh_ptr%ygrid))/mesh_ptr%xgrid
+      dfz = fA*mesh_ptr%iR**3 + (fB+fC)*mesh_ptr%iR*mesh_ptr%isinY + (fzx-fxz+fzy*mesh_ptr%itanY)*mesh_ptr%iR
      CASE(3)
       CALL divV(fxx,fxy,fxz,dfx,patch_ptr%ax,patch_ptr%ay,patch_ptr%az)
       CALL divV(fyx,fyy,fyz,dfy,patch_ptr%ax,patch_ptr%ay,patch_ptr%az)

@@ -74,9 +74,14 @@ class pyrandaMesh:
             parcop.parcop.setup_mesh(
                 self.PyMPI.patch,
                 self.PyMPI.level)
+
+        elif self.coordsys == 2:  # Spherical
+
+            parcop.parcop.setup_mesh(
+                self.PyMPI.patch,
+                self.PyMPI.level)            
             
-            
-        elif self.coordsys == 3:
+        elif self.coordsys == 3:  # General/curvilinear
 
             x1 = options['x1']
             xn = options['xn']
@@ -137,6 +142,23 @@ class pyrandaMesh:
         self.coords[0].data = parcop.parcop.xgrid(ax,ay,az)
         self.coords[1].data = parcop.parcop.ygrid(ax,ay,az)
         self.coords[2].data = parcop.parcop.zgrid(ax,ay,az)
+
+        # Write in x-y-z space
+        if self.coordsys == 1:  # Cylindrical
+            x = self.coords[0].data*numpy.cos(self.coords[1].data)
+            y = self.coords[0].data*numpy.sin(self.coords[1].data)
+            z = self.coords[2].data
+        elif self.coordsys == 2: # Spherical
+            x = self.coords[0].data*numpy.sin(self.coords[1].data)*numpy.cos(self.coords[2].data)
+            y = self.coords[0].data*numpy.sin(self.coords[1].data)*numpy.sin(self.coords[2].data)
+            z = self.coords[0].data*numpy.cos(self.coords[1].data)
+
+        if self.coordsys == 1 or self.coordsys == 2:
+            self.coords[0].data[:,:,:] = x
+            self.coords[1].data[:,:,:] = y
+            self.coords[2].data[:,:,:] = z
+            
+            
         self.shape = list(self.coords[0].data.shape)
 
         self.d1 = parcop.parcop.dxgrid(ax,ay,az)
