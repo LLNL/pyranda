@@ -56,3 +56,18 @@ in 1D, in the x-direction from (0,1) using 100 points and evolve the solution .1
 `pysim.plot.plot('phi')`
 
 <img src="https://github.com/LLNL/pyranda/blob/master/docs/images/Advection.png" alt="alt text" width="500pt">
+
+
+## Cite
+
+Please us the folowing bibtex, when you refer to this project.
+
+```
+  @misc{pyrandaCode,
+    title  = {Pyranda: A Python driven, Fortran powered Finite Difference solver for arbitrary hyperbolic PDE systems and mini-app for the LLNL Miranda code},
+    author = {Olson, Britton},
+    url    = https://github.com/LLNL/pyranda},
+    year   = {2023}
+  }
+```
+
