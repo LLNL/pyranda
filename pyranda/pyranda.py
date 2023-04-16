@@ -568,10 +568,6 @@ class pyrandaSim:
         DATA = self.PyMPI.emptyVector(len(self.variables))
         for ivar in sorted(self.variables.keys()):   # BJO: was getting proc dependent ordering here, force it to be uniform
             DATA[:,:,:,serial_data['vars'][ivar]] = self.variables[ivar].data
-        # Grid
-        #DATA[:,:,:,serial_data['vars']['meshx']] = self.mesh.coords[0].data
-        #DATA[:,:,:,serial_data['vars']['meshy']] = self.mesh.coords[1].data
-        #DATA[:,:,:,serial_data['vars']['meshz']] = self.mesh.coords[2].data
 
             
         # Write this big thing
@@ -783,13 +779,6 @@ class pyrandaSim:
     def get_sMap(self):
         sMap = {}
         
-        #sMap["div(#arg#)"] = ""
-        #if self.nx > 1:
-        #    sMap["div(#arg#)"] += "self.ddx(#arg#[:,:,:,0])"
-        #if self.ny > 1:
-        #    sMap["div(#arg#)"] += "+self.ddy(#arg#[:,:,:,1])"
-        #if self.nz > 1:
-        #    sMap["div(#arg#)"] += "+self.ddz(#arg#[:,:,:,2])"
 
         # Simple find/replace mappings
         sMap['div(' ] = 'self.div('

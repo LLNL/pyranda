@@ -9,6 +9,7 @@
 # Written by: Britton J. Olson, olson45@llnl.gov
 ################################################################################
 import numpy
+import copy
 from .pyrandaUtils import fortran3d, splitLines
 from . import parcop
 from .pyrandaVar   import pyrandaVar
@@ -57,31 +58,39 @@ class pyrandaMesh:
 
     def makeMesh(self,xr=None,yr=None,zr=None):
 
-
-        options = self.options
-        self.nn = options['nn']
-        
+        # Per processor (local) mesh size
         ax,ay,az = self.PyMPI.ax,self.PyMPI.ay,self.PyMPI.az
-        if self.coordsys == 0:  # Cartesian
+        
+        # Compute global index arrays
+        self.indices = [ pyrandaVar("iloc","mesh","scalar"),
+                         pyrandaVar("jloc","mesh","scalar"),
+                         pyrandaVar("kloc","mesh","scalar") ]
+        
+        for ind in self.indices:
+            ind.__allocate__(self.PyMPI)
+            
+        for i in range(ax):
+            for j in range(ay):
+                for k in range(az):
+                    # Get global indices
+                    ii = i + self.PyMPI.chunk_3d_lo[0]
+                    jj = j + self.PyMPI.chunk_3d_lo[1]
+                    kk = k + self.PyMPI.chunk_3d_lo[2]
+                    self.indices[0].data[i,j,k] = ii
+                    self.indices[1].data[i,j,k] = jj
+                    self.indices[2].data[i,j,k] = kk
+        
+        options = self.options
+        self.nn = options['nn']                         
+
+        if self.coordsys != 3:
 
             # Define the grid here (in Fortran)
             parcop.parcop.setup_mesh(
                 self.PyMPI.patch,
-                self.PyMPI.level)
-
-        elif self.coordsys == 1:  # Cylindrical
-
-            parcop.parcop.setup_mesh(
-                self.PyMPI.patch,
-                self.PyMPI.level)
-
-        elif self.coordsys == 2:  # Spherical
-
-            parcop.parcop.setup_mesh(
-                self.PyMPI.patch,
-                self.PyMPI.level)            
+                self.PyMPI.level) 
             
-        elif self.coordsys == 3:  # General/curvilinear
+        elif self.coordsys == 3:  # General/curvilinear - need grid from python
 
             x1 = options['x1']
             xn = options['xn']
@@ -124,13 +133,10 @@ class pyrandaMesh:
             
             # Define the grid here (send to fortran
             mesh_per = options['periodicGrid']
-            #mesh_perX = options['gridPeriodic'][0]
-            #mesh_perY = options['gridPeriodic'][1]
-            #mesh_perZ = options['gridPeriodic'][2]
             parcop.parcop.setup_mesh_x3(
                 self.PyMPI.patch,
                 self.PyMPI.level,
-                x,y,z,mesh_per) #mesh_perX,mesh_perY,mesh_perZ)
+                x,y,z,mesh_per)
 
         # Read in from the fortran and set to numpy arrays
         self.coords = [ pyrandaVar('x','mesh','scalar'),
@@ -149,11 +155,33 @@ class pyrandaMesh:
             y = self.coords[0].data*numpy.sin(self.coords[1].data)
             z = self.coords[2].data
         elif self.coordsys == 2: # Spherical
-            x = self.coords[0].data*numpy.sin(self.coords[1].data)*numpy.cos(self.coords[2].data)
-            y = self.coords[0].data*numpy.sin(self.coords[1].data)*numpy.sin(self.coords[2].data)
-            z = self.coords[0].data*numpy.cos(self.coords[1].data)
 
-        if self.coordsys == 1 or self.coordsys == 2:
+            r   = self.coords[0].data
+            th  = self.coords[1].data
+            phi = self.coords[2].data
+        
+            x = r * numpy.sin( th ) * numpy.cos( phi )
+            y = r * numpy.sin( th ) * numpy.sin( phi )
+            z = r * numpy.cos( th )
+            
+        elif self.coordsys == 4: # Spherical- ratio'd r-spacing
+
+            r   = self.coords[0].data
+            th  = self.coords[1].data
+            phi = self.coords[2].data
+            
+            x = r * numpy.sin( th ) * numpy.cos( phi )
+            y = r * numpy.sin( th ) * numpy.sin( phi )
+            z = r * numpy.cos( th )             
+                                    
+        if self.coordsys in [1,2,4]:
+
+            # Save native coords
+            self.coordsNative = copy.deepcopy( self.coords )
+            self.coordsNative[0].PyMPI = self.PyMPI
+            self.coordsNative[1].PyMPI = self.PyMPI
+            self.coordsNative[2].PyMPI = self.PyMPI
+            
             self.coords[0].data[:,:,:] = x
             self.coords[1].data[:,:,:] = y
             self.coords[2].data[:,:,:] = z
@@ -176,24 +204,7 @@ class pyrandaMesh:
             self.PyMPI.az)
 
 
-        # Compute global index arrays
-        self.indices = [ pyrandaVar("iloc","mesh","scalar"),
-                         pyrandaVar("jloc","mesh","scalar"),
-                         pyrandaVar("kloc","mesh","scalar") ]
-        
-        for ind in self.indices:
-            ind.__allocate__(self.PyMPI)
-            
-        for i in range(ax):
-            for j in range(ay):
-                for k in range(az):
-                    # Get global indices
-                    ii = i + self.PyMPI.chunk_3d_lo[0]
-                    jj = j + self.PyMPI.chunk_3d_lo[1]
-                    kk = k + self.PyMPI.chunk_3d_lo[2]
-                    self.indices[0].data[i,j,k] = ii
-                    self.indices[1].data[i,j,k] = jj
-                    self.indices[2].data[i,j,k] = kk
+
 
                     
 def defaultMeshOptions():

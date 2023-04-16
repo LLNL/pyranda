@@ -137,7 +137,7 @@ class pyrandaPlot:
             plt.pause(.01)
             
 
-    def getGrid2d(self,slice3d):
+    def getGrid2d(self,slice3d,om=None):
 
         nx = self.pyranda.nx
         ny = self.pyranda.ny
