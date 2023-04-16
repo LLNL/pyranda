@@ -198,9 +198,10 @@ class pyrandaMPI():
         procMap['%s-g1' % rank] = self.chunk_3d_lo
         procMap['%s-gn' % rank] = self.chunk_3d_hi
 
+        # Custom comm operator for the processor map; make it, use it, free it (max Op count is 32)
         counterSumOp = MPI.Op.Create(addCounter, commute=True)
         self.procMap = self.comm.allreduce(procMap, op=counterSumOp)
-
+        counterSumOp.Free()
         
         
         self.der  = parcop_der()

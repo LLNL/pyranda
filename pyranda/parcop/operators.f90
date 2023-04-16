@@ -61,13 +61,14 @@
       !$FEXL {dim:3,var:['df','fA','fB','fC','mesh_ptr%xgrid'] }
       df = (fA+fB)/mesh_ptr%xgrid + fC
       !$END FEXL
-     CASE(2)
+     CASE(2,4)
       ! *** does sin(mesh_ptr%ygrid) ever generate patch_ptr%isymY factor? ***
       !$FEXL {dim:3,var:['tmp','mesh_ptr%xgrid','fx','fy','df','mesh_ptr%ygrid'] }
       tmp = mesh_ptr%xgrid**2*fx          ! r**2*v_r
       df = fy*SIN(mesh_ptr%ygrid)          ! v_theta*SIN(theta)
       !$END FEXL
       CALL ddx(tmp,fA,patch_ptr%isymX**3)
+      fA = fA*patch_ptr%dx/mesh_ptr%d1
       CALL ddy(df,fB, patch_ptr%isymY**2)  ! Assumes theta has some symmetry here... move outside derivative
       CALL ddz(fz,fC, patch_ptr%isymZ)
       !$FEXL {dim:3,var:['fA','fB','fC','mesh_ptr%xgrid','df','mesh_ptr%ygrid'] }
@@ -144,10 +145,11 @@
       !$FEXL {dim:3,var:['dfz','mesh_ptr%xgrid','fA','fB','fC'] }
       dfz = (fA+fB)/mesh_ptr%xgrid + fC
       !$END FEXL
-    CASE(2)
+    CASE(2,4)
     ! *** does sin(mesh_ptr%ygrid) ever generate patch_ptr%isymY factor? ***
       tmp = mesh_ptr%xgrid**2*fxx
       CALL ddx(tmp,fA,patch_ptr%isymX**4)
+      fA = fA*patch_ptr%dx/mesh_ptr%d1
       !tmp = fyx*SIN(mesh_ptr%ygrid)
       tmp = fyx/mesh_ptr%isinY
       CALL ddy(tmp,fB,patch_ptr%isymY**2)   !?
@@ -156,6 +158,7 @@
       dfx = fA*mesh_ptr%iR**2 + (fB+fC)*mesh_ptr%iR*mesh_ptr%isinY - (fyy+fzz)*mesh_ptr%iR
       tmp = mesh_ptr%xgrid**3*fxy
       CALL ddx(tmp,fA,patch_ptr%isymX**4)
+      fA = fA*patch_ptr%dx/mesh_ptr%d1
       tmp = fyy*SIN(mesh_ptr%ygrid)
       CALL ddy(tmp,fB,patch_ptr%isymY**3)   !?
       CALL ddz(fzy,fC,patch_ptr%isymZ)
@@ -163,6 +166,7 @@
       dfy = fA*mesh_ptr%iR**3 + (fB+fC)*mesh_ptr%iR*mesh_ptr%isinY + (fyx-fxy-fzz*mesh_ptr%itanY)*mesh_ptr%iR
       tmp = mesh_ptr%xgrid**3*fxz
       CALL ddx(tmp,fA,patch_ptr%isymX**4)
+      fA = fA*patch_ptr%dx/mesh_ptr%d1
       tmp = fyz*SIN(mesh_ptr%ygrid)
       CALL ddy(tmp,fB,patch_ptr%isymY**2)   !?
       CALL ddz(fzz,fC,patch_ptr%isymZ**2)
@@ -192,7 +196,8 @@
       !$FEXL {dim:3,var:['dfdy','mesh_ptr%xgrid']}
       dfdy = dfdy/mesh_ptr%xgrid
       !$END FEXL  
-     CASE(2) ! Spherical
+     CASE(2,4) ! Spherical
+      dfdx = dfdx*patch_ptr%dx/mesh_ptr%d1
       dfdy = dfdy/mesh_ptr%xgrid
       dfdz = dfdz/(mesh_ptr%xgrid*SIN(mesh_ptr%ygrid))
      CASE(3) ! General
@@ -230,7 +235,8 @@
       !$FEXL {dim:3,var:['dfdy','mesh_ptr%xgrid']}  
       dfdy = dfdy/mesh_ptr%xgrid
       !$END FEXL  
-     CASE(2) ! Spherical
+     CASE(2,4) ! Spherical
+      dfdx = dfdx*patch_ptr%dx/mesh_ptr%d1
       dfdy = dfdy/mesh_ptr%xgrid
       dfdz = dfdz/(mesh_ptr%xgrid*SIN(mesh_ptr%ygrid))
      CASE(3) ! General
@@ -269,7 +275,8 @@
       !$FEXL {dim:3,var:['dfdy','mesh_ptr%xgrid']}
       dfdy = dfdy/mesh_ptr%xgrid
       !$END FEXL  
-     CASE(2) ! Spherical
+     CASE(2,4) ! Spherical
+      dfdx = dfdx*patch_ptr%dx/mesh_ptr%d1
       dfdy = dfdy/mesh_ptr%xgrid
       dfdz = dfdz/(mesh_ptr%xgrid*SIN(mesh_ptr%ygrid))
      CASE(3) ! General
@@ -305,7 +312,10 @@
       dfyy = (dfyy+fx)/mesh_ptr%xgrid
       dfyz = dfyz/mesh_ptr%xgrid
       !$END FEXL
-     CASE(2) ! Spherical
+     CASE(2,4) ! Spherical
+      dfxx = dfxx*patch_ptr%dx/mesh_ptr%d1
+      dfxy = dfxy*patch_ptr%dx/mesh_ptr%d1
+      dfxz = dfxz*patch_ptr%dx/mesh_ptr%d1
       dfyx = (dfyx-fy)/mesh_ptr%xgrid
       dfyy = (dfyy+fx)/mesh_ptr%xgrid
       dfyz = dfyz/mesh_ptr%xgrid
@@ -874,7 +884,7 @@
        !$FEXL {dim:3,var:['bar','mesh_ptr%CellVol']}
        bar = bar/mesh_ptr%CellVol
        !$END FEXL
-     CASE(2,3) ! Spherical, Curvilinear
+     CASE(2,3,4) ! Spherical, Curvilinear
        tmp = fun*mesh_ptr%CellVol
        CALL bppfx(tmp,bar,filnum,xasym)
        CALL bppfy(bar,tmp,filnum,yasym)

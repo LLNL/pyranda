@@ -82,7 +82,7 @@
     REAL(c_double), DIMENSION(:,:,:), ALLOCATABLE :: dydA,dydB,dydC	!  Y-row of Jacobian tensor
     REAL(c_double), DIMENSION(:,:,:), ALLOCATABLE :: dzdA,dzdB,dzdC	!  Z-row of Jacobian tensor
     REAL(c_double), DIMENSION(:,:,:), ALLOCATABLE :: tmp                !  work array
-    REAL(c_double) :: dA,dB,dC
+    REAL(c_double) :: dA,dB,dC,Asp,Csp
     LOGICAL :: tmpPx,tmpPy,tmpPz
     INTEGER(c_int) :: i,j,k,flag,filnum,xasym,yasym,zasym
         
@@ -106,7 +106,7 @@
      SELECT CASE(patch_data%coordsys)
      CASE(1)
        ALLOCATE(mesh_data%iR(patch_data%ax,patch_data%ay,patch_data%az)) 
-     CASE(2)
+     CASE(2,4)
        ALLOCATE(mesh_data%iR(patch_data%ax,patch_data%ay,patch_data%az))
        ALLOCATE(mesh_data%isinY(patch_data%ax,patch_data%ay,patch_data%az))
        ALLOCATE(mesh_data%itanY(patch_data%ax,patch_data%ay,patch_data%az)) 
@@ -177,8 +177,15 @@
         END FORALL
      END IF
 
-     
-     
+! Updates to coordys 4 - spherical coordinates with ratio zoning in R
+     IF ( coordsys == 4 ) THEN
+        Csp = LOG( (nx-1)*dx ) / ( dy * (nx-1) )
+        Asp = (x1 + dx/2.0) / EXP( Csp*dy )
+        DO i=1,ax
+           xgrid(i,:,:) = Asp * EXP(Csp*dy*ix(i))
+        END DO
+     END IF
+
 ! CELL VOLUMES AND MINIMUM GRID SPACINGS -----------------------------------------------------------     
      SELECT CASE(coordsys)
      CASE(0) ! Cartesian
@@ -216,10 +223,11 @@
          GridLen = MIN(d1,d2,d3)  
        END SELECT
        iR = 1.0D0 / xgrid
-     CASE(2) ! Spherical
+     CASE(2,4) ! Spherical
        d1 =                   dx
        d2 =            radius*dy
-       d3 = radius*SIN(theta)*dz    
+       d3 = radius*SIN(theta)*dz
+       IF (coordsys == 4) d1 = Csp*xgrid*dy  ! Update d1 for ratio zones. This is metric!
        CellVol = d1*d2*d3
        GridLen = MIN(d1,d2,d3)  
        SELECT CASE(ny)

@@ -111,6 +111,9 @@ v = 1.0
 dt_max = v / ss.mesh.nn[0] * 0.75
 tt = 2.0
 
+if test:
+    tt = 0.5
+    
 # Start time loop
 dt = dt_max
 cnt = 1
