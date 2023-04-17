@@ -145,7 +145,7 @@ while tt > time:
 
 if test:
     half = int(Npts/2.0)
-    x = ss.mesh.coords[0][half,0,:]
+    x = ss.mesh.coords[0][:,0,0]
     p = ss.var('p')[half,0,:]
     fname = testName + '.dat'
     numpy.savetxt( fname  , (x,p) )
