@@ -9,7 +9,6 @@
 # Written by: Britton J. Olson, olson45@llnl.gov
 ################################################################################
 import numpy
-import copy
 from .pyrandaUtils import fortran3d, splitLines
 from . import parcop
 from .pyrandaVar   import pyrandaVar
@@ -177,11 +176,16 @@ class pyrandaMesh:
         if self.coordsys in [1,2,4]:
 
             # Save native coords
-            self.coordsNative = copy.deepcopy( self.coords )
-            self.coordsNative[0].PyMPI = self.PyMPI
-            self.coordsNative[1].PyMPI = self.PyMPI
-            self.coordsNative[2].PyMPI = self.PyMPI
-            
+            self.coordsNative = [ pyrandaVar('x','mesh','scalar'),
+                                  pyrandaVar('y','mesh','scalar'),
+                                  pyrandaVar('z','mesh','scalar') ]
+            for cor in self.coordsNative:
+                cor.__allocate__(self.PyMPI)
+
+            self.coordsNative[0].data[:,:,:] = self.coords[0].data
+            self.coordsNative[1].data[:,:,:] = self.coords[1].data
+            self.coordsNative[2].data[:,:,:] = self.coords[2].data
+                
             self.coords[0].data[:,:,:] = x
             self.coords[1].data[:,:,:] = y
             self.coords[2].data[:,:,:] = z
