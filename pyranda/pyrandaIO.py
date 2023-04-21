@@ -117,7 +117,7 @@ class pyrandaIO:
         fid.close()
 
 
-    def makeDumpVTKbin(self,mesh,variables,varList,dumpFile,cycle,time):
+    def makeDumpVTKbin(self,mesh,variables,varList,dumpFile,cycle,time,make2d=True):
 
         ghost = True
 
@@ -134,6 +134,35 @@ class pyrandaIO:
         ay = fx.shape[1]
         az = fx.shape[2]
 
+        # Make2d option - for simulations with only 2 dimensional data, force them to be in first/second dimension
+        #  Only valid when az > 1 and either ax==1 or ay==1
+        reshape = None
+        if make2d and (az > 1 ) and ( (ax==1) or (ay==1) ):
+            if (ax == 1):
+                ax = ay
+                ay = az
+                az = 1
+                fx[:,:,:] = fy
+                fy[:,:,:] = fz
+                fz[:,:,:] = 0.0                
+            elif (ay == 1):
+                ay = az
+                az = 1
+                fy[:,:,:] = fz
+                fz[:,:,:] = 0.0
+                    
+            # 2D dataset always looks like this
+            reshape = (ax,ay,1)
+
+            # Reshape mesh
+            fx = fx.reshape( reshape, order='F' )
+            fy = fy.reshape( reshape, order='F' )
+            fz = fz.reshape( reshape, order='F' )
+
+        # For nz == 1, check for z value an make it zero for viz
+        if ( az == 1  and (fz.max()==fz.min())):
+            fz[:,:,:] = 0.0
+                        
         fid = open(dumpFile + '.vtk','w')
 
         fid.write("# vtk DataFile Version 3.0 \n")
@@ -188,6 +217,8 @@ class pyrandaIO:
                 gdata = self.PyMPI.ghost( variables[var].data )
             else:
                 gdata = variables[var].data
+            if reshape:
+                gdata = gdata.reshape( reshape, order='F')
             fid = open(dumpFile + '.vtk','ab')
             for k in range(az):
                 for j in range(ay):
