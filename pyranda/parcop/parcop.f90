@@ -12,7 +12,7 @@ MODULE parcop
 
   USE LES_objects
   USE LES_comm, ONLY : LES_comm_world
-  USE LES_compact_operators, ONLY : d1x,d1y,d1z,d4x,d4y,d4z
+  USE LES_compact_operators, ONLY : d1x,d1y,d1z,d4x,d4y,d4z,d8x,d8y,d8z
   USE LES_operators, ONLY : div,grad,Laplacian
   USE LES_operators, ONLY : curl,cross,filter,ring,ringV,filterGdir
   USE LES_operators, ONLY : get_rands_normal, filtRands
@@ -276,7 +276,29 @@ MODULE parcop
       CALL d4z(val,dval)
     END SUBROUTINE dd4z
 
-    
+    SUBROUTINE dd8x(val,dval,nx,ny,nz)
+      IMPLICIT NONE
+      INTEGER,               INTENT(IN) :: nx,ny,nz
+      real(kind=8), dimension(nx,ny,nz), intent(in) :: val
+      real(kind=8), dimension(nx,ny,nz),intent(out) :: dval      
+      CALL d8x(val,dval)
+    END SUBROUTINE dd8x
+
+    SUBROUTINE dd8y(val,dval,nx,ny,nz)
+      IMPLICIT NONE
+      INTEGER,               INTENT(IN) :: nx,ny,nz
+      real(kind=8), dimension(nx,ny,nz), intent(in) :: val
+      real(kind=8), dimension(nx,ny,nz),intent(out) :: dval      
+      CALL d8y(val,dval)
+    END SUBROUTINE dd8y
+
+    SUBROUTINE dd8z(val,dval,nx,ny,nz)
+      IMPLICIT NONE
+      INTEGER,               INTENT(IN) :: nx,ny,nz
+      real(kind=8), dimension(nx,ny,nz), intent(in) :: val
+      real(kind=8), dimension(nx,ny,nz),intent(out) :: dval      
+      CALL d8z(val,dval)
+    END SUBROUTINE dd8z
 
     SUBROUTINE plaplacian(val,dval,nx,ny,nz)
       IMPLICIT NONE
