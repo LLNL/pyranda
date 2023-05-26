@@ -301,7 +301,7 @@ class pyrandaSim:
 
         return svars
 
-    def setIC(self,ics,icDict=False,addOnly=False):
+    def setIC(self,ics,icDict=False,addOnly=False,verbose=False):
         """
         Evaluate the initial conditions and then update variables
         """
@@ -342,6 +342,10 @@ class pyrandaSim:
         # Actually compute the Initial Conditions
         for ic in ic_lines:
             ic_mod = ic #+ '+self.emptyScalar()'
+
+            if verbose:
+                self.iprint( ic )
+                
             try:
                 exec(fortran3d(ic_mod,self.sMap))
             except Exception as e:
@@ -357,7 +361,7 @@ class pyrandaSim:
             self.iprint("Found some nans in inits: %s" % snans)
             exit()
 
-        self.updateVars()
+        self.updateVars(verbose=verbose)
         snans = self.checkForNan()
         if snans:
             self.iprint("Found some nans in Update after init: %s" % snans)
@@ -385,7 +389,7 @@ class pyrandaSim:
 
         return flux
 
-    def updateVars(self):
+    def updateVars(self,verbose=False):
         #
         # Update the equations
         #
@@ -394,6 +398,10 @@ class pyrandaSim:
                 continue
 
             if ( eq.kind == 'ALG'):
+            
+                if verbose:
+                    self.iprint( eq.eqstr )
+
                 rhs = eq.RHS(self)
 
                 # If no LHS , then on to the next eq
@@ -617,6 +625,15 @@ class pyrandaSim:
     def dd4z(self,val):
         return self.PyMPI.der.dd4z( val )
 
+    def dd8x(self,val):
+        return self.PyMPI.der.dd8x( val )
+
+    def dd8y(self,val):
+        return self.PyMPI.der.dd8y( val )
+
+    def dd8z(self,val):
+        return self.PyMPI.der.dd8z( val )
+
     def div(self,f1,f2=None,f3=None):
 
         if (type(f2) == type(None) and type(f3) == type(None)):
@@ -800,6 +817,9 @@ class pyrandaSim:
         sMap['dd4x(' ] = 'self.dd4x('
         sMap['dd4y(' ] = 'self.dd4y('
         sMap['dd4z(' ] = 'self.dd4z('
+        sMap['dd8x(' ] = 'self.dd8x('
+        sMap['dd8y(' ] = 'self.dd8y('
+        sMap['dd8z(' ] = 'self.dd8z('
         sMap['sum(' ] = 'self.PyMPI.sum3D('
         sMap['mean('] = '1.0/float(self.npts) * self.PyMPI.sum3D('
         sMap['mean3D('] = 'self.PyMPI.mean3D('
