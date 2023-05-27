@@ -71,9 +71,9 @@ class pyrandaMPI():
         self.filter_type = ('compact', 'compact', 'compact')
         
         # Check if we're doing a manual decomposition
-        doManualDecompose = ( (meshOptions['pn'][0] >= 1) or (self.nx == 1) and
-                              (meshOptions['pn'][1] >= 1) or (self.ny == 1) and
-                              (meshOptions['pn'][2] >= 1) or (self.nz == 1) )        
+        doManualDecompose = ( ((meshOptions['pn'][0] >= 1) or (self.nx == 1)) and
+                              ((meshOptions['pn'][1] >= 1) or (self.ny == 1)) and
+                              ((meshOptions['pn'][2] >= 1) or (self.nz == 1)) )        
 
         if (doManualDecompose == True):
             # Decompose based on user-supplied arguments
