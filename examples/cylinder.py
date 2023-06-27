@@ -83,7 +83,7 @@ ddt(:Et:)   =  -ddx( (:Et: + :p: - :tau:)*:u: - :tx:*:kappa:) - ddy( (:Et: + :p:
 [:tx:,:ty:,:tz:] = grad(:T:)
 :kappa:     = gbar( ring(:T:)* :rho:*:cv:/(:T: * :dt: ) ) * 1.0e-3
 # Apply constant BCs
-[:u:,:v:,:w:] = ibmV( [:u:,:v:,0.0], :phi:, [:gx:,:gy:,:gz:], [:u1:,:u2:,0.0] )
+[:u:,:v:,:w:] = ibmV( [:u:,:v:,:w:], :phi:, [:gx:,:gy:,:gz:], [:u1:,:u2:,0.0] )
 :rho: = ibmS( :rho: , :phi:, [:gx:,:gy:,:gz:] )
 :p:   = ibmS( :p:   , :phi:, [:gx:,:gy:,:gz:] )
 bc.extrap(['rho','p','u'],['xn'])
