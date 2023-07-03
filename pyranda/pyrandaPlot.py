@@ -85,7 +85,7 @@ class pyrandaPlot:
         import matplotlib.pyplot as plt
         self.contourf(var , levels, slice3d=slice3d,filled=False,**kwargs)
             
-    def contourf(self, var , levels, slice3d='k=0',filled=True,**kwargs):
+    def contourf(self, var , levels, slice3d='k=0',filled=True,noPause=False,**kwargs):
         """
         Plots 2d contour plot.  Only works for 2d and 3d problems.
         2d - figure our directions and plot
@@ -122,7 +122,8 @@ class pyrandaPlot:
                 plt.contour(xdata,ydata,vdata,levels,**kwargs)
             plt.axis('equal')
             plt.title("Contours of %s (t=%4.4e and cycle=%d)" % (var,self.pyranda.time,self.pyranda.cycle) )
-            plt.pause(.01)
+            if not noPause:
+                plt.pause(.01)
 
             
     def showGrid(self, slice3d='k=0'):
