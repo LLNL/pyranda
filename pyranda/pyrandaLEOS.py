@@ -113,13 +113,13 @@ class pyrandaLEOS(pyrandaPackage):
     
         
 
-    def addMaterial(self,EOS_number,function_names=['Pt','Et','Cs'],matID=None):
+    def addMaterial(self,EOS_number,function_names=['Pt','Et','Cs'],matID=None,dxdy=False):
 
         # Assign a name/ID for this material
         if not matID:
             matID = EOS_number
             
-        self.materials[matID] = self.__setupLEOS__(EOS_number,function_names)
+        self.materials[matID] = self.__setupLEOS__(EOS_number,function_names,dxdy=dxdy)
         
 
 
@@ -129,7 +129,10 @@ class pyrandaLEOS(pyrandaPackage):
 
         # Set options
         lopts = leospy.LEOS_LookupOptions()
-        lopts.calculateFunction(True).calculateDFDX(False).calculateDFDY(False)
+        if not dxdy:
+            lopts.calculateFunction(True).calculateDFDX(False).calculateDFDY(False)
+        else :
+            lopts.calculateFunction(True).calculateDFDX(True).calculateDFDY(True)
 
         fopts = leospy.LEOS_FunctionOptions()
         fopts.interpolation(leospy.BICUBIC)    # Bi-cubic
