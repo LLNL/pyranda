@@ -479,6 +479,52 @@ class pyrandaSim:
                                                     'proc-%s.%s.%s' % (str(p).zfill(procInt),str(iv).zfill(visInt),suff ) ) )
             vid.close()
 
+    def writeToFile(self,labels,eqs,problem,utau,nu,first=False):
+        """
+        Write Reynolds stresses to dat file
+        """
+        if self.IB_offset == -1: return
+        dumpDir = 'TBL3D_output/'+problem
+        umean = self.variables['u'].data[:,self.IB_offset:,:].mean(axis=(0,2))
+        vmean = self.variables['v'].data[:,self.IB_offset:,:].mean(axis=(0,2))
+        wmean = self.variables['w'].data[:,self.IB_offset:,:].mean(axis=(0,2))
+        bars = [umean,vmean,wmean]
+        vel_strs = ['u','v','w']
+
+        if self.PyMPI.x1proc:
+            lo,hi = self.PyMPI.chunk_3d_lo[1], self.PyMPI.chunk_3d_hi[1]
+            lyplus = self.mesh.coords[1].data[0,self.IB_offset:,0]*utau/nu
+            gyplus = numpy.zeros((self.ny))
+            gyplus[lo+self.IB_offset:hi+1] = lyplus
+            yplus = self.PyMPI.comm.allreduce(gyplus,op=MPI.SUM)
+            if self.PyMPI.master == 1:
+                mode = 'w' if first else 'a'
+                dumpFile = os.path.join(dumpDir,'umean.dat')
+                datfile = open(dumpFile, mode)
+                if mode == 'w':
+                    numpy.savetxt(datafile, yplus)
+                numpy.savetxt(datafile, umean*utau/nu)
+                datfile.close()
+
+        for (name,eq) in zip(labels,eqs):
+            v0 = self.variables[vel_strs[eq[0]]].data[:,self.IB_y:,:]
+            v1 = self.variables[vel_strs[eq[1]]].data[:,self.IB_y:,:]
+            dumpFile = os.path.join(dumpDir,name + '.dat')
+            v0prime, v1prime = v0.copy(), v1.copy()
+            for yind,(val0,val1) in enumerate(zip(bars[eq[0]],bars[eq[1]])):
+                v0prime[:,yind,:] -= val0
+                v1prime[:,yind,:] -= val1
+            idata = v0prime*v1prime
+            var_mean = self.variables['u'].mean(axis=(0,2),idata=idata)
+
+            if self.PyMPI.master == 1:
+                mode = 'w' if first else 'a'
+                datfile = open(dumpFile, mode)
+                if mode == 'w':
+                    numpy.savetxt(datafile, yplus)
+                numpy.savetxt(datafile, var_mean*utau/nu)
+                datfile.close()
+
     def writeRestart(self,ivars=None,suffix=None):
         """
         -writeRestart-
