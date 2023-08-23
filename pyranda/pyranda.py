@@ -95,6 +95,9 @@ class pyrandaSim:
         self.PyMPI = pyrandaMPI( self.mesh, comm=my_comm )
         self.mesh.PyMPI = self.PyMPI
 
+        self.IB_y = meshOptions['IB_y']
+        self._set_IB_y()
+
         # Create the mesh
         self.mesh.makeMesh()
         
@@ -128,6 +131,14 @@ class pyrandaSim:
         self.iprint( code() , 4000 )
         self.iprint( version() , 1000)
         self.iprint( icopyright(), 1000 )
+
+    def _set_IB_y(self):
+        if self.PyMPI.chunk_3d_hi[1] < self.IB_y:
+            self.IB_offset = -1
+        elif self.PyMPI.chunk_3d_lo[1] < self.IB_y:
+            self.IB_offset = self.IB_y-self.PyMPI.chunk_3d_lo[1]
+        else:
+            self.IB_offset = 0
 
         
     def iprint(self,sprnt,wpm=0):
@@ -467,9 +478,6 @@ class pyrandaSim:
                     vid.write("%s\n" % os.path.join('vis' + str(iv).zfill(visInt),
                                                     'proc-%s.%s.%s' % (str(p).zfill(procInt),str(iv).zfill(visInt),suff ) ) )
             vid.close()
-                    
-            
-
 
     def writeRestart(self,ivars=None,suffix=None):
         """
@@ -1022,8 +1030,8 @@ def pyrandaRestart(rootname,suffix=None,comm=None):
     # Load packages
     for pack in serial_data['packages']:            
         ipack = pack.split('.')[1] 
-        exec("from pyranda import %s" % ipack ) # Edited by D. Lavacot 04/08/2022: change to "from pyranda import" 
-        pk = eval("%s(pysim)" % ipack ) 
+        exec("from pyranda import %s" % ipack ) # Edited by D. Lavacot 04/08/2022: change to "from pyranda import"
+        pk = eval("%s(pysim)" % ipack )
         #exec("import %s" % ipack )
         #pk = eval("%s.%s(pysim)" % (ipack,ipack) )
         pysim.addPackage( pk )

@@ -77,7 +77,7 @@ class pyrandaTBL(pyrandaPackage):
         self.del_BL = 1.0    # Either BL thickness or y+ delta
         self.U_in   = 1.0    # Some velocity scale... u_tau or or u_infty
 
-        
+
 
     def get_sMap(self):
         sMap = {}
@@ -87,14 +87,18 @@ class pyrandaTBL(pyrandaPackage):
         
 
     def setup(self):
-
         TBLfiles = self.BL_data
+
+        IB_y = self.pysim.IB_y
+        self.IB_offset = self.pysim.IB_offset
+        if self.IB_offset == -1: return
+
         
         # Flow in -x- wall in -y-
         aF = self.pysim.PyMPI.ax
-        aW = self.pysim.PyMPI.ay
+        aW = self.pysim.PyMPI.ay - self.IB_offset
         aT = self.pysim.PyMPI.az
-        nW = self.pysim.PyMPI.ny
+        nW = self.pysim.PyMPI.ny - IB_y
         nT = self.pysim.PyMPI.nz
         
         self.aF = aF
@@ -123,7 +127,7 @@ class pyrandaTBL(pyrandaPackage):
         if self.pysim.PyMPI.x1proc:  # Flow dir
 
             
-            tmp = self.pysim.mesh.coords[1].data*1.0  # Wall dir
+            tmp = self.pysim.mesh.coords[1].data[:,self.IB_offset:,:]*1.0  # Wall dir
             tmp /= tmp.shape[0]
             tmp /= tmp.shape[2]
             tmp1 = numpy.sum( tmp, (0,2) )
@@ -209,7 +213,6 @@ class pyrandaTBL(pyrandaPackage):
 
         # TODO: READ IN OLD DF FILES TO PICK UP THE RHO_u, RHO_v. RHO_w
 
-
         # DONE SETUP Digitial filtering
             
 
@@ -222,6 +225,7 @@ class pyrandaTBL(pyrandaPackage):
 
         seed = self.pysim.PyMPI.comm.allreduce(seed, op=MPI.SUM)
 
+        if self.IB_offset == -1: return
 
         if self.pysim.PyMPI.x1proc:
             # make parcop operator for these
@@ -268,9 +272,9 @@ class pyrandaTBL(pyrandaPackage):
         
             # Add to inlet
 
-            self.pysim.variables[self.u].data[0,:,:] = uinlet
-            self.pysim.variables[self.v].data[0,:,:] = vinlet
-            self.pysim.variables[self.w].data[0,:,:] = winlet
+            self.pysim.variables[self.u].data[0,self.IB_offset:,:] = uinlet
+            self.pysim.variables[self.v].data[0,self.IB_offset:,:] = vinlet
+            self.pysim.variables[self.w].data[0,self.IB_offset:,:] = winlet
             #self.pysim.variables[self.T].data[0,:,:] = Tinlet
 
         # Reconcile EOS outside of this loop/BC call
