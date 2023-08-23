@@ -1076,10 +1076,12 @@ def pyrandaRestart(rootname,suffix=None,comm=None):
     # Load packages
     for pack in serial_data['packages']:            
         ipack = pack.split('.')[1] 
-        exec("from pyranda import %s" % ipack ) # Edited by D. Lavacot 04/08/2022: change to "from pyranda import"
-        pk = eval("%s(pysim)" % ipack )
-        #exec("import %s" % ipack )
-        #pk = eval("%s.%s(pysim)" % (ipack,ipack) )
+        try:
+            exec("from pyranda import %s" % ipack ) # Edited by D. Lavacot 04/08/2022: change to "from pyranda import"
+            pk = eval("%s(pysim)" % ipack )
+        except:
+            exec("import %s" % ipack )
+            pk = eval("%s.%s(pysim)" % (ipack,ipack) )
         pysim.addPackage( pk )
         message += "    package %s added \n" % ipack
 
