@@ -845,6 +845,7 @@ class pyrandaSim:
         sMap['pi'] = 'numpy.pi'
         sMap['meshVar('] = 'self.PyMPI.getVar('
         sMap['gridLen'] = 'self.mesh.GridLen'
+        sMap['cellVol'] = 'self.mesh.CellVol'
         sMap['random3D()'] = 'numpy.random.random( self.mesh.coords[0].data.shape) '
         sMap['erf('] = "scipy.special.erf("
         
