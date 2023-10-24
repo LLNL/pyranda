@@ -693,8 +693,8 @@ class pyrandaSim:
         return f_tilde 
 
 
-    def filter(self,val):
-        return self.PyMPI.fil.filter(val)
+    def filter(self,val,comp=0):
+        return self.PyMPI.fil.filter(val,component=comp)
 
     def filterOld(self,val):
         if self.nx > 1:

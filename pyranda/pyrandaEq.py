@@ -32,7 +32,7 @@ class pyrandaEq:
                        
         # Make a lambda for this equation
         if self.LHS:
-            Srhs = fortran3d( self.eqstr.split('=')[1] , sMap)
+            Srhs = fortran3d( self.eqstr.split('=',1)[1] , sMap)
         else:
             Srhs = fortran3d( self.eqstr , sMap)
         self.sRHS = Srhs

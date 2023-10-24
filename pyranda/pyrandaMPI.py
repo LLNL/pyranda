@@ -736,8 +736,8 @@ class parcop_sfil:
     def __init__(self):
         pass
 
-    def filter(self,val):
-        return parcop.parcop.sfilter(  val)
+    def filter(self,val,component=0):
+        return parcop.parcop.sfilter( val, component=component)
 
 
 

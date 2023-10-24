@@ -334,14 +334,14 @@ MODULE parcop
  
     
 
-    SUBROUTINE sFilter(val,dval,nx,ny,nz)
+    SUBROUTINE sFilter(val,dval,nx,ny,nz,component)
       IMPLICIT NONE
-      INTEGER,               INTENT(IN) :: nx,ny,nz
+      INTEGER,               INTENT(IN) :: nx,ny,nz,component
       real(kind=8), dimension(nx,ny,nz), intent(in) :: val
       real(kind=8), dimension(nx,ny,nz),intent(out) :: dval
       CHARACTER(LEN=8), PARAMETER :: filtype='spectral'
 
-      CALL filter(filtype,val,dval)
+      CALL filter(filtype,val,dval,component)
 
     END SUBROUTINE sFilter
 

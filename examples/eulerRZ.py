@@ -54,7 +54,7 @@ ddt(:rhow:) =  -:zmom:
 ddt(:Et:)   =  -div( (:Et: + :p: - :tau:)*:u:,:v:, (:Et: + :p: - :tau:)*:w: )
 # Conservative filter of the EoM
 :rho:       =  fbar( :rho:  )
-:rhou:      =  fbar( :rhou: )
+:rhou:      =  fbar( :rhou: , comp=1 )   # Adding in COMP currently breaks this case.
 :rhow:      =  fbar( :rhow: )
 :Et:        =  fbar( :Et:   )
 # Update the primatives and enforce the EOS
@@ -93,14 +93,20 @@ ic = "rad = sqrt( (meshx-pi)**2  +  (meshz-pi)**2 ) "
 ic += """
 :gamma: = 1.4
 wgt = .5*(1.0-tanh( (rad-pi/2.0)/.1) )   # [0,1]
-:Et:  = 1.0/(:gamma:-1.0) * (wgt*.9 + .1)
+:Et:  = 1.0/(:gamma:-1.0) * (wgt*.9 + e2)
 #:Et:  = gbar( where( rad < pi/2.0, 1.0/(:gamma:-1.0) , .1 /(:gamma:-1.0) ) )
 #:rho: = gbar( where( rad < pi/2.0, 1.0    , .125 ) )
-:rho: = 1.0*wgt + (1.0-wgt)*.125
+:rho: = 1.0*wgt + (1.0-wgt)*rho2
 """
+rho2 = 1.0 #.125
+e2   = .8999999 #.1
+parms = {}
+parms['rho2'] = rho2
+parms['e2'] = e2
+
 
 # Set the initial conditions
-ss.setIC(ic)
+ss.setIC(ic,icDict=parms)
     
 # Write a time loop
 time = 0.0
@@ -108,7 +114,7 @@ viz = True
 
 # Approx a max dt and stopping time
 v = 1.0
-dt_max = v / ss.mesh.nn[0] * 0.75
+dt_max = v / ss.mesh.nn[0] * 0.5
 tt = 2.0
 
 if test:
