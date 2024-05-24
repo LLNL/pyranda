@@ -218,7 +218,7 @@ class pyrandaTBL(pyrandaPackage):
         # Get a common seed
         seed = 0
         if self.pysim.PyMPI.master:
-            seed = int(numpy.random.rand()*2**32)
+            seed = int(numpy.random.rand()*2**16)
 
         seed = self.pysim.PyMPI.comm.allreduce(seed, op=MPI.SUM)
 
