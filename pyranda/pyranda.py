@@ -11,6 +11,7 @@
 from __future__ import print_function
 from mpi4py import MPI
 import numpy 
+from numpy import nan
 import re
 import sys,os
 import time,random
