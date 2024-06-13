@@ -472,12 +472,14 @@ class pyrandaSim:
             
 
 
-    def writeRestart(self,ivars=None,suffix=None):
+    def writeRestart(self,ivars=None,suffix=None,wVars=[]):
         """
         -writeRestart-
         Description - Main driver to write the entire pyrandaSim state
         in parallel for later use at restart.
         """
+        if not wVars:
+            wVars = self.variables.keys()
 
         # Use cycle number if no suffix is given
         restartInt = 7
@@ -559,7 +561,7 @@ class pyrandaSim:
         # Variable map
         serial_data['vars'] = {}
         cnt = 0
-        for ivar in sorted(self.variables.keys()):   # BJO: was getting proc dependent ordering here, force it to be uniform
+        for ivar in sorted(wVars):   # BJO: was getting proc dependent ordering here, force it to be uniform
             serial_data['vars'][ivar] = cnt
             cnt += 1
 
@@ -574,8 +576,8 @@ class pyrandaSim:
             
         # Parallel
         # Variables
-        DATA = self.PyMPI.emptyVector(len(self.variables))
-        for ivar in sorted(self.variables.keys()):   # BJO: was getting proc dependent ordering here, force it to be uniform
+        DATA = self.PyMPI.emptyVector(len(wVars))
+        for ivar in sorted(wVars):   # BJO: was getting proc dependent ordering here, force it to be uniform
             DATA[:,:,:,serial_data['vars'][ivar]] = self.variables[ivar].data
 
             
@@ -1102,7 +1104,7 @@ def readChunk(pysim,procs,procMap,dump,serial_data):
     ax = int(pysim.nx / procs[0])
     ay = int(pysim.ny / procs[1])
     az = int(pysim.nz / procs[2])
-    nshape = (ax,ay,az,len(pysim.variables))
+    nshape = (ax,ay,az,len(serial_data['vars']))
     
     for iproc in range(nprocs):
 
@@ -1149,7 +1151,7 @@ def readChunk(pysim,procs,procMap,dump,serial_data):
             DATA = numpy.reshape(numpy.fromfile( fid ),nshape,order='C')
                        
             #for ii in range(len(variable)):
-            for var in pysim.variables:
+            for var in serial_data['vars']:
                 #vdata[ii][Ki1:Kif,Kj1:Kjf,Kk1:Kkf] = pdata[ii][Li1:Lif,Lj1:Ljf,Lk1:Lkf]
                 if isinstance(pysim.variables[var].data,numpy.ndarray):
                     pysim.variables[var].data[Ki1:Kif,
