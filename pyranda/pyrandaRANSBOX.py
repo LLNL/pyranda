@@ -33,18 +33,30 @@ class pyrandaRANSBOX(pyrandaPackage):
         self.ny = pysim.PyMPI.ay
         self.nz = pysim.PyMPI.az
         self.shape = (self.nx, self.ny, self.nz)
+        self.input_maps = {}
+        self.turbvar_maps = {}
+        self.output_maps = {}
         
         # Inputs - auto from ransbox api
         inputs = ransbox.RANSBoxInputs()
         self.inputList = [i for i in dir(inputs) if "__" not in i]
         for ii in self.inputList:
-            exec("self.%s = None" % ii)
+            # exec(f"self.input_maps.%s = None" % ii)
+            self.input_maps[ii] = None
+            
+        # Turbulence variables
+        turbvars = ransbox.RANSBoxTurbVars()
+        self.turbvarList = [i for i in dir(turbvars) if "__" not in i]
+        for ii in self.turbvarList:
+            # exec(f"self.turbvar_maps.%s = None" % ii)
+            self.turbvar_maps[ii] = None
 
         # Outputs - auto from ransbox api
         outputs = ransbox.RANSBoxOutputs()
         self.outputList = [i for i in dir(outputs) if "__" not in i]
         for ii in self.outputList:
-            exec("self.%s = None" % ii)
+            # exec(f"self.output_maps.%s = None" % ii)
+            self.output_maps[ii] = None
 
         # Available Models
         self.modPrefix = "RANSBox_ModelType_"
@@ -56,6 +68,7 @@ class pyrandaRANSBOX(pyrandaPackage):
 
         
         self.inputs  = inputs
+        self.turbvars = turbvars
         self.outputs = outputs
         self.allocated = False
 
@@ -154,7 +167,7 @@ class pyrandaRANSBOX(pyrandaPackage):
         # Allocate some space for RANSBox outputs
         npts = self.nx * self.ny * self.nz
         for ii in self.outputList:
-            #exec("val = self.%s" % ii )
+            # exec("val = self.%s" % ii )
             #if val:
             exec("self.outputs.%s = numpy.zeros(npts)" % ii )
 
@@ -183,36 +196,42 @@ class pyrandaRANSBOX(pyrandaPackage):
         
     def evaluate(self):
 
-        if not self.allocated:
-            self.allocate()
         
         # Setup inputs (if direct pointer, only do once?)
         #inputs = self.inputs
         
         for ii in self.inputList:
-            exec("val = self.%s" % ii )
+            # exec(f"val = self.%s" % ii)
+            # val = getattr(self.input_maps,ii)
+            val = self.input_maps[ii]
             if val:
                 #exec("self.inputs.%s = self.toC( self.pysim.variables[ self.%s ].data )" % (ii,ii) )
-                exec("self.inputs.%s = self.pysim.variables[ self.%s ].data " % (ii,ii) )
-
+                exec("self.inputs.%s = self.pysim.variables[ val ].data " % ii )
+                
+        for ii in self.turbvarList:
+            # exec(f"val = self.%s" % ii)
+            # val = getattr(self.turbvar_maps,ii)
+            val = self.turbvar_maps[ii]
+            if val:
+                exec("self.turbvars.%s = self.pysim.variables[ val ].data " % ii )
+                
+        if not self.allocated:
+            self.allocate()
+            
         # Evaluate model
         npts = self.nx * self.ny * self.nz
-        RANSBox_EvaluateModel(self.model, self.inputs, self.outputs, npts, "cpu")
+        RANSBox_EvaluateModel(self.model, self.inputs, self.turbvars, self.outputs, npts, "cpu")
+
 
         #import pdb
         #pdb.set_trace()
 
         
+        # Update outputs
+        
         for ii in self.outputList:
-            exec("val = self.%s" % ii )
-            if val:                    
-                #exec("self.pysim.variables[ self.%s ].data  = self.toF( self.outputs.%s )" % (ii,ii) )
-                exec("self.pysim.variables[ self.%s ].data  = self.outputs.%s.reshape(self.shape)" % (ii,ii) )
-                     
-        
-        
-        
-        
-        
-
-        
+            # exec(f"val = self.%s" % ii )
+            # val = getattr(self.output_maps,ii)
+            val = self.output_maps[ii]
+            if val:          
+                exec("self.pysim.variables[ val ].data  = self.outputs.%s.reshape(self.shape)" % ii )
