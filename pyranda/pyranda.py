@@ -646,6 +646,9 @@ class pyrandaSim:
                 return self.PyMPI.der.div(self.zero,f1,self.zero)
             if self.nz > 1:
                 return self.PyMPI.der.div(self.zero,self.zero,f1)
+            # If we're actually 0D
+            if ((self.nx <= 1) and (self.ny <= 1) and (self.nx <= 1)):
+                return 0.0
 
         elif type(f3) == type(None):
             if (self.nx > 1) and (self.ny > 1):
@@ -661,6 +664,9 @@ class pyrandaSim:
                 return self.PyMPI.der.div(self.zero,f1,self.zero)
             if self.nz > 1:
                 return self.PyMPI.der.div(self.zero,self.zero,f1)
+            # If we're actually 0D
+            if ((self.nx <= 1) and (self.ny <= 1) and (self.nx <= 1)):
+                return 0.0
         else:            
             return self.PyMPI.der.div(f1,f2,f3)
 
